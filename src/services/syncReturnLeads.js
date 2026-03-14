@@ -8,7 +8,7 @@ const User = require('../models/User');
 const SyncMeta = require('../models/SyncMeta');
 
 const env = require('../config/env');
-const RETURN_API_URL = env.returnReportUrl || process.env.RETURN_REPORT_URL || process.env.RETURN_RMS_API_URL || 'https://rentalapi.rootments.live/api/Reports/GetReturnReport';
+const RETURN_API_URL = env.returnReportUrl || process.env.RETURN_REPORT_URL || 'https://rentalapi.rootments.live/api/Reports/GetReturnReport';
 
 const JOB_NAME = 'returnSync';
 
@@ -23,48 +23,19 @@ const getOrCreateMeta = async () => {
   return meta;
 };
 
-const computeDateRange = async (initial) => {
-  const meta = await getOrCreateMeta();
-  const today = dayjs().format('YYYY-MM-DD');
-
-  // Initial full sync starts from a fixed historical date
-  if (initial || !meta.lastRunAt) {
-    return {
-      from: '2023-01-01',
-      to: today,
-      meta,
-      isInitial: true,
-    };
-  }
-
-  return {
-    from: dayjs(meta.lastRunAt).format('YYYY-MM-DD'),
-    to: today,
-    meta,
-    isInitial: false,
-  };
-};
-
-// Map external return record into LeadMaster upsert payload
 const mapReturnRecordToLead = (rec, store) => {
   const bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
   if (!bookingNo) return null;
 
-  const customerName =
-    rec.customerName || rec.CustomerName || rec.name || rec.customer || null;
-  const phone =
-    rec.mobile || rec.Mobile || rec.phone || rec.phoneNo || rec.PhoneNo || null;
-
-  const createdAtSource =
-    rec.returnDate || rec.ReturnDate || rec.date || rec.Date || null;
-
+  const phone = rec.mobile || rec.Mobile || rec.phone || rec.phoneNo || rec.PhoneNo || null;
+  const createdAtSource = rec.returnDate || rec.ReturnDate || rec.date || rec.Date || null;
   const createdAt = createdAtSource ? new Date(createdAtSource) : new Date();
 
   return {
     bookingNo,
-    customerName,
+    customerName: rec.customerName || rec.CustomerName || rec.name || rec.customer || null,
     phone,
-    store: store.normalizedName,
+    store: store.normalizedName || store.name,
     storeCode: store.locCode,
     leadtype: 'return',
     leadStatus: 'new',
@@ -74,129 +45,116 @@ const mapReturnRecordToLead = (rec, store) => {
   };
 };
 
-const syncReturnLeads = async ({ initial = false } = {}) => {
-  const { from, to, meta } = await computeDateRange(initial);
+async function fetchReturnForStore(store, from, to, userID) {
+  const body = {
+    bookingNo: '',
+    dateFrom: from,
+    dateTo: to,
+    userName: '',
+    months: '',
+    fromLocation: '',
+    userID,
+    locationID: store.locCode,
+    operationType: '',
+  };
 
-  const stores = await Store.find({ status: 1 }).lean();
-  if (!stores.length) {
-    throw new Error('No stores found in Stores collection');
-  }
+  try {
+    console.log(`[ReturnSync] Fetching for store: ${store.name} (${store.locCode})`);
+    const response = await axios.post(RETURN_API_URL, body, {
+      timeout: 30000,
+      headers: { 'Content-Type': 'application/json' },
+    });
 
-  const telecaller = await User.findOne({ role: 'Telecaller' }).lean();
-  if (!telecaller) {
-    throw new Error('No Telecaller user found in Users collection');
-  }
+    const data = response.data || {};
+    const records = data.dataSet?.data || data.data || data || [];
 
-  const userID = telecaller.employeeId;
+    if (!Array.isArray(records) || !records.length) return 0;
 
-  let storesProcessed = 0;
-  let leadsFetched = 0;
-  let leadsInserted = 0;
-  let leadsUpdated = 0;
-
-  for (const store of stores) {
-    storesProcessed += 1;
-
-    const body = {
-      bookingNo: '',
-      dateFrom: from,
-      dateTo: to,
-      userName: '',
-      months: '',
-      fromLocation: '',
-      userID,
-      locationID: store.locCode,
-      operationType: '',
-    };
-
-    let records = [];
-    try {
-      const response = await axios.post(RETURN_API_URL, body, {
-        timeout: 30000,
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const data = response.data || {};
-      records = data.dataSet?.data || data.data || data || [];
-    } catch (err) {
-      console.error(
-        `[ReturnSync] Failed for store ${store.locCode}:`,
-        err.message || err
-      );
-      continue;
-    }
-
-    if (!Array.isArray(records) || !records.length) {
-      continue;
-    }
-
-    leadsFetched += records.length;
-
+    let count = 0;
     for (const rec of records) {
       const leadData = mapReturnRecordToLead(rec, store);
       if (!leadData) continue;
 
-      try {
-        const normPhone = normalize(leadData.phone || '');
-        const result = await LeadMaster.updateOne(
-          { bookingNo: leadData.bookingNo, leadtype: 'return' },
-          {
-            $set: {
-              customerName: leadData.customerName,
-              phone: leadData.phone,
-              normalizedPhone: normPhone || undefined,
-              store: leadData.store,
-              storeCode: leadData.storeCode,
-              source: leadData.source,
-              rawData: leadData.rawData,
-            },
-            $setOnInsert: {
-              leadtype: leadData.leadtype,
-              leadStatus: leadData.leadStatus,
-              createdAt: leadData.createdAt,
-            },
+      const normPhone = normalize(leadData.phone || '');
+      await LeadMaster.updateOne(
+        { bookingNo: leadData.bookingNo, leadtype: 'return' },
+        {
+          $set: {
+            customerName: leadData.customerName,
+            phone: leadData.phone,
+            normalizedPhone: normPhone || undefined,
+            store: leadData.store,
+            storeCode: leadData.storeCode,
+            source: leadData.source,
+            rawData: leadData.rawData,
           },
-          { upsert: true }
-        );
-
-        const upserted = result.upsertedCount === 1;
-        const updated = result.modifiedCount > 0;
-        if (upserted) leadsInserted += 1;
-        else if (updated) leadsUpdated += 1;
-
-        if (upserted || updated) {
-          const lead = await LeadMaster.findOne({ bookingNo: leadData.bookingNo, leadtype: 'return' }).lean();
-          if (lead) customerService.upsertCustomerFromLead(lead).catch(() => {});
-        }
-      } catch (err) {
-        console.error(
-          `[ReturnSync] Upsert failed for bookingNo ${leadData.bookingNo}:`,
-          err.message || err
-        );
-      }
+          $setOnInsert: {
+            leadtype: leadData.leadtype,
+            leadStatus: leadData.leadStatus,
+            createdAt: leadData.createdAt,
+          },
+        },
+        { upsert: true }
+      );
+      
+      // Best-effort customer sync
+      const lead = await LeadMaster.findOne({ bookingNo: leadData.bookingNo, leadtype: 'return' }).lean();
+      if (lead) customerService.upsertCustomerFromLead(lead).catch(() => {});
+      
+      count++;
     }
+    console.log(`[ReturnSync] Store ${store.locCode} completed. Leads: ${count}`);
+    return count;
+  } catch (err) {
+    console.error(`[ReturnSync] Failed for store ${store.locCode}:`, err.message);
+    return 0;
+  }
+}
+
+const syncReturnLeads = async ({ initial = false } = {}) => {
+  const meta = await getOrCreateMeta();
+  const today = dayjs().format('YYYY-MM-DD');
+  
+  // Define range: initial goes back to 2023, incremental uses lastRunAt
+  let from = '2023-01-01';
+  if (!initial && meta.lastRunAt) {
+    from = dayjs(meta.lastRunAt).format('YYYY-MM-DD');
   }
 
-  const now = new Date();
-  meta.lastRunAt = now;
-  meta.lastSuccessAt = now;
-  await meta.save();
+  const stores = await Store.find({ status: 1 }).lean();
+  if (!stores.length) {
+    console.log('[ReturnSync] No active stores found');
+    return;
+  }
 
-  console.log(
-    `[ReturnSync] Completed. stores=${storesProcessed}, fetched=${leadsFetched}, inserted=${leadsInserted}, updated=${leadsUpdated}`
+  const telecaller = await User.findOne({ role: 'Telecaller' }).lean();
+  const userID = telecaller?.employeeId || 'SYSTEM';
+
+  console.log(`[ReturnSync] Starting sync: ${from} to ${today} for ${stores.length} stores (Parallel)`);
+
+  // Parallel Execution for all stores
+  const tasks = stores.map(store => fetchReturnForStore(store, from, today, userID));
+  const results = await Promise.all(tasks);
+  
+  const totalLeads = results.reduce((a, b) => a + b, 0);
+
+  const now = new Date();
+  await SyncMeta.updateOne(
+    { jobName: JOB_NAME },
+    {
+      $set: {
+        lastRunAt: now,
+        lastSuccessAt: now,
+        firstSyncCompleted: true
+      }
+    },
+    { upsert: true }
   );
 
-  return {
-    storesProcessed,
-    leadsFetched,
-    leadsInserted,
-    leadsUpdated,
-    dateFrom: from,
-    dateTo: to,
-  };
+  console.log(`[ReturnSync] Completed. Total leads sync'd: ${totalLeads}`);
+  return { totalLeads };
 };
 
 module.exports = {
   syncReturnLeads,
 };
-

@@ -2,6 +2,24 @@
   const contentEl = document.getElementById('admin-content');
   const titleEl = document.getElementById('admin-page-title');
 
+  // Shared state for filters
+  let filterOptions = {
+    stores: [],
+    leadTypes: [],
+    telecallers: []
+  };
+
+  async function fetchFilterOptions() {
+    try {
+      const res = await fetchJson('/api/admin/filter-options');
+      if (res && res.data) {
+        filterOptions = res.data;
+      }
+    } catch (err) {
+      console.error('Failed to fetch filter options:', err);
+    }
+  }
+
   function setActiveNav() {
     const path = window.location.pathname;
     const links = document.querySelectorAll('.admin-nav-link');
@@ -40,6 +58,46 @@
     return res.json();
   }
 
+  function generateStoreOptions() {
+    let html = '<option value="">All Stores</option>';
+    filterOptions.stores.forEach(s => {
+      html += `<option value="${s}">${s}</option>`;
+    });
+    return html;
+  }
+
+  function generateLeadTypeOptions() {
+    let html = '<option value="">All Lead Types</option>';
+    filterOptions.leadTypes.forEach(t => {
+      html += `<option value="${t}">${t}</option>`;
+    });
+    return html;
+  }
+
+  function generateTelecallerOptions() {
+    let html = '<option value="">All Telecallers</option>';
+    filterOptions.telecallers.forEach(t => {
+      html += `<option value="${t.id}">${t.name}</option>`;
+    });
+    return html;
+  }
+
+  function computeRange(rangeKey) {
+    const now = new Date();
+    // Use local date for inputs
+    const end = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const startDate = new Date(now);
+    if (rangeKey === 'today') {
+      // same day
+    } else if (rangeKey === 'week') {
+      startDate.setDate(startDate.getDate() - 7);
+    } else if (rangeKey === 'month') {
+      startDate.setDate(startDate.getDate() - 30);
+    }
+    const start = startDate.toLocaleDateString('en-CA');
+    return { dateFrom: start, dateTo: end };
+  }
+
   function renderDashboard() {
     titleEl.textContent = 'Dashboard Overview';
     contentEl.innerHTML = `
@@ -50,7 +108,9 @@
         <button type="button" class="admin-filter-pill" data-range="month">Monthly</button>
         <input type="date" class="admin-filter-input" id="dash-date-from" />
         <input type="date" class="admin-filter-input" id="dash-date-to" />
-        <input type="text" class="admin-filter-input" id="dash-store" placeholder="Store (optional)" />
+        <select class="admin-filter-input" id="dash-store">
+          ${generateStoreOptions()}
+        </select>
         <button type="button" class="admin-filter-apply" id="dash-apply">Apply</button>
       </div>
       <div class="admin-cards">
@@ -77,37 +137,22 @@
       </div>
     `;
 
-
     const filtersEl = document.getElementById('admin-dashboard-filters');
     const errorEl = document.getElementById('admin-dashboard-error');
 
-    function computeRange(rangeKey) {
-      const now = new Date();
-      const end = now.toISOString().slice(0, 10);
-      const startDate = new Date(now);
-      if (rangeKey === 'today') {
-        // same day
-      } else if (rangeKey === 'week') {
-        startDate.setDate(startDate.getDate() - 7);
-      } else if (rangeKey === 'month') {
-        startDate.setDate(startDate.getDate() - 30);
-      }
-      const start = startDate.toISOString().slice(0, 10);
-      return { dateFrom: start, dateTo: end };
-    }
-
     async function load(rangeOverrides) {
       errorEl.hidden = true;
-      document.getElementById('dash-loading').textContent = 'Loading...';
+      const loadingEl = document.getElementById('dash-loading');
+      if (loadingEl) loadingEl.textContent = 'Loading...';
 
       const dateFromInput = document.getElementById('dash-date-from');
       const dateToInput = document.getElementById('dash-date-to');
-      const storeInput = document.getElementById('dash-store');
+      const storeSelect = document.getElementById('dash-store');
 
       const params = {
         dateFrom: rangeOverrides?.dateFrom || dateFromInput.value || undefined,
         dateTo: rangeOverrides?.dateTo || dateToInput.value || undefined,
-        store: storeInput.value || undefined,
+        store: storeSelect.value || undefined,
       };
 
       try {
@@ -146,7 +191,6 @@
         errorEl.textContent = 'Failed to load dashboard data.';
         errorEl.hidden = false;
       } finally {
-        const loadingEl = document.getElementById('dash-loading');
         if (loadingEl) loadingEl.textContent = '';
       }
     }
@@ -165,9 +209,9 @@
 
     document.getElementById('dash-apply').addEventListener('click', () => load());
 
-    // Default: Monthly
-    const monthlyPill = document.querySelector('.admin-filter-pill[data-range="month"]');
-    if (monthlyPill) monthlyPill.click();
+    // Default: Today
+    const todayPill = document.querySelector('.admin-filter-pill[data-range="today"]');
+    if (todayPill) todayPill.click();
   }
 
   function renderReports() {
@@ -177,9 +221,15 @@
       <div class="admin-filters-row">
         <input type="date" class="admin-filter-input" id="rep-date-from" />
         <input type="date" class="admin-filter-input" id="rep-date-to" />
-        <input type="text" class="admin-filter-input" id="rep-store" placeholder="Store" />
-        <input type="text" class="admin-filter-input" id="rep-lead-type" placeholder="Lead Type" />
-        <input type="text" class="admin-filter-input" id="rep-telecaller" placeholder="Telecaller ID" />
+        <select class="admin-filter-input" id="rep-store">
+          ${generateStoreOptions()}
+        </select>
+        <select class="admin-filter-input" id="rep-lead-type">
+          ${generateLeadTypeOptions()}
+        </select>
+        <select class="admin-filter-input" id="rep-telecaller">
+          ${generateTelecallerOptions()}
+        </select>
         <button type="button" class="admin-filter-apply" id="rep-apply">Apply Filters</button>
         <button type="button" class="admin-filter-apply" id="rep-export" style="background:#10b981">Export CSV</button>
       </div>
@@ -187,7 +237,6 @@
         <div class="admin-loading" id="rep-loading">Fetching reports...</div>
       </div>
     `;
-
 
     const errorEl = document.getElementById('admin-reports-error');
 
@@ -210,18 +259,19 @@
           wrapper.innerHTML = '<div class="admin-empty">No reports for selected filters.</div>';
         } else {
           let html = '<table class="admin-table"><thead><tr>' +
-            '<th>Created Date</th><th>Store</th><th>Lead Name</th><th>Phone</th><th>Created By</th><th>Duration</th><th>Lead Type</th><th>Refund Status</th>' +
+            '<th>Completed Date</th><th>Store</th><th>Lead Name</th><th>Phone</th><th>Telecaller</th><th>Duration</th><th>Lead Type</th><th>Status</th>' +
             '</tr></thead><tbody>';
           list.forEach((item) => {
+            const date = item.updatedAt ? new Date(item.updatedAt).toLocaleString() : '-';
             html += `<tr>
-              <td>${item.createdAt || '-'}</td>
+              <td>${date}</td>
               <td>${item.store || '-'}</td>
-              <td>${item.name || '-'}</td>
+              <td>${item.customerName || item.name || '-'}</td>
               <td>${item.phone || '-'}</td>
               <td>${item.createdBy || '-'}</td>
               <td>${formatDurationSeconds(item.callDuration || 0)}</td>
               <td>${item.leadtype || '-'}</td>
-              <td>${item.refundStatus || '-'}</td>
+              <td>${item.leadStatus || '-'}</td>
             </tr>`;
           });
           html += '</tbody></table>';
@@ -248,9 +298,8 @@
           telecallerId: document.getElementById('rep-telecaller').value || undefined,
         };
         const res = await fetch('/api/admin/reports' + buildQuery(params), {
-          headers: { Accept: 'text/csv,application/json' },
+          headers: { Accept: 'text/csv' },
         });
-        // If backend supports CSV, trigger download; otherwise fallback to JSON
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -277,14 +326,15 @@
       <div class="admin-filters-row">
         <input type="date" class="admin-filter-input" id="cmp-date-from" />
         <input type="date" class="admin-filter-input" id="cmp-date-to" />
-        <input type="text" class="admin-filter-input" id="cmp-store" placeholder="Store" />
+        <select class="admin-filter-input" id="cmp-store">
+          ${generateStoreOptions()}
+        </select>
         <button type="button" class="admin-filter-apply" id="cmp-apply">Generate Pivot</button>
       </div>
       <div id="cmp-pivot-wrapper" class="admin-table-container">
         <div class="admin-loading" id="cmp-loading">Calculating pivot data...</div>
       </div>
     `;
-
 
     const errorEl = document.getElementById('admin-complaints-error');
 
@@ -329,7 +379,7 @@
   }
 
   function renderPerformance() {
-    titleEl.textContent = 'Telecaller Performance';
+    titleEl.textContent = 'Performance Analysis';
     contentEl.innerHTML = `
       <div id="admin-perf-error" class="admin-error-banner" hidden></div>
       <div class="admin-filters-row" id="perf-filters">
@@ -338,32 +388,19 @@
         <button type="button" class="admin-filter-pill" data-range="month">Monthly</button>
         <input type="date" class="admin-filter-input" id="perf-date-from" />
         <input type="date" class="admin-filter-input" id="perf-date-to" />
-        <input type="text" class="admin-filter-input" id="perf-store" placeholder="Store (optional)" />
+        <select class="admin-filter-input" id="perf-store">
+          ${generateStoreOptions()}
+        </select>
         <button type="button" class="admin-filter-apply" id="perf-apply">Refresh</button>
       </div>
-      <div id="perf-chart">Summary will appear here based on selected filters.</div>
+      <div id="perf-chart" style="margin-bottom: 2rem; font-weight: 600; color: var(--text-muted);">Summary will appear here based on selected filters.</div>
       <h2 class="section-title">Leaderboard</h2>
       <div id="perf-table-wrapper" class="admin-table-container">
         <div class="admin-loading" id="perf-loading">Compiling leaderboard...</div>
       </div>
     `;
 
-
     const errorEl = document.getElementById('admin-perf-error');
-
-    function computeRange(rangeKey) {
-      const now = new Date();
-      const end = now.toISOString().slice(0, 10);
-      const startDate = new Date(now);
-      if (rangeKey === 'today') {
-      } else if (rangeKey === 'week') {
-        startDate.setDate(startDate.getDate() - 7);
-      } else if (rangeKey === 'month') {
-        startDate.setDate(startDate.getDate() - 30);
-      }
-      const start = startDate.toISOString().slice(0, 10);
-      return { dateFrom: start, dateTo: end };
-    }
 
     async function load(rangeOverrides) {
       errorEl.hidden = true;
@@ -382,7 +419,6 @@
           wrapper.innerHTML = '<div class="admin-empty">No performance data.</div>';
           document.getElementById('perf-chart').textContent = 'No data for selected filters.';
         } else {
-          // Simple chart description
           const maxCalls = Math.max(...rows.map((r) => r.totalCalls || 0));
           document.getElementById('perf-chart').textContent = `Top telecaller: ${rows[0].telecaller?.name || '-'} with ${rows[0].totalCalls || 0} calls (max ${maxCalls}).`;
 
@@ -400,7 +436,6 @@
               <td>${formatDurationSeconds(row.totalCallDuration || 0)}</td>
               <td><span class="admin-badge" style="background:#fee2e2;color:#ef4444">${row.totalComplaints || 0}</span></td>
             </tr>`;
-
           });
           html += '</tbody></table>';
           wrapper.innerHTML = html;
@@ -429,12 +464,13 @@
 
     document.getElementById('perf-apply').addEventListener('click', () => load());
 
-    const monthlyPill = document.querySelector('#perf-filters .admin-filter-pill[data-range="month"]');
-    if (monthlyPill) monthlyPill.click();
+    const todayPill = document.querySelector('#perf-filters .admin-filter-pill[data-range="today"]');
+    if (todayPill) todayPill.click();
   }
 
-  function route() {
+  async function route() {
     setActiveNav();
+    await fetchFilterOptions();
     const path = window.location.pathname;
     if (path.startsWith('/admin/reports')) return renderReports();
     if (path.startsWith('/admin/complaints')) return renderComplaints();
@@ -442,7 +478,6 @@
     return renderDashboard();
   }
 
-  // Logout form submits normally; nothing extra required
-
+  window.addEventListener('popstate', route);
   route();
 })();

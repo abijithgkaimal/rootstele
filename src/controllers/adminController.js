@@ -1,4 +1,5 @@
 const LeadMaster = require('../models/LeadMaster');
+const User = require('../models/User');
 const { buildDateFilter } = require('../utils/dateFilters');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
@@ -7,7 +8,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   const { dateFrom, dateTo, store } = req.query;
   const filter = {};
   
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'createdAt');
+  // Use updatedAt for filtering as it tracks when the lead was finalized to 'completed'
+  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = store;
 
@@ -34,7 +36,6 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     }
   ]);
 
-
   const result = stats[0] || {
     totalCalls: 0,
     totalDuration: 0,
@@ -50,7 +51,7 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
   const { dateFrom, dateTo, store } = req.query;
   const filter = {};
 
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'createdAt');
+  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = store;
 
@@ -76,7 +77,6 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
         name: { $first: "$createdBy" } 
       }
     },
-
     { $sort: { totalCalls: -1 } },
     {
       $project: {
@@ -99,14 +99,14 @@ const getReports = asyncHandler(async (req, res) => {
   const { dateFrom, dateTo, store, leadType, telecallerId } = req.query;
   const filter = {};
 
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'createdAt');
+  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = store;
   if (leadType) filter.leadtype = leadType;
   if (telecallerId) filter.createdBy = telecallerId;
 
   const leads = await LeadMaster.find(filter)
-    .sort({ createdAt: -1 })
+    .sort({ updatedAt: -1 }) // Sort by updatedAt as requested
     .limit(1000)
     .lean();
 
@@ -117,7 +117,7 @@ const getComplaintsPivot = asyncHandler(async (req, res) => {
   const { dateFrom, dateTo, store } = req.query;
   const filter = { leadStatus: 'complaint' };
 
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'createdAt');
+  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = store;
 
@@ -131,7 +131,6 @@ const getComplaintsPivot = asyncHandler(async (req, res) => {
     }
   ]);
 
-  // Transform to { storeName: { categoryName: count } }
   const result = {};
   pivotData.forEach(item => {
     const s = item._id.store || 'Unknown';
@@ -140,12 +139,35 @@ const getComplaintsPivot = asyncHandler(async (req, res) => {
     result[s][c] = item.count;
   });
 
-  return res.json(result); // Return raw object as expected by admin.js
+  return res.json(result);
+});
+
+const getFilterOptions = asyncHandler(async (req, res) => {
+  // Get unique stores from completed leads
+  const stores = await LeadMaster.distinct('store', { leadStatus: 'completed' });
+  
+  // Get unique lead types from completed leads
+  const leadTypes = await LeadMaster.distinct('leadtype', { leadStatus: 'completed' });
+  
+  // Get all telecallers from Users collection
+  const telecallers = await User.find({ role: { $in: ['Telecaller', 'telecaller'] } })
+    .select('employeeId name')
+    .lean();
+    
+  return success(res, {
+    stores: stores.filter(Boolean).sort(),
+    leadTypes: leadTypes.filter(Boolean).sort(),
+    telecallers: telecallers.map(t => ({
+      id: t.employeeId,
+      name: t.name || t.employeeId
+    })).sort((a,b) => a.name.localeCompare(b.name))
+  });
 });
 
 module.exports = {
   getDashboardStats,
   getTelecallerSummary,
   getReports,
-  getComplaintsPivot
+  getComplaintsPivot,
+  getFilterOptions
 };
