@@ -3,7 +3,6 @@ const dayjs = require('dayjs');
 const LeadMaster = require('../models/LeadMaster');
 const customerService = require('./customerService');
 const { normalize } = require('../utils/phoneNormalizer');
-const SyncMeta = require('../models/SyncMeta');
 
 const env = require('../config/env');
 const BOOKING_CONFIRMATION_API_URL =
@@ -119,13 +118,6 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
     for (const phone of phonesToSync) {
       customerService.recomputeCustomerState(phone).catch(() => {});
     }
-
-    const now = new Date();
-    await SyncMeta.updateOne(
-      { jobName: JOB_NAME },
-      { $set: { lastRunAt: now, lastSuccessAt: now, firstSyncCompleted: true } },
-      { upsert: true }
-    );
 
     return { totalLeads: upserted + modified };
   } catch (err) {

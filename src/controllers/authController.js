@@ -23,14 +23,16 @@ const login = asyncHandler(async (req, res) => {
 
 // Telecaller login using external VERIFY_EMPLOYEE_API_URL and Bearer token
 const telecallerLogin = asyncHandler(async (req, res) => {
-  const { employeeId, password } = req.body;
+  // Accept 'employeeId' (standard) or 'userId' (Flutter app compatibility)
+  const employeeId = req.body.employeeId || req.body.userId;
+  const { password } = req.body;
   const ts = new Date().toISOString();
 
   if (!employeeId || !password) {
-    console.log(`[TelecallerLogin] ${ts} employeeId=${employeeId} missing credentials`);
+    console.log(`[TelecallerLogin] ${ts} missing credentials`);
     return res.status(400).json({
       status: 'error',
-      message: 'employeeId and password are required',
+      message: 'employeeId (or userId) and password are required',
     });
   }
 

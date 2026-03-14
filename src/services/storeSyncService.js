@@ -82,6 +82,7 @@ const syncStores = async () => {
         jobName: STORE_SYNC_JOB_NAME,
         lastRunAt: now,
         lastSuccessAt: now,
+        firstSyncCompleted: true,
       },
     },
     { upsert: true }

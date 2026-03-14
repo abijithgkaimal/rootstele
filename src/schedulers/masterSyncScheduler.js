@@ -6,25 +6,21 @@ const SyncLock = require('../models/SyncLock');
 const SyncMeta = require('../models/SyncMeta');
 
 const LOCK_JOB_NAME = 'masterSync';
+const MASTER_JOB_NAME = 'masterSync'; // tracks overall startup sequence completion
 
 /**
  * Acquire lock — returns false if a lock is already active.
- * Lock has NO expiry time. It is only removed when the sync completes.
+ * Lock has NO expiry time. Released only when sync completes (success or fail).
  */
 const acquireLock = async (type = 'incremental') => {
   const existing = await SyncLock.findOne({ jobName: LOCK_JOB_NAME });
   if (existing) return false;
-
-  await SyncLock.create({
-    jobName: LOCK_JOB_NAME,
-    startedAt: new Date(),
-    type,
-  });
+  await SyncLock.create({ jobName: LOCK_JOB_NAME, startedAt: new Date(), type });
   return true;
 };
 
 /**
- * Release lock — only called after the sync fully completes.
+ * Release lock — always called in finally block.
  */
 const releaseLock = async () => {
   await SyncLock.deleteOne({ jobName: LOCK_JOB_NAME }).catch(() => {});
@@ -39,84 +35,113 @@ const isLocked = async () => {
 };
 
 /**
+ * Run a single sync step safely.
+ * Records the result (success or failure) in SyncMeta regardless of outcome.
+ */
+async function runStep(jobName, fn) {
+  const now = new Date();
+  try {
+    await fn();
+    await SyncMeta.updateOne(
+      { jobName },
+      {
+        $set: {
+          lastRunAt: now,
+          lastSuccessAt: now,
+          firstSyncCompleted: true,
+          lastError: null,
+        },
+      },
+      { upsert: true }
+    );
+    console.log(`[Sync] ✅ ${jobName} completed.`);
+  } catch (err) {
+    console.error(`[Sync] ❌ ${jobName} failed: ${err.message}`);
+    await SyncMeta.updateOne(
+      { jobName },
+      {
+        $set: {
+          lastRunAt: now,
+          lastError: err.message,
+        },
+        // firstSyncCompleted stays false if it never succeeded
+      },
+      { upsert: true }
+    );
+  }
+}
+
+/**
  * Full sync sequence: Stores → Returns → Bookings.
- * Runs to completion — does not stop midway.
+ * Each step is isolated — one failure does NOT stop the others.
+ * Lock is held until ALL steps complete (success or fail).
  */
 async function executeSyncSequence(isInitial = false) {
   const mode = isInitial ? '[InitialSync]' : '[IncrementalSync]';
   console.log(`${mode} Starting sync sequence (${isInitial ? '60 days' : '7 days'})...`);
 
-  // Step 1: Stores
-  console.log(`${mode} Step 1/3: Syncing Stores...`);
-  await syncStores();
+  // All three steps run independently. Failure of one does not affect others.
+  await runStep('storeSync',               () => syncStores());
+  await runStep('returnSync',              () => syncReturnLeads({ initial: isInitial }));
+  await runStep('bookingConfirmationSync', () => syncBookingConfirmationLeads({ initial: isInitial }));
 
-  // Step 2: Return Leads
-  console.log(`${mode} Step 2/3: Syncing Return Leads...`);
-  await syncReturnLeads({ initial: isInitial });
-
-  // Step 3: Booking Confirmations
-  console.log(`${mode} Step 3/3: Syncing Booking Confirmations...`);
-  await syncBookingConfirmationLeads({ initial: isInitial });
-
-  console.log(`${mode} Sync sequence completed successfully.`);
+  console.log(`${mode} Sync sequence finished (lock will now be released).`);
 }
 
 async function initializeMasterSyncScheduler() {
   console.log('[MasterSyncScheduler] Initializing...');
 
-  // --- INITIAL SYNC ---
-  // Runs once on server start for the last 60 days.
-  // Lock is held the entire time and only released after ALL data is stored.
+  // --- INITIAL SYNC (on server start) ---
+  // Lock is acquired before starting and released ONLY after all 3 steps finish.
   const lockAcquired = await acquireLock('initial');
   if (lockAcquired) {
-    console.log('[MasterSyncScheduler] Initial sync lock acquired. Starting 60-day sync...');
+    console.log('[MasterSyncScheduler] Initial 60-day sync starting...');
     try {
-      await executeSyncSequence(true); // runs to complete — no internal timeout
-    } catch (err) {
-      console.error('[MasterSyncScheduler] Initial sync failed:', err.message);
+      await executeSyncSequence(true);
     } finally {
-      // Lock is ONLY removed here — after the full sync completes or fails
+      // Always release lock — even if everything failed
       await releaseLock();
-      console.log('[MasterSyncScheduler] Initial sync lock released.');
+      // Mark the startup sequence as done (regardless of individual step success/fail)
+      await SyncMeta.updateOne(
+        { jobName: MASTER_JOB_NAME },
+        { $set: { lastRunAt: new Date(), initialSequenceCompleted: true } },
+        { upsert: true }
+      );
+      console.log('[MasterSyncScheduler] Initial sync lock released. Ready for incremental syncs.');
     }
   } else {
-    console.log('[MasterSyncScheduler] A sync lock is already active. Skipping initial sync on this startup.');
+    console.log('[MasterSyncScheduler] Lock already active on startup — skipping initial sync.');
   }
 
-  // --- INCREMENTAL SYNC SCHEDULE ---
-  // Runs every 30 minutes. Each run acquires its own lock and releases
-  // it only after the sync fully completes. If a previous incremental run
-  // is still running when the next 30-min tick fires, it will be skipped.
+  // --- INCREMENTAL SYNC (every 30 minutes) ---
+  // Gate: only check that the startup sequence has been attempted at least once.
+  // Individual step failures do NOT block future incremental syncs.
   cron.schedule('*/30 * * * *', async () => {
-    console.log('[MasterSyncScheduler] Cron tick: checking if incremental sync can run...');
+    console.log('[MasterSyncScheduler] Cron tick...');
 
-    // Block incremental sync until initial 60-day sync is confirmed complete
-    const returnMeta = await SyncMeta.findOne({ jobName: 'returnSync' });
-    const bookingMeta = await SyncMeta.findOne({ jobName: 'bookingConfirmationSync' });
-
-    if (!returnMeta?.firstSyncCompleted || !bookingMeta?.firstSyncCompleted) {
-      console.log('[MasterSyncScheduler] Incremental sync blocked: Initial 60-day sync not yet complete.');
+    // Check if the startup sequence has ever been attempted
+    const masterMeta = await SyncMeta.findOne({ jobName: MASTER_JOB_NAME });
+    if (!masterMeta?.initialSequenceCompleted) {
+      console.log('[MasterSyncScheduler] Incremental sync waiting: Initial startup sync not yet finished.');
       return;
     }
 
-    const locked = await isLocked();
-    if (locked) {
-      console.log('[MasterSyncScheduler] Incremental sync skipped: A previous sync is still running.');
+    // Prevent overlapping syncs
+    if (await isLocked()) {
+      console.log('[MasterSyncScheduler] Incremental sync skipped: previous sync still running.');
       return;
     }
 
-    const lockAcquired = await acquireLock('incremental');
-    if (!lockAcquired) {
-      console.log('[MasterSyncScheduler] Incremental sync skipped: Could not acquire lock.');
+    const acquired = await acquireLock('incremental');
+    if (!acquired) {
+      console.log('[MasterSyncScheduler] Incremental sync skipped: could not acquire lock.');
       return;
     }
 
     try {
       await executeSyncSequence(false);
-    } catch (err) {
-      console.error('[MasterSyncScheduler] Incremental sync failed:', err.message);
     } finally {
-      // Lock is ONLY removed after the full incremental sync completes
+      // Always release lock after all steps complete (success or fail)
       await releaseLock();
       console.log('[MasterSyncScheduler] Incremental sync lock released.');
     }

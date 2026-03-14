@@ -17,11 +17,14 @@ router.post(
 router.post(
   '/auth/telecaller-login',
   [
-    body('employeeId').notEmpty().withMessage('employeeId is required'),
+    // Accept either 'employeeId' (correct) or 'userId' (Flutter app compat)
+    body('employeeId').optional(),
+    body('userId').optional(),
     body('password').notEmpty().withMessage('password is required'),
   ],
   validateRequest,
   authController.telecallerLogin
 );
+
 
 module.exports = router;
