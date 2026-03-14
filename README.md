@@ -123,6 +123,9 @@ Backward-compatible update fields:
 - `noofFuctions` → mapped to `noofFunctions`
 - `followupclosingAction / followupremarks / followupcallDuration`: Used for followup updates.
 
+### Data Flattening
+All leads synced from external APIs are **flattened**. Instead of storing original fields in a `rawData` sub-object, they are spread directly into the root of the `LeadMaster` document. This ensures all fields are accessible in a single "roll" without nesting.
+
 ## Sync Deduplication
 
 - **Booking confirmation**: Upsert by `bookingNo`

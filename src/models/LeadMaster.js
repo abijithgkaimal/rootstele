@@ -54,7 +54,7 @@ const leadMasterSchema = new mongoose.Schema(
     // Return sync specific identifier (best-effort unique key from external API)
     returnId: { type: String },
     source: { type: String, enum: ['manual', 'bookingSync', 'returnSync'] },
-    rawData: { type: mongoose.Schema.Types.Mixed },
+    // Simplified structure: All data fields are now at the root level (flattened)
   },
   {
     collection: 'leadmaster',

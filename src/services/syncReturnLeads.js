@@ -12,49 +12,36 @@ const RETURN_API_URL = env.returnReportUrl || process.env.RETURN_REPORT_URL || '
 const JOB_NAME = 'returnSync';
 
 /**
- * Sync Return Leads from external API.
- * Refactored to call the API once for all stores.
+ * High-performance sync using BulkWrite.
  */
 const syncReturnLeads = async ({ initial = false } = {}) => {
   const today = dayjs();
   const dateTo = today.format('YYYY-MM-DD');
-  
-  // Initial sync: 60 days. Incremental: 7 days.
   const lookbackDays = initial ? 60 : 7;
   const dateFrom = today.subtract(lookbackDays, 'day').format('YYYY-MM-DD');
 
-  const telecaller = await User.findOne({ role: 'Telecaller' }).lean();
-  const userID = telecaller?.employeeId || 'SYSTEM';
+  console.log(`[ReturnSync] Starting ${initial ? '60-day' : '7-day'} sync: ${dateFrom} to ${dateTo}`);
 
-  console.log(`[ReturnSync] Starting ${initial ? '60-day initial' : '7-day incremental'} sync: ${dateFrom} to ${dateTo}`);
-
-  const body = {
-    bookingNo: '',
-    dateFrom,
-    dateTo,
-    userName: '',
-    months: '',
-    fromLocation: '',
-    userID,
-    locationID: '', // Send empty to get all stores
-    operationType: '',
-  };
+  // Slim body to match Postman exactly
+  const body = { dateFrom, dateTo };
 
   try {
     const response = await axios.post(RETURN_API_URL, body, {
-      timeout: 60000,
+      timeout: 900000, // 15 minutes for massive 60-day datasets
       headers: { 'Content-Type': 'application/json' },
     });
 
-    // Extraction as per requirements
-    const leadsData = response?.data?.dataSet?.data || [];
-    console.log(`[ReturnSync] Raw leads fetched: ${leadsData.length}`);
-
+    const leadsData = response?.data?.dataSet?.data || response?.data || [];
     if (!Array.isArray(leadsData) || !leadsData.length) {
+      console.log("[ReturnSync] No data returned from API.");
       return { totalLeads: 0 };
     }
 
-    let count = 0;
+    console.log(`[ReturnSync] Raw leads fetched: ${leadsData.length}. Processing...`);
+
+    const operations = [];
+    const phonesToSync = new Set();
+
     for (const rec of leadsData) {
       const bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
       if (!bookingNo) continue;
@@ -66,61 +53,60 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
       const returnDateSource = rec.returnDate || rec.ReturnDate || rec.date || rec.Date;
       const returnDate = returnDateSource ? new Date(returnDateSource) : null;
 
-      // Upsert into LeadMaster by bookingNo + leadtype
-      await LeadMaster.updateOne(
-        { bookingNo, leadtype: 'return' },
-        {
-          $set: {
-            customerName,
-            phone,
-            normalizedPhone: normPhone || undefined,
-            store: location,
-            returnDate,
-            source: 'returnSync',
-            rawData: rec,
+      if (normPhone) phonesToSync.add(normPhone);
+
+      operations.push({
+        updateOne: {
+          filter: { bookingNo, leadtype: 'return' },
+          update: {
+            $set: {
+              ...rec, // Flatten
+              customerName,
+              phone,
+              normalizedPhone: normPhone || undefined,
+              store: location,
+              returnDate,
+              source: 'returnSync',
+            },
+            $setOnInsert: {
+              leadtype: 'return',
+              leadStatus: 'new',
+              createdAt: returnDate || new Date(),
+            }
           },
-          $setOnInsert: {
-            leadtype: 'return',
-            leadStatus: 'new',
-            createdAt: returnDate || new Date(),
-          }
-        },
-        { upsert: true }
-      );
+          upsert: true
+        }
+      });
+    }
 
-      // Best-effort customer sync (match by phone as per requirement 8)
-      if (normPhone) {
-        // We use the existing customerService to maintain consistency
-        const lead = { bookingNo, leadtype: 'return', phone, customerName, store: location };
-        customerService.upsertCustomerFromLead(lead).catch(err => {
-          console.error(`[ReturnSync] Customer upsert failed for ${phone}:`, err.message);
-        });
-      }
+    // Execute in chunks of 500 to prevent BSON limits
+    let processedCount = 0;
+    const chunkSize = 500;
+    for (let i = 0; i < operations.length; i += chunkSize) {
+      const chunk = operations.slice(i, i + chunkSize);
+      const result = await LeadMaster.bulkWrite(chunk, { ordered: false });
+      processedCount += (result.upsertedCount + result.modifiedCount);
+    }
 
-      count++;
+    // Bulk Customer Recomputation
+    console.log(`[ReturnSync] Syncing ${phonesToSync.size} unique customers...`);
+    for (const phone of phonesToSync) {
+      customerService.recomputeCustomerState(phone).catch(() => {});
     }
 
     const now = new Date();
     await SyncMeta.updateOne(
       { jobName: JOB_NAME },
-      {
-        $set: {
-          lastRunAt: now,
-          lastSuccessAt: now,
-          firstSyncCompleted: true
-        }
-      },
+      { $set: { lastRunAt: now, lastSuccessAt: now, firstSyncCompleted: true } },
       { upsert: true }
     );
 
-    console.log(`[ReturnSync] Leads successfully sync'd: ${count}`);
-    return { totalLeads: count };
+    console.log(`[ReturnSync] Completed. Total processed/upserted: ${processedCount}`);
+    return { totalLeads: processedCount };
   } catch (err) {
     console.error("[ReturnSync] Sync failed:", err.message);
-    throw err; // Re-throw to be caught by master scheduler
+    throw err;
   }
 };
 
-module.exports = {
-  syncReturnLeads,
-};
+module.exports = { syncReturnLeads };
