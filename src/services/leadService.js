@@ -50,10 +50,10 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   if (leadtype && allowedTypes.includes(leadtype)) filter.leadtype = leadtype;
 
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-  const projection = 'createdAt store name phone leadtype functionDate subCategory closingAction remarks followupDate followupremarks';
+  const projection = 'createdAt store name phone leadtype functionDate subCategory closingAction remarks followupDate followupremarks updatedAt updatedBy';
 
   const [leads, total] = await Promise.all([
-    LeadMaster.find(filter).select(projection).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
+    LeadMaster.find(filter).select(projection).sort({ updatedAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
     LeadMaster.countDocuments(filter),
   ]);
 
@@ -63,27 +63,16 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
 const getFollowups = async (options = {}) => {
   const { page = 1, limit = 100, store, dateFrom, dateTo } = options;
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-  const projection = 'name phone store functionDate subCategory closingAction remarks followupDate updatedBy';
+  const projection = 'name phone store functionDate subCategory closingAction remarks followupDate updatedBy updatedAt';
 
   const filter = { leadStatus: 'followup' };
   if (store) filter.store = store;
 
-  // For followups, use followupDate; if not present, fall back to createdAt
-  if (dateFrom || dateTo) {
-    const startDate = dateFrom ? new Date(dateFrom) : null;
-    const endDate = dateTo ? new Date(dateTo) : null;
-    const range = {};
-    if (startDate) range.$gte = startDate;
-    if (endDate) range.$lte = endDate;
-
-    filter.$or = [
-      { followupDate: range },
-      { createdAt: range },
-    ];
-  }
+  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
+  if (dateFilter) Object.assign(filter, dateFilter);
 
   const [leads, total] = await Promise.all([
-    LeadMaster.find(filter).select(projection).sort({ followupDate: 1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
+    LeadMaster.find(filter).select(projection).sort({ updatedAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
     LeadMaster.countDocuments(filter),
   ]);
 
@@ -98,14 +87,34 @@ const getComplaints = async (options = {}) => {
   const filter = { leadStatus: 'complaint' };
   if (store) filter.store = store;
 
-  // For complaints, filter using createdAt
-  if (dateFrom || dateTo) {
-    const dateFilter = buildDateFilter(dateFrom, dateTo, 'createdAt');
-    if (dateFilter) Object.assign(filter, dateFilter);
-  }
+  // Use updatedAt for active complaints (leadStatus: 'complaint') as per user request
+  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
+  if (dateFilter) Object.assign(filter, dateFilter);
 
   const [leads, total] = await Promise.all([
     LeadMaster.find(filter).select(projection).sort({ updatedAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
+    LeadMaster.countDocuments(filter),
+  ]);
+
+  return { leads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
+};
+
+const getNewLeads = async (filters = {}) => {
+  const { leadtype, store, fromDate, toDate, page = 1, limit = 100 } = filters;
+  const filter = { leadStatus: 'new' };
+  if (leadtype) filter.leadtype = leadtype;
+  if (store) filter.store = store;
+
+  let dateField = 'createdAt';
+  if (leadtype === 'return') dateField = 'returnDate';
+  if (leadtype === 'bookingConfirmation') dateField = 'bookingDate';
+
+  const dateFilter = buildDateFilter(fromDate, toDate, dateField);
+  if (dateFilter) Object.assign(filter, dateFilter);
+
+  const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+  const [leads, total] = await Promise.all([
+    LeadMaster.find(filter).sort({ [dateField]: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
     LeadMaster.countDocuments(filter),
   ]);
 
@@ -131,5 +140,6 @@ module.exports = {
   getCompletedLeads,
   getFollowups,
   getComplaints,
+  getNewLeads,
   updateFollowupById,
 };

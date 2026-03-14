@@ -1,0 +1,126 @@
+paths:
+  /admin/dashboard:
+    get:
+      tags:
+        - Admin
+      summary: Get Dashboard Stats
+      description: Get total calls, duration, and complaints for the admin dashboard. Filtered by **updatedAt**.
+      parameters:
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter from date (format 2026-01-26T00:00:00)
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter to date (format 2026-01-26T00:00:00)
+        - name: store
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dashboard stats retrieved
+
+  /admin/telecaller-summary:
+    get:
+      tags:
+        - Admin
+      summary: Telecaller Performance leaderboard
+      description: Get performance summary per telecaller. Filtered by **updatedAt**.
+      parameters:
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter from date (format 2026-01-26T00:00:00)
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter to date (format 2026-01-26T00:00:00)
+        - name: store
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Summary retrieved
+
+  /admin/reports:
+    get:
+      tags:
+        - Admin
+      summary: Calls Report
+      description: Get detailed reports of completed leads. Supports Accept header text/csv for export. Filtered by **updatedAt**.
+      parameters:
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter from date (format 2026-01-26T00:00:00)
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter to date (format 2026-01-26T00:00:00)
+        - name: store
+          in: query
+          schema:
+            type: string
+        - name: leadType
+          in: query
+          schema:
+            type: string
+        - name: telecallerId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report data retrieved
+
+  /admin/complaints/pivot:
+    get:
+      tags:
+        - Admin
+      summary: Complaints Pivot Data
+      description: Get complaints breakdown by store and category. Filtered by **updatedAt**.
+      parameters:
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter from date (format 2026-01-26T00:00:00)
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter to date (format 2026-01-26T00:00:00)
+        - name: store
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pivot data retrieved
+
+  /admin/filter-options:
+    get:
+      tags:
+        - Admin
+      summary: Dashboard Filter Options
+      description: Get unique stores, lead types, and telecallers to populate frontend dropdowns.
+      responses:
+        '200':
+          description: Filter options retrieved

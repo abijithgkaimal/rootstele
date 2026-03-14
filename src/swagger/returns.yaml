@@ -4,17 +4,29 @@ paths:
       tags:
         - Returns
       summary: Get Return Leads
-      description: Return all leads where leadtype = return
+      description: >
+        Return leads where leadtype = return AND leadStatus = new.
+        Date filters use **returnDate**.
       security:
-        - BasicAuth: []
-        - HeaderAuth: []
+        - BearerAuth: []
       parameters:
         - name: store
           in: query
-          required: false
           schema:
             type: string
-          description: Filter leads by normalized store name (e.g., Zorucci - Edapally)
+          description: Filter by store name.
+        - name: fromDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter by returnDate (format 2026-01-26T00:00:00)
+        - name: toDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter by returnDate (format 2026-01-26T00:00:00)
       responses:
         '200':
           description: List of return leads
@@ -28,8 +40,7 @@ paths:
       summary: Update Return Lead
       description: Update return lead. Default completed. markasFollowup→followup, markasComplaint→complaint
       security:
-        - BasicAuth: []
-        - HeaderAuth: []
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -48,6 +59,7 @@ paths:
                   type: string
                 noofFunctions:
                   type: number
+                  description: Alias: noofFuctions
                 noofAttires:
                   type: number
                 competitor:
@@ -79,40 +91,17 @@ paths:
   /sync/returns:
     post:
       tags:
-        - Returns
+        - Sync
       summary: Sync Return Leads
-      description: Fetch from external API and save with leadtype=return, leadStatus=new
+      description: >
+        Trigger manual sync of return leads from RMS. 
+        Calls the external API once to fetch all store data.
+        In manual mode, it syncs the last 60 days of data.
       security:
-        - BasicAuth: []
-        - HeaderAuth: []
+        - BearerAuth: []
       responses:
         '200':
           description: Sync completed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Return sync completed
-                  data:
-                    type: object
-                    properties:
-                      storesProcessed:
-                        type: number
-                        example: 20
-                      leadsFetched:
-                        type: number
-                        example: 320
-                      leadsInserted:
-                        type: number
-                        example: 120
-                      leadsUpdated:
-                        type: number
-                        example: 200
         '401':
           description: Unauthorized
+

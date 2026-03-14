@@ -5,8 +5,7 @@ paths:
         - Leads
       summary: Add New Lead
       security:
-        - BasicAuth: []
-        - HeaderAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -60,8 +59,6 @@ paths:
           description: Lead created
         '400':
           description: Invalid input
-        '401':
-          description: Unauthorized
 
   /leads/completed:
     get:
@@ -70,25 +67,22 @@ paths:
       summary: Report API - Completed Leads
       description: >
         Return leads where leadStatus = completed.
-        Date filters use updatedAt for completed leads.
+        Date filters use **updatedAt**.
       security:
-        - BasicAuth: []
-        - HeaderAuth: []
+        - BearerAuth: []
       parameters:
-        - name: dateFrom
+        - name: fromDate
           in: query
-          required: false
           schema:
             type: string
-            format: date
-          description: Filter leads from this date (uses updatedAt for completed leads)
-        - name: dateTo
+            format: date-time
+          description: Filter by updatedAt (format 2026-01-26T00:00:00)
+        - name: toDate
           in: query
-          required: false
           schema:
             type: string
-            format: date
-          description: Filter leads up to this date (uses updatedAt for completed leads)
+            format: date-time
+          description: Filter by updatedAt (format 2026-01-26T00:00:00)
         - name: store
           in: query
           schema:
@@ -98,11 +92,43 @@ paths:
           schema:
             type: string
             enum: [return, booked, enquiry, bookingConfirmation, justDial]
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
       responses:
         '200':
           description: List of completed leads
-        '401':
-          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        createdAt: { type: string, format: date-time, description: "Original Lead Date (from RMS or manual entry)" }
+                        store: { type: string }
+                        name: { type: string }
+                        phone: { type: string }
+                        leadtype: { type: string }
+                        functionDate: { type: string, format: date-time }
+                        subCategory: { type: string }
+                        closingAction: { type: string }
+                        remarks: { type: string }
+                        followupDate: { type: string, format: date-time }
+                        followupremarks: { type: string }
+                        updatedAt: { type: string, format: date-time, description: "Action Date (when status changed by telecaller)" }
+                        updatedBy: { type: string, description: "Telecaller ID" }
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
 
   /leads/followups:
     get:
@@ -111,36 +137,27 @@ paths:
       summary: Followup List
       description: >
         Return leads where leadStatus = followup.
-        Date filters use followupDate, falling back to createdAt when followupDate is missing.
+        Date filters use **updatedAt**.
       security:
-        - BasicAuth: []
-        - HeaderAuth: []
+        - BearerAuth: []
       parameters:
         - name: store
           in: query
-          required: false
           schema:
             type: string
-          description: Filter leads by normalized store name (e.g., Zorucci - Edapally)
         - name: dateFrom
           in: query
-          required: false
           schema:
             type: string
-            format: date
-          description: Filter leads from this date based on followupDate/createdAt
+            format: date-time
         - name: dateTo
           in: query
-          required: false
           schema:
             type: string
-            format: date
-          description: Filter leads up to this date based on followupDate/createdAt
+            format: date-time
       responses:
         '200':
           description: List of followup leads
-        '401':
-          description: Unauthorized
 
   /leads/complaints:
     get:
@@ -149,31 +166,24 @@ paths:
       summary: Complaint List
       description: >
         Return leads where leadStatus = complaint.
-        Date filters use createdAt for complaints.
+        Date filters use **updatedAt**.
       security:
-        - BasicAuth: []
-        - HeaderAuth: []
+        - BearerAuth: []
       parameters:
         - name: store
           in: query
-          required: false
           schema:
             type: string
-          description: Filter leads by normalized store name (e.g., Zorucci - Edapally)
         - name: dateFrom
           in: query
-          required: false
           schema:
             type: string
-            format: date
-          description: Filter leads from this date based on createdAt
+            format: date-time
         - name: dateTo
           in: query
-          required: false
           schema:
             type: string
-            format: date
-          description: Filter leads up to this date based on createdAt
+            format: date-time
         - name: page
           in: query
           schema:
@@ -185,8 +195,6 @@ paths:
       responses:
         '200':
           description: List of complaint leads
-        '401':
-          description: Unauthorized
 
   /leads/followups/{id}:
     post:
@@ -195,8 +203,7 @@ paths:
       summary: Update Followup
       description: Update followup lead and set leadStatus = completed
       security:
-        - BasicAuth: []
-        - HeaderAuth: []
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -223,7 +230,3 @@ paths:
       responses:
         '200':
           description: Followup updated
-        '404':
-          description: Lead not found
-        '401':
-          description: Unauthorized

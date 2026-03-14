@@ -6,19 +6,20 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const mongoose = require('mongoose');
 const pick = require('../utils/pick');
+const leadService = require('../services/leadService');
 
 const getReturnLeads = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 100, store } = req.query;
-  const filter = { leadtype: 'return' };
-  if (store) filter.store = store;
-  const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+  const { page, limit, store, fromDate, toDate } = req.query;
+  const result = await leadService.getNewLeads({
+    leadtype: 'return',
+    store,
+    fromDate,
+    toDate,
+    page,
+    limit,
+  });
 
-  const [leads, total] = await Promise.all([
-    LeadMaster.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
-    LeadMaster.countDocuments(filter),
-  ]);
-
-  return success(res, { leads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) });
+  return success(res, result);
 });
 
 const updateReturnLead = asyncHandler(async (req, res) => {

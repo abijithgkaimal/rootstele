@@ -15,7 +15,7 @@ module.exports = {
     getEnv('BOOKING_SUMMARY_URL') ||
     getEnv('BOOKING_CONFIRMATION_RMS_API_URL') ||
     getEnv('RENTAL_BOOKING_SUMMARY_API') ||
-    'https://rentalapi.rootments.live/api/Reports/GetBookingConfirmationReport',
+    'https://rentalapi.rootments.live/api/Repo/GetBookingSummary',
   returnReportUrl:
     getEnv('RETURN_REPORT_URL') ||
     getEnv('RETURN_RMS_API_URL') ||

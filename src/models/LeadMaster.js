@@ -50,6 +50,7 @@ const leadMasterSchema = new mongoose.Schema(
     advanceAmount: { type: Number },
     attendedBy: { type: String },
     totalAmount: { type: Number },
+    returnDate: { type: Date },
     // Return sync specific identifier (best-effort unique key from external API)
     returnId: { type: String },
     source: { type: String, enum: ['manual', 'bookingSync', 'returnSync'] },
@@ -62,19 +63,19 @@ const leadMasterSchema = new mongoose.Schema(
   }
 );
 
-// Ensure booking confirmation records are unique per bookingNo + leadtype
+// Ensure records are unique per bookingNo + leadtype
 leadMasterSchema.index(
   { bookingNo: 1, leadtype: 1 },
   {
     unique: true,
     partialFilterExpression: {
       bookingNo: { $exists: true },
-      leadtype: 'bookingConfirmation',
+      leadtype: { $in: ['bookingConfirmation', 'return'] },
     },
   }
 );
 
-// Best-effort uniqueness for return leads using returnId + leadtype when returnId exists
+// Secondary unique key for return leads using returnId if present
 leadMasterSchema.index(
   { returnId: 1, leadtype: 1 },
   {

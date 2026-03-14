@@ -1,0 +1,13 @@
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    BasicAuth:
+      type: http
+      scheme: basic
+    HeaderAuth:
+      type: apiKey
+      in: header
+      name: x-user-id
