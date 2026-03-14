@@ -11,9 +11,6 @@ module.exports = {
     getEnv('EXTERNAL_VERIFY_EMPLOYEE_URL') ||
     getEnv('ROOTMENTS_VERIFY_API') ||
     'https://rootments.in/api/verify_employee',
-  verifyEmployeeToken:
-    getEnv('VERIFY_EMPLOYEE_API_TOKEN') ||
-    'RootX-production-9d17d9485eb772e79df8564004d4a4d4',
   bookingSummaryUrl:
     getEnv('BOOKING_SUMMARY_URL') ||
     getEnv('BOOKING_CONFIRMATION_RMS_API_URL') ||

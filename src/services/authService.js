@@ -26,22 +26,25 @@ const verifyEmployee = async (userId, password) => {
 
 // Telecaller verification against external Rootments API
 const verifyTelecaller = async (employeeId, password) => {
-  // Use env.verifyEmployeeUrl which has a hardcoded fallback
   const url = env.verifyEmployeeUrl;
+  const token = process.env.ROOTMENTS_API_TOKEN;
 
-  // Bearer token from env.js (has hardcoded fallback)
-  const token = env.verifyEmployeeToken;
-
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
+  if (!token) {
+    console.error('[AuthService] ROOTMENTS_API_TOKEN environment variable is not set.');
+    throw new Error('Telecaller verification service is not configured');
+  }
 
   try {
     const response = await axios.post(
       url,
       { employeeId, password },
-      { timeout: 10000, headers }
+      {
+        timeout: 10000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      }
     );
 
     const body = response.data || {};
@@ -51,10 +54,14 @@ const verifyTelecaller = async (employeeId, password) => {
 
     return { valid: true, data: body.data };
   } catch (err) {
+    // Log actual external API error for debugging (token not exposed)
+    const externalError = err.response?.data || err.message;
+    console.error('[AuthService] External verify API error:', JSON.stringify(externalError));
+
     if (err.response?.status === 401 || err.response?.status === 400) {
       return { valid: false, data: null };
     }
-    throw new Error(err.message || 'Telecaller verification service unavailable');
+    throw new Error('Telecaller verification service unavailable');
   }
 };
 
