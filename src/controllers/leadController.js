@@ -1,5 +1,5 @@
 const leadService = require('../services/leadService');
-const { success } = require('../utils/ApiResponse');
+const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 

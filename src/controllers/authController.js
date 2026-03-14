@@ -1,5 +1,5 @@
 const authService = require('../services/authService');
-const { success, error } = require('../utils/ApiResponse');
+const { success, error } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const User = require('../models/User');
 

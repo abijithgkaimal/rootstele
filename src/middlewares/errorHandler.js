@@ -1,5 +1,5 @@
 const ApiError = require('../utils/ApiError');
-const { error } = require('../utils/ApiResponse');
+const { error } = require('../utils/apiResponse');
 
 const errorHandler = (err, req, res, next) => {
   if (err instanceof ApiError) {

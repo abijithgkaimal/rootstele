@@ -1,5 +1,5 @@
 const Store = require('../models/Store');
-const { success } = require('../utils/ApiResponse');
+const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 
 const getStores = asyncHandler(async (req, res) => {

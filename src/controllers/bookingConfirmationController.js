@@ -1,6 +1,6 @@
 const LeadMaster = require('../models/LeadMaster');
 const statusResolver = require('../services/statusResolverService');
-const { success } = require('../utils/ApiResponse');
+const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const mongoose = require('mongoose');

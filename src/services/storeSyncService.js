@@ -1,5 +1,8 @@
 const axios = require('axios');
 const Store = require('../models/Store');
+const SyncMeta = require('../models/SyncMeta');
+
+const STORE_SYNC_JOB_NAME = 'storeSync';
 
 const STORE_API_URL = process.env.STORE_LIST_API || 'https://rentalapi.rootments.live/api/Location/LocationList';
 
@@ -73,6 +76,19 @@ const syncStores = async () => {
 
     upserted += 1;
   }
+
+  const now = new Date();
+  await SyncMeta.findOneAndUpdate(
+    { jobName: STORE_SYNC_JOB_NAME },
+    {
+      $set: {
+        jobName: STORE_SYNC_JOB_NAME,
+        lastRunAt: now,
+        lastSuccessAt: now,
+      },
+    },
+    { upsert: true }
+  );
 
   return { total: records.length, upserted };
 };

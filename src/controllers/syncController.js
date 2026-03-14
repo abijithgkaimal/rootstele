@@ -1,7 +1,6 @@
-const syncService = require('../services/syncService');
 const { syncReturnLeads } = require('../services/syncReturnLeads');
 const { syncBookingConfirmationLeads } = require('../services/syncBookingConfirmationLeads');
-const { success } = require('../utils/ApiResponse');
+const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 
 // Manual booking confirmation sync trigger (uses RMS placeholder API).

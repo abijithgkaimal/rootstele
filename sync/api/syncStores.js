@@ -1,5 +1,5 @@
 require('dotenv').config();
-const connectDB = require('../../src/config/db');
+const connectDB = require('../../src/config/database');
 const { syncStores } = require('../../src/services/storeSyncService');
 
 const run = async () => {
