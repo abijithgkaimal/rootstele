@@ -5,9 +5,8 @@ const Store = require('../models/Store');
 const User = require('../models/User');
 const SyncMeta = require('../models/SyncMeta');
 
-const RETURN_API_URL =
-  process.env.RETURN_RMS_API_URL ||
-  'https://rentalapi.rootments.live/api/Reports/GetReturnReport';
+const env = require('../config/env');
+const RETURN_API_URL = env.returnReportUrl || process.env.RETURN_REPORT_URL || process.env.RETURN_RMS_API_URL || 'https://rentalapi.rootments.live/api/Reports/GetReturnReport';
 
 const JOB_NAME = 'returnSync';
 

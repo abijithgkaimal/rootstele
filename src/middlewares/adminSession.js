@@ -1,9 +1,10 @@
 const path = require('path');
 const ApiError = require('../utils/ApiError');
 
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-const ADMIN_SESSION_TOKEN = process.env.ADMIN_SESSION_TOKEN || 'admin-session-token';
+const env = require('../config/env');
+const ADMIN_USERNAME = env.adminUsername;
+const ADMIN_PASSWORD = env.adminPassword;
+const ADMIN_SESSION_TOKEN = env.adminSessionToken;
 const ADMIN_COOKIE_NAME = 'admin_session';
 
 const isJsonRequest = (req) => {

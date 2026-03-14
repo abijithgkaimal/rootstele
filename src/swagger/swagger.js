@@ -11,9 +11,8 @@ const options = {
       description: 'API documentation for Telecaller CRM system',
     },
     servers: [
-      {
-        url: 'http://localhost:3000',
-      },
+      { url: 'http://localhost:3000/api', description: 'Local' },
+      { url: '/api', description: 'Relative (Render)' },
     ],
   },
 

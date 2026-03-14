@@ -1,3 +1,4 @@
+const { syncStores } = require('../services/storeSyncService');
 const { syncReturnLeads } = require('../services/syncReturnLeads');
 const { syncBookingConfirmationLeads } = require('../services/syncBookingConfirmationLeads');
 const { success } = require('../utils/apiResponse');
@@ -17,4 +18,9 @@ const syncReturns = asyncHandler(async (req, res) => {
   return success(res, result, 'Return sync completed');
 });
 
-module.exports = { syncBookingConfirmation, syncReturns };
+const syncStoresManual = asyncHandler(async (req, res) => {
+  const result = await syncStores();
+  return success(res, result, 'Store sync completed');
+});
+
+module.exports = { syncStores: syncStoresManual, syncBookingConfirmation, syncReturns };

@@ -5,9 +5,8 @@ const Store = require('../models/Store');
 const User = require('../models/User');
 const SyncMeta = require('../models/SyncMeta');
 
-const BOOKING_CONFIRMATION_API_URL =
-  process.env.BOOKING_CONFIRMATION_RMS_API_URL ||
-  'https://rentalapi.rootments.live/api/Reports/GetBookingConfirmationReport';
+const env = require('../config/env');
+const BOOKING_CONFIRMATION_API_URL = env.bookingSummaryUrl || process.env.BOOKING_SUMMARY_URL || process.env.BOOKING_CONFIRMATION_RMS_API_URL || 'https://rentalapi.rootments.live/api/Reports/GetBookingConfirmationReport';
 
 const JOB_NAME = 'bookingConfirmationSync';
 

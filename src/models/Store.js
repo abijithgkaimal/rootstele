@@ -5,6 +5,7 @@ const storeSchema = new mongoose.Schema(
     externalId: { type: Number, required: true },
     locCode: { type: String, required: true, unique: true },
     rawName: { type: String, required: true },
+    storeName: { type: String },
     normalizedName: { type: String, required: true },
     brand: { type: String },
     location: { type: String },

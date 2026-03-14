@@ -1,37 +1,33 @@
 const axios = require('axios');
 const Store = require('../models/Store');
 const SyncMeta = require('../models/SyncMeta');
+const env = require('../config/env');
 
 const STORE_SYNC_JOB_NAME = 'storeSync';
+const STORE_API_URL = env.storeListUrl || process.env.STORE_LIST_API || 'https://rentalapi.rootments.live/api/Location/LocationList';
 
-const STORE_API_URL = process.env.STORE_LIST_API || 'https://rentalapi.rootments.live/api/Location/LocationList';
-
+// Normalization: z→zorucci, sg→suitorguy, z-edappally→zorucci-edappally, sg-edappally→suitorguy-edappally
 const normalizeStore = (rawName) => {
   const raw = (rawName || '').trim();
   if (!raw) {
     return { brand: null, location: null, normalizedName: null };
   }
 
-  const parts = raw.split('-');
-  const prefix = (parts[0] || '').trim();
-  const rest = parts.slice(1).join('-').trim();
+  const lower = raw.toLowerCase();
+  let normalizedName = raw;
 
-  let brand;
-  switch (prefix) {
-    case 'Z':
-      brand = 'Zorucci';
-      break;
-    case 'SG':
-      brand = 'SuitorGuy';
-      break;
-    default:
-      brand = prefix;
+  if (lower.startsWith('sg-') || lower === 'sg') {
+    normalizedName = lower.replace(/^sg(-|$)/, 'suitorguy$1');
+  } else if (lower.startsWith('z-') || lower === 'z') {
+    normalizedName = lower.replace(/^z(-|$)/, 'zorucci$1');
   }
 
-  const location = rest || null;
-  const normalizedName = brand && location ? `${brand} - ${location}` : raw;
+  const parts = normalizedName.split('-');
+  const brand = parts[0] || null;
+  const location = parts.slice(1).join('-') || null;
+  const finalNormalizedName = brand && location ? `${brand}-${location}` : normalizedName;
 
-  return { brand, location, normalizedName };
+  return { brand, location, normalizedName: finalNormalizedName };
 };
 
 const syncStores = async () => {
@@ -47,8 +43,8 @@ const syncStores = async () => {
 
   for (const rec of records) {
     const externalId = rec.id;
-    const locCode = String(rec.locCode || '').trim();
-    const rawName = rec.locName || '';
+    const locCode = String(rec.locCode || rec.loccode || '').trim();
+    const rawName = rec.locName || rec.loc_name || rec.storeName || '';
     const status = typeof rec.status === 'number' ? rec.status : null;
 
     if (!locCode || !rawName) continue;
@@ -58,6 +54,7 @@ const syncStores = async () => {
     const update = {
       externalId,
       rawName,
+      storeName: rawName,
       normalizedName,
       brand,
       location,
