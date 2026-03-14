@@ -1,0 +1,229 @@
+paths:
+  /leads:
+    post:
+      tags:
+        - Leads
+      summary: Add New Lead
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - leadtype
+              properties:
+                leadtype:
+                  type: string
+                  enum: [booked, enquiry]
+                phone:
+                  type: string
+                name:
+                  type: string
+                callStatus:
+                  type: string
+                  enum: [connected, "not connected", interested, "not interested", forwarded]
+                store:
+                  type: string
+                functionDate:
+                  type: string
+                  format: date-time
+                callDuration:
+                  type: string
+                subCategory:
+                  type: string
+                closingReason:
+                  type: string
+                closingAction:
+                  type: string
+                itemCategory:
+                  type: string
+                remarks:
+                  type: string
+                markasComplaint:
+                  type: boolean
+                markasFollowup:
+                  type: boolean
+                followupDate:
+                  type: string
+                  format: date-time
+                createdBy:
+                  type: string
+                createdAt:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Lead created
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+
+  /leads/completed:
+    get:
+      tags:
+        - Leads
+      summary: Report API - Completed Leads
+      description: >
+        Return leads where leadStatus = completed.
+        Date filters use updatedAt for completed leads.
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      parameters:
+        - name: dateFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter leads from this date (uses updatedAt for completed leads)
+        - name: dateTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter leads up to this date (uses updatedAt for completed leads)
+        - name: store
+          in: query
+          schema:
+            type: string
+        - name: leadtype
+          in: query
+          schema:
+            type: string
+            enum: [return, booked, enquiry, bookingConfirmation, justDial]
+      responses:
+        '200':
+          description: List of completed leads
+        '401':
+          description: Unauthorized
+
+  /leads/followups:
+    get:
+      tags:
+        - Leads
+      summary: Followup List
+      description: >
+        Return leads where leadStatus = followup.
+        Date filters use followupDate, falling back to createdAt when followupDate is missing.
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      parameters:
+        - name: store
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter leads by normalized store name (e.g., Zorucci - Edapally)
+        - name: dateFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter leads from this date based on followupDate/createdAt
+        - name: dateTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter leads up to this date based on followupDate/createdAt
+      responses:
+        '200':
+          description: List of followup leads
+        '401':
+          description: Unauthorized
+
+  /leads/complaints:
+    get:
+      tags:
+        - Leads
+      summary: Complaint List
+      description: >
+        Return leads where leadStatus = complaint.
+        Date filters use createdAt for complaints.
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      parameters:
+        - name: store
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter leads by normalized store name (e.g., Zorucci - Edapally)
+        - name: dateFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter leads from this date based on createdAt
+        - name: dateTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter leads up to this date based on createdAt
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of complaint leads
+        '401':
+          description: Unauthorized
+
+  /leads/followups/{id}:
+    post:
+      tags:
+        - Leads
+      summary: Update Followup
+      description: Update followup lead and set leadStatus = completed
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                followupclosingAction:
+                  type: string
+                followupremarks:
+                  type: string
+                followupcallDuration:
+                  type: string
+                updatedBy:
+                  type: string
+                updatedAt:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Followup updated
+        '404':
+          description: Lead not found
+        '401':
+          description: Unauthorized

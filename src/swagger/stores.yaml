@@ -1,0 +1,31 @@
+paths:
+  /stores:
+    get:
+      tags:
+        - Stores
+      summary: Get Stores
+      description: Return all normalized stores used for lead filtering.
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      responses:
+        '200':
+          description: List of stores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    brand:
+                      type: string
+                      example: Zorucci
+                    location:
+                      type: string
+                      example: Edapally
+                    normalizedName:
+                      type: string
+                      example: Zorucci - Edapally
+        '401':
+          description: Unauthorized

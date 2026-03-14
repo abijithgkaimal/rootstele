@@ -1,0 +1,152 @@
+paths:
+  /leads/booking-confirmation:
+    get:
+      tags:
+        - Booking Confirmation
+      summary: Get Booking Confirmation Leads
+      description: Return all leads where leadtype = bookingConfirmation
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      parameters:
+        - name: store
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter leads by normalized store name (e.g., Zorucci - Edapally)
+      responses:
+        '200':
+          description: List of booking confirmation leads
+        '401':
+          description: Unauthorized
+
+  /leads/booking-confirmation/{id}:
+    post:
+      tags:
+        - Booking Confirmation
+      summary: Update Booking Confirmation
+      description: Update booking confirmation. billReceived=no or amountMismatch=true → complaint. Otherwise completed.
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                service:
+                  type: string
+                callDuration:
+                  type: string
+                billReceived:
+                  type: string
+                  enum: [yes, no]
+                amountMismatch:
+                  type: boolean
+                remarks:
+                  type: string
+                updatedBy:
+                  type: string
+                updatedAt:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Updated
+        '404':
+          description: Lead not found
+        '401':
+          description: Unauthorized
+
+  /sync/booking-confirmation:
+    post:
+      tags:
+        - Booking Confirmation
+      summary: Sync Booking Confirmation
+      description: Fetch from external API and save with leadtype=bookingConfirmation, leadStatus=new
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Booking confirmation sync completed
+                  data:
+                    type: object
+                    properties:
+                      storesProcessed:
+                        type: number
+                        example: 20
+                      leadsFetched:
+                        type: number
+                        example: 310
+                      leadsInserted:
+                        type: number
+                        example: 110
+                      leadsUpdated:
+                        type: number
+                        example: 200
+        '401':
+          description: Unauthorized
+
+  /sync/booking-confirmations:
+    post:
+      tags:
+        - Booking Confirmation
+      summary: Sync Booking Confirmation (All Stores)
+      description: >
+        Sync booking confirmation leads from RMS system for all stores. Runs a store-wise sync
+        using a placeholder RMS API and upserts leads into LeadMaster with leadtype=bookingConfirmation,
+        leadStatus=new, and normalized store names.
+      security:
+        - BasicAuth: []
+        - HeaderAuth: []
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Booking confirmation sync completed
+                  data:
+                    type: object
+                    properties:
+                      storesProcessed:
+                        type: number
+                        example: 20
+                      leadsFetched:
+                        type: number
+                        example: 310
+                      leadsInserted:
+                        type: number
+                        example: 110
+                      leadsUpdated:
+                        type: number
+                        example: 200
+        '401':
+          description: Unauthorized

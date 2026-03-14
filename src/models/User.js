@@ -1,0 +1,17 @@
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    role: { type: String },
+    store: { type: String },
+    lastLoginAt: { type: Date },
+  },
+  {
+    collection: 'users',
+    timestamps: true,
+  }
+);
+
+module.exports = mongoose.model('User', userSchema);

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin Dashboard - Telecaller CRM</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-header">
+        <div class="admin-logo-circle">A</div>
+        <span>Admin</span>
+      </div>
+      <nav class="admin-nav">
+        <a href="/admin/dashboard" data-nav="dashboard" class="admin-nav-link">Dashboard</a>
+        <a href="/admin/reports" data-nav="reports" class="admin-nav-link">Reports</a>
+        <a href="/admin/complaints" data-nav="complaints" class="admin-nav-link">Complaints</a>
+        <a href="/admin/performance" data-nav="performance" class="admin-nav-link">Performance</a>
+      </nav>
+      <form id="admin-logout-form" class="admin-logout-form" method="post" action="/admin/logout">
+        <button type="submit">Logout</button>
+      </form>
+    </aside>
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div class="admin-topbar-title" id="admin-page-title">Dashboard Overview</div>
+        <div class="admin-topbar-user">
+          <span class="admin-topbar-username">admin</span>
+        </div>
+      </header>
+      <section id="admin-content" class="admin-content">
+        <!-- Content is rendered by admin.js based on current route -->
+      </section>
+    </main>
+  </div>
+  <script src="/admin.js"></script>
+</body>
+</html>

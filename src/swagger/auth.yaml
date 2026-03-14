@@ -1,0 +1,84 @@
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login
+      description: Verify credentials using external API. No local user storage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - password
+              properties:
+                userId:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+        '401':
+          description: Invalid credentials
+
+  /auth/telecaller-login:
+    post:
+      tags:
+        - Auth
+      summary: Telecaller Login
+      description: |
+        This endpoint authenticates telecallers using the Rootments employee verification API.
+        It does not store passwords locally and issues a JWT valid for 12 hours.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - employeeId
+                - password
+              properties:
+                employeeId:
+                  type: string
+                  example: emp473
+                password:
+                  type: string
+                  example: "123456"
+      responses:
+        '200':
+          description: Telecaller login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  token:
+                    type: string
+                    example: jwt-token
+                  user:
+                    type: object
+                    properties:
+                      employeeId:
+                        type: string
+                        example: Emp473
+                      name:
+                        type: string
+                        example: BISNA BAJIJU
+                      role:
+                        type: string
+                        example: Telecaller
+                      store:
+                        type: string
+                        example: No Store
+        '401':
+          description: Invalid credentials
+        '503':
+          description: Telecaller verification service unavailable
