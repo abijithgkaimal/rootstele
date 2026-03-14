@@ -59,7 +59,7 @@ paths:
                   type: string
                 noofFunctions:
                   type: number
-                  description: Alias: noofFuctions
+                  description: "Alias: noofFuctions"
                 noofAttires:
                   type: number
                 competitor:

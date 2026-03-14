@@ -60,7 +60,7 @@ paths:
                 billReceived:
                   type: string
                   enum: [yes, no]
-                  description: Alias: billrecieved
+                  description: "Alias: billrecieved"
                 amountMismatch:
                   type: boolean
                 remarks:
