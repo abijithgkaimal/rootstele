@@ -24,34 +24,28 @@ const verifyEmployee = async (userId, password) => {
   }
 };
 
-// New telecaller verification using VERIFY_EMPLOYEE_API_URL + Bearer token
+// Telecaller verification against external Rootments API
 const verifyTelecaller = async (employeeId, password) => {
-  const url = process.env.VERIFY_EMPLOYEE_API_URL;
-  const token = process.env.VERIFY_EMPLOYEE_API_TOKEN;
+  // Use env.verifyEmployeeUrl which has a hardcoded fallback
+  const url = env.verifyEmployeeUrl;
 
-  if (!url || !token) {
-    throw new Error('Employee verification API configuration missing');
-  }
+  // Bearer token from env.js (has hardcoded fallback)
+  const token = env.verifyEmployeeToken;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
 
   try {
     const response = await axios.post(
       url,
-      {
-        employeeId,
-        password,
-      },
-      {
-        timeout: 10000,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      { employeeId, password },
+      { timeout: 10000, headers }
     );
 
     const body = response.data || {};
     if (body.status !== 'success' || !body.data) {
-      // Treat non-success status as invalid credentials
       return { valid: false, data: null };
     }
 
