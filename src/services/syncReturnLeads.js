@@ -2,6 +2,8 @@ const axios = require('axios');
 const dayjs = require('dayjs');
 const LeadMaster = require('../models/LeadMaster');
 const Store = require('../models/Store');
+const customerService = require('./customerService');
+const { normalize } = require('../utils/phoneNormalizer');
 const User = require('../models/User');
 const SyncMeta = require('../models/SyncMeta');
 
@@ -135,12 +137,14 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
       if (!leadData) continue;
 
       try {
+        const normPhone = normalize(leadData.phone || '');
         const result = await LeadMaster.updateOne(
           { bookingNo: leadData.bookingNo, leadtype: 'return' },
           {
             $set: {
               customerName: leadData.customerName,
               phone: leadData.phone,
+              normalizedPhone: normPhone || undefined,
               store: leadData.store,
               storeCode: leadData.storeCode,
               source: leadData.source,
@@ -155,14 +159,14 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
           { upsert: true }
         );
 
-        const upserted =
-          result.upsertedCount === 1 ||
-          !!(result.upsertedId || (result.upsertedIds && Object.keys(result.upsertedIds).length));
+        const upserted = result.upsertedCount === 1;
+        const updated = result.modifiedCount > 0;
+        if (upserted) leadsInserted += 1;
+        else if (updated) leadsUpdated += 1;
 
-        if (upserted) {
-          leadsInserted += 1;
-        } else if (result.modifiedCount && result.modifiedCount > 0) {
-          leadsUpdated += 1;
+        if (upserted || updated) {
+          const lead = await LeadMaster.findOne({ bookingNo: leadData.bookingNo, leadtype: 'return' }).lean();
+          if (lead) customerService.upsertCustomerFromLead(lead).catch(() => {});
         }
       } catch (err) {
         console.error(

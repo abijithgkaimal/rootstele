@@ -63,19 +63,20 @@
           <div class="admin-card-value" id="dash-total-duration">-</div>
         </div>
         <div class="admin-card">
-          <div class="admin-card-label">Avg Call Duration</div>
+          <div class="admin-card-label">Avg Duration</div>
           <div class="admin-card-value" id="dash-avg-duration">-</div>
         </div>
         <div class="admin-card">
-          <div class="admin-card-label">Total Complaints</div>
+          <div class="admin-card-label">Complaints</div>
           <div class="admin-card-value" id="dash-total-complaints">-</div>
         </div>
       </div>
-      <h2 style="margin-bottom:0.5rem;font-size:0.95rem;">Telecaller Performance</h2>
-      <div id="dash-table-wrapper" class="admin-table-wrapper">
-        <div class="admin-loading" id="dash-loading">Loading...</div>
+      <h2 class="section-title">Telecaller Performance</h2>
+      <div id="dash-table-wrapper" class="admin-table-container">
+        <div class="admin-loading" id="dash-loading">Loading performance data...</div>
       </div>
     `;
+
 
     const filtersEl = document.getElementById('admin-dashboard-filters');
     const errorEl = document.getElementById('admin-dashboard-error');
@@ -179,13 +180,14 @@
         <input type="text" class="admin-filter-input" id="rep-store" placeholder="Store" />
         <input type="text" class="admin-filter-input" id="rep-lead-type" placeholder="Lead Type" />
         <input type="text" class="admin-filter-input" id="rep-telecaller" placeholder="Telecaller ID" />
-        <button type="button" class="admin-filter-apply" id="rep-apply">Apply</button>
-        <button type="button" class="admin-filter-apply" id="rep-export">Export CSV</button>
+        <button type="button" class="admin-filter-apply" id="rep-apply">Apply Filters</button>
+        <button type="button" class="admin-filter-apply" id="rep-export" style="background:#10b981">Export CSV</button>
       </div>
-      <div id="rep-table-wrapper">
-        <div class="admin-loading" id="rep-loading">Loading...</div>
+      <div id="rep-table-wrapper" class="admin-table-container">
+        <div class="admin-loading" id="rep-loading">Fetching reports...</div>
       </div>
     `;
+
 
     const errorEl = document.getElementById('admin-reports-error');
 
@@ -276,12 +278,13 @@
         <input type="date" class="admin-filter-input" id="cmp-date-from" />
         <input type="date" class="admin-filter-input" id="cmp-date-to" />
         <input type="text" class="admin-filter-input" id="cmp-store" placeholder="Store" />
-        <button type="button" class="admin-filter-apply" id="cmp-apply">Apply</button>
+        <button type="button" class="admin-filter-apply" id="cmp-apply">Generate Pivot</button>
       </div>
-      <div id="cmp-pivot-wrapper">
-        <div class="admin-loading" id="cmp-loading">Loading...</div>
+      <div id="cmp-pivot-wrapper" class="admin-table-container">
+        <div class="admin-loading" id="cmp-loading">Calculating pivot data...</div>
       </div>
     `;
+
 
     const errorEl = document.getElementById('admin-complaints-error');
 
@@ -336,14 +339,15 @@
         <input type="date" class="admin-filter-input" id="perf-date-from" />
         <input type="date" class="admin-filter-input" id="perf-date-to" />
         <input type="text" class="admin-filter-input" id="perf-store" placeholder="Store (optional)" />
-        <button type="button" class="admin-filter-apply" id="perf-apply">Apply</button>
+        <button type="button" class="admin-filter-apply" id="perf-apply">Refresh</button>
       </div>
-      <div id="perf-chart" class="admin-empty" style="margin-bottom:1rem;">Chart is based on total calls vs complaints.</div>
-      <h2 style="margin-bottom:0.5rem;font-size:0.95rem;">Leaderboard</h2>
-      <div id="perf-table-wrapper">
-        <div class="admin-loading" id="perf-loading">Loading...</div>
+      <div id="perf-chart">Summary will appear here based on selected filters.</div>
+      <h2 class="section-title">Leaderboard</h2>
+      <div id="perf-table-wrapper" class="admin-table-container">
+        <div class="admin-loading" id="perf-loading">Compiling leaderboard...</div>
       </div>
     `;
+
 
     const errorEl = document.getElementById('admin-perf-error');
 
@@ -387,14 +391,16 @@
             '</tr></thead><tbody>';
           rows.forEach((row, idx) => {
             const t = row.telecaller || {};
+            const rankClass = idx === 0 ? 'rank-1' : (idx === 1 ? 'rank-2' : (idx === 2 ? 'rank-3' : ''));
             html += `<tr>
-              <td>#${idx + 1}</td>
-              <td>${t.name || '-'}</td>
-              <td>${t.employeeId || '-'}</td>
+              <td><span class="rank-badge ${rankClass}">${idx + 1}</span></td>
+              <td><strong>${t.name || '-'}</strong></td>
+              <td><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">${t.employeeId || '-'}</code></td>
               <td>${row.totalCalls || 0}</td>
               <td>${formatDurationSeconds(row.totalCallDuration || 0)}</td>
-              <td>${row.totalComplaints || 0}</td>
+              <td><span class="admin-badge" style="background:#fee2e2;color:#ef4444">${row.totalComplaints || 0}</span></td>
             </tr>`;
+
           });
           html += '</tbody></table>';
           wrapper.innerHTML = html;

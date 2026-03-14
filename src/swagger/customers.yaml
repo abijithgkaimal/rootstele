@@ -1,0 +1,122 @@
+paths:
+  /customers/check-phone:
+    get:
+      tags:
+        - Customers
+      summary: Check phone for incoming call popup
+      description: |
+        Used when an incoming call arrives. Normalizes the phone number and looks up the Customer collection.
+        Returns popupType to tell the frontend which popup to show.
+        Requires telecaller auth (JWT Bearer or Basic).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: phone
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Raw phone number (any format; will be normalized to last 10 digits)
+      responses:
+        '200':
+          description: Check result
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - description: Customer not found
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      data:
+                        type: object
+                        properties:
+                          exists:
+                            type: boolean
+                            example: false
+                          popupType:
+                            type: string
+                            example: newLeadPopup
+                          options:
+                            type: array
+                            items:
+                              type: string
+                            example: [enquiry, booked]
+                  - description: Customer found
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      data:
+                        type: object
+                        properties:
+                          exists:
+                            type: boolean
+                            example: true
+                          popupType:
+                            type: string
+                            enum: [followupPopup, reportPopup, complaintPopup, returnPopup, bookingConfirmationPopup, newLeadPopup]
+                          customer:
+                            type: object
+                            properties:
+                              _id:
+                                type: string
+                              phone:
+                                type: string
+                              name:
+                                type: string
+                              leadCount:
+                                type: integer
+                              latestLeadStatus:
+                                type: string
+                              latestLeadType:
+                                type: string
+                              latestStore:
+                                type: string
+                          lead:
+                            type: object
+                            description: Latest lead document from LeadMaster
+        '401':
+          description: Unauthorized
+
+  /customers/{id}/history:
+    get:
+      tags:
+        - Customers
+      summary: Get customer lead history
+      description: Returns all LeadMaster records for the given customer (by Customer _id). Newest first.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Customer _id
+      responses:
+        '200':
+          description: Customer and their leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      customer:
+                        type: object
+                      leads:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          description: Unauthorized
+        '404':
+          description: Customer not found

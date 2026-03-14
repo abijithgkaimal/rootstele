@@ -1,5 +1,6 @@
 const LeadMaster = require('../models/LeadMaster');
 const statusResolver = require('../services/statusResolverService');
+const customerService = require('../services/customerService');
 const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
@@ -50,6 +51,7 @@ const updateReturnLead = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Return lead not found');
   }
 
+  customerService.upsertCustomerFromLead(lead).catch(() => {});
   return success(res, lead, 'Updated');
 });
 

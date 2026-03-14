@@ -1,16 +1,20 @@
 const LeadMaster = require('../models/LeadMaster');
 const statusResolver = require('./statusResolverService');
+const customerService = require('./customerService');
 const { buildDateFilter } = require('../utils/dateFilters');
 const pick = require('../utils/pick');
+const { normalize } = require('../utils/phoneNormalizer');
 
 const createLead = async (payload) => {
   const leadStatus = statusResolver.resolveManualLeadStatus(payload);
   const closingAction = payload.closingAction ?? payload.closingReason;
+  const normalizedPhone = normalize(payload.phone || '');
 
   const lead = new LeadMaster({
     leadtype: payload.leadtype,
     leadStatus,
     phone: payload.phone,
+    normalizedPhone: normalizedPhone || undefined,
     name: payload.name,
     callStatus: payload.callStatus,
     store: payload.store,
@@ -29,7 +33,9 @@ const createLead = async (payload) => {
     source: 'manual',
   });
 
-  return lead.save();
+  const saved = await lead.save();
+  if (normalizedPhone) customerService.upsertCustomerFromLead(saved).catch(() => {});
+  return saved;
 };
 
 const getCompletedLeads = async (filters = {}, options = {}) => {
@@ -116,6 +122,7 @@ const updateFollowupById = async (id, payload) => {
     update,
     { new: true }
   );
+  if (lead) customerService.upsertCustomerFromLead(lead).catch(() => {});
   return lead;
 };
 

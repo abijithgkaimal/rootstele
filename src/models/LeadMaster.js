@@ -9,6 +9,7 @@ const leadMasterSchema = new mongoose.Schema(
     leadtype: { type: String, enum: leadTypeEnum },
     leadStatus: { type: String, enum: leadStatusEnum },
     phone: { type: String },
+    normalizedPhone: { type: String },
     name: { type: String },
     store: { type: String },
     functionDate: { type: Date },
