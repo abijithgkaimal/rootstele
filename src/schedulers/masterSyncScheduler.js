@@ -39,7 +39,7 @@ async function acquireSyncLock(type = 'incremental') {
  * Release sync lock.
  */
 async function releaseSyncLock() {
-  await SyncLock.deleteOne({ jobName: MASTER_JOB_NAME }).catch(() => {});
+  await SyncLock.deleteOne({ jobName: MASTER_JOB_NAME }).catch(() => { });
 }
 
 /**
@@ -52,10 +52,9 @@ async function isSyncLocked() {
 /**
  * Create a new log entry in SyncMeta.
  */
-async function createSyncLog(trigger, type) {
+async function createSyncLog(type) {
   return await SyncMeta.create({
     jobName: MASTER_JOB_NAME,
-    trigger,
     type,
     startedAt: new Date(),
     status: 'running',
@@ -79,37 +78,32 @@ async function updateSyncLog(logId, status, results, error = null) {
 
 /**
  * Execute a Master Sync job containing all sub-syncs.
- * @param {string} trigger - 'startup' | 'auto' | 'manual'
- * @param {string} forceType - 'initial' | 'incremental' | null (auto-detect)
+ * @param {string} type - 'initial' | 'incremental' | 'manual'
+ * @param {boolean} forceInitial - if true, runs a 60-day sync regardless of history
  */
-async function executeMasterSync(trigger = 'auto', forceType = null) {
-  let syncType;
+async function executeMasterSync(type = 'incremental', forceInitial = false) {
+  let isInitial = type === 'initial' || forceInitial;
 
   // Auto-detection logic:
-  // If no forced type, check if we need an initial sync (because none completed successfully)
-  if (!forceType) {
+  // If not forcing initial, check if we need an initial sync.
+  // We consider 'partial' as sufficient to avoid repeatedly hitting the 60-day fetch,
+  // since 'partial' means at least one sub-sync (like returns) finished successfully.
+  if (!isInitial) {
     const lastInitialSync = await SyncMeta.findOne({
       jobName: MASTER_JOB_NAME,
       type: 'initial',
-      status: 'completed'
+      status: { $in: ['completed', 'partial'] }
     });
-    
     if (!lastInitialSync) {
-      console.log(`[MasterSync] [${trigger}] No successful initial sync found in history. Auto-starting 60-day sync.`);
-      syncType = 'initial';
-    } else {
-      console.log(`[MasterSync] [${trigger}] Found completed initial sync (${lastInitialSync.finishedAt}). Defaulting to incremental.`);
-      syncType = 'incremental';
+      console.log(`[MasterSync] No past successful or partial initial sync found. Auto-switching log type ${type} to 60-day fetch.`);
+      isInitial = true;
     }
-  } else {
-    syncType = forceType;
   }
 
-  const isInitial = syncType === 'initial';
-  const lock = await acquireSyncLock(trigger);
+  const lock = await acquireSyncLock(type);
 
   if (!lock) {
-    console.log(`[MasterSync] [${trigger}] Skipping ${syncType} sync — lock active.`);
+    console.log(`[MasterSync] Skipping ${type} sync — lock active.`);
     return null;
   }
 
@@ -121,8 +115,8 @@ async function executeMasterSync(trigger = 'auto', forceType = null) {
   };
 
   try {
-    log = await createSyncLog(trigger, syncType);
-    console.log(`[MasterSync] [${trigger}] Started ${syncType} sync (Lookback: ${isInitial ? '60 days' : '7 days'})...`);
+    log = await createSyncLog(type);
+    console.log(`[MasterSync] Starting ${type} sync job (Lookback: ${isInitial ? '60 days' : '7 days'})...`);
 
     // 1. Store Sync
     try {
@@ -190,13 +184,13 @@ async function initializeMasterSyncScheduler() {
   const lastInitialSync = await SyncMeta.findOne({
     jobName: MASTER_JOB_NAME,
     type: 'initial',
-    status: 'completed'
+    status: { $in: ['completed', 'partial'] }
   }).sort({ startedAt: -1 });
 
   if (!lastInitialSync) {
     console.log('[MasterSyncScheduler] No completed initial sync found. Triggering initial sync on startup...');
     // We don't await this to avoid blocking server boot, but we start it
-    executeMasterSync('startup', 'initial').catch(err => {
+    executeMasterSync('initial').catch(err => {
       console.error('[MasterSyncScheduler] Startup initial sync failed:', err.message);
     });
   } else {
@@ -206,14 +200,14 @@ async function initializeMasterSyncScheduler() {
   // 2. Incremental Sync Cron: Every 30 minutes
   cron.schedule('*/30 * * * *', async () => {
     console.log('[MasterSyncScheduler] Cron tick: Checking for incremental sync...');
-    
+
     if (await isSyncLocked()) {
       console.log('[MasterSyncScheduler] Skipping incremental sync — lock active.');
       return;
     }
 
     try {
-      await executeMasterSync('auto', 'incremental');
+      await executeMasterSync('incremental');
     } catch (err) {
       console.error('[MasterSyncScheduler] Incremental sync error:', err.message);
     }
