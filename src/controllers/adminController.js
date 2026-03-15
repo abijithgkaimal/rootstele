@@ -13,6 +13,9 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = buildStoreRegex(store);
+  
+  // Dashboard shows handled leads (completed or complaints)
+  filter.leadStatus = { $in: ['completed', 'complaint'] };
 
   const stats = await LeadMaster.aggregate([
     { $match: filter },
@@ -56,6 +59,9 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = buildStoreRegex(store);
 
+  // Summary shows handled leads (completed or complaints)
+  filter.leadStatus = { $in: ['completed', 'complaint'] };
+
   const summary = await LeadMaster.aggregate([
     { $match: filter },
     {
@@ -98,7 +104,7 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
 
 const getReports = asyncHandler(async (req, res) => {
   const { fromDate, toDate, store, leadType, telecallerId } = req.query;
-  const filter = {};
+  const filter = { leadStatus: 'completed' };
 
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
