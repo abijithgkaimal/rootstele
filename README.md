@@ -41,7 +41,7 @@ Node.js + Express + MongoDB backend for the Telecaller application.
 - **GET /api/leads/completed** – Completed report (filters: fromDate, toDate, store, leadtype; pagination: page, limit)
 
 ### Followups
-- **GET /api/leads/followups** – Followup list (leadStatus=followup)
+- **GET /api/leads/followups** – Followup list (leadStatus=followup; filtered by followupDate)
 - **POST /api/leads/followups/:id** – Update followup → sets leadStatus=completed. `updatedBy`/`updatedAt` auto-set by server.
 - **GET /api/leads/complaints** – Complaint list (leadStatus=complaint)
 
@@ -79,7 +79,7 @@ All APIs follow a unified date filtering architecture based on `leadStatus`:
 | **new** | return | `returnDate` | Specific date from RMS return API |
 | **new** | bookingConfirmation | `bookingDate` | Specific date from RMS booking API |
 | **new** | enquiry / booked / justDial | `createdAt` | System creation date |
-| **followup** | any | `updatedAt` | Date when lead became a followup |
+| **followup** | any | `followupDate` | Scheduled callback date |
 | **complaint** | any | `updatedAt` | Date when lead became a complaint |
 | **completed** | any | `updatedAt` | Date when lead was finalized (Closed) |
 

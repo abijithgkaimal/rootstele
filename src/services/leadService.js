@@ -75,11 +75,11 @@ const getFollowups = async (options = {}) => {
   const filter = { leadStatus: 'followup' };
   if (store) filter.store = store;
 
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
+  const dateFilter = buildDateFilter(dateFrom, dateTo, 'followupDate');
   if (dateFilter) Object.assign(filter, dateFilter);
 
   const [leads, total] = await Promise.all([
-    LeadMaster.find(filter).select(projection).sort({ updatedAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
+    LeadMaster.find(filter).select(projection).sort({ followupDate: 1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
     LeadMaster.countDocuments(filter),
   ]);
 

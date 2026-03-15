@@ -143,7 +143,8 @@ paths:
       summary: Followup List
       description: >
         Return leads where leadStatus = followup.
-        Date filters use **updatedAt**.
+        Date filters use **followupDate**.
+        Sorted by **followupDate** ascending (closest callbacks first).
       security:
         - BearerAuth: []
       parameters:
@@ -156,11 +157,13 @@ paths:
           schema:
             type: string
             format: date-time
+          description: Filter by followupDate (inclusive)
         - name: dateTo
           in: query
           schema:
             type: string
             format: date-time
+          description: Filter by followupDate (inclusive)
       responses:
         '200':
           description: List of followup leads
