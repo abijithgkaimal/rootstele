@@ -41,9 +41,9 @@ Node.js + Express + MongoDB backend for the Telecaller application.
 - **GET /api/leads/completed** – Completed report (filters: fromDate, toDate, store, leadtype; pagination: page, limit)
 
 ### Followups
-- **GET /api/leads/followups** – Followup list (leadStatus=followup; filtered by followupDate)
+- **GET /api/leads/followups** – Followup list (filters: fromDate, toDate, store; filtered by followupDate)
 - **POST /api/leads/followups/:id** – Update followup → sets leadStatus=completed. `updatedBy`/`updatedAt` auto-set by server.
-- **GET /api/leads/complaints** – Complaint list (leadStatus=complaint)
+- **GET /api/leads/complaints** – Complaint list (filters: fromDate, toDate, store; filtered by updatedAt)
 
 ### Booking Confirmation
 - **GET /api/leads/booking-confirmation** – List booking confirmation leads (leadStatus=new)

@@ -5,8 +5,8 @@ const ApiError = require('../utils/ApiError');
 const mongoose = require('mongoose');
 
 const getFollowups = asyncHandler(async (req, res) => {
-  const { page, limit, store, dateFrom, dateTo } = req.query;
-  const result = await leadService.getFollowups({ page, limit, store, dateFrom, dateTo });
+  const { page, limit, store, fromDate, toDate } = req.query;
+  const result = await leadService.getFollowups({ page, limit, store, fromDate, toDate });
   return success(res, result);
 });
 
@@ -26,8 +26,8 @@ const updateFollowup = asyncHandler(async (req, res) => {
 });
 
 const getComplaints = asyncHandler(async (req, res) => {
-  const { page, limit, store, dateFrom, dateTo } = req.query;
-  const result = await leadService.getComplaints({ page, limit, store, dateFrom, dateTo });
+  const { page, limit, store, fromDate, toDate } = req.query;
+  const result = await leadService.getComplaints({ page, limit, store, fromDate, toDate });
   return success(res, result);
 });
 

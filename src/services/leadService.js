@@ -68,14 +68,14 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
 };
 
 const getFollowups = async (options = {}) => {
-  const { page = 1, limit = 100, store, dateFrom, dateTo } = options;
+  const { page = 1, limit = 100, store, fromDate, toDate } = options;
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
   const projection = 'name customerName phone store functionDate subCategory closingAction remarks followupDate updatedBy updatedAt';
 
   const filter = { leadStatus: 'followup' };
   if (store) filter.store = store;
 
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'followupDate');
+  const dateFilter = buildDateFilter(fromDate, toDate, 'followupDate');
   if (dateFilter) Object.assign(filter, dateFilter);
 
   const [leads, total] = await Promise.all([
@@ -93,7 +93,7 @@ const getFollowups = async (options = {}) => {
 };
 
 const getComplaints = async (options = {}) => {
-  const { page = 1, limit = 100, store, dateFrom, dateTo } = options;
+  const { page = 1, limit = 100, store, fromDate, toDate } = options;
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
   const projection = 'name customerName phone store leadtype functionDate subCategory remarks updatedBy updatedAt followupDate';
 
@@ -101,7 +101,7 @@ const getComplaints = async (options = {}) => {
   if (store) filter.store = store;
 
   // Use updatedAt for active complaints (leadStatus: 'complaint') as per user request
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
+  const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
 
   const [leads, total] = await Promise.all([
