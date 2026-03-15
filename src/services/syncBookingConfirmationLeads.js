@@ -43,12 +43,12 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
       const bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
       if (!bookingNo) continue;
 
-      const phone        = rec.phoneNo    || rec.PhoneNo     || rec.mobile || rec.phone || '';
-      const normPhone    = normalize(phone);
+      const phone = rec.phoneNo || rec.PhoneNo || rec.mobile || rec.phone || '';
+      const normPhone = normalize(phone);
       const customerName = rec.customerName || rec.CustomerName || rec.name || '';
-      const location     = rec.location   || rec.Location    || 'Other';
+      const location = rec.location || rec.Location || 'Other';
       const bookingDateRaw = rec.bookingDate || rec.BookingDate || rec.functionDate || rec.FunctionDate;
-      const bookingDate  = bookingDateRaw ? new Date(bookingDateRaw) : null;
+      const bookingDate = bookingDateRaw ? new Date(bookingDateRaw) : null;
 
       if (normPhone) phonesToSync.add(normPhone);
 
@@ -119,7 +119,7 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
     console.log(`[BookingSync] Done. New: ${upserted}, Updated: ${modified}`);
 
     for (const phone of phonesToSync) {
-      customerService.recomputeCustomerState(phone).catch(() => {});
+      customerService.recomputeCustomerState(phone).catch(() => { });
     }
 
     return { totalLeads: upserted + modified };

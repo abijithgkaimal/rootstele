@@ -19,42 +19,43 @@ if (!MONGO_URI) { console.error('ERROR: MONGODB_URI not set'); process.exit(1); 
 
 const args = process.argv.slice(2);
 const command = args[0] || 'all';
-const initial = !args.includes('--incremental');
+const incremental = args.includes('--incremental');
 
-console.log(`\n🔄 Manual Sync — mode: ${command}, ${initial ? '60-day initial' : '7-day incremental'}\n`);
+console.log(`\n🔄 Manual Sync — mode: ${command}, ${incremental ? 'incremental' : 'initial'}\n`);
 
 async function run() {
   await mongoose.connect(MONGO_URI);
   console.log('✅ Connected to MongoDB\n');
 
-  const { syncStores } = require('../src/services/storeSyncService');
-  const { syncReturnLeads } = require('../src/services/syncReturnLeads');
-  const { syncBookingConfirmationLeads } = require('../src/services/syncBookingConfirmationLeads');
+  const { executeMasterSync } = require('../src/schedulers/masterSyncScheduler');
 
-  if (command === 'stores' || command === 'all') {
-    console.log('▶ Syncing Stores...');
-    const r = await syncStores();
-    console.log('✅ Stores done:', r, '\n');
+  try {
+    if (command !== 'all') {
+      console.warn('⚠️ Manual sync of individual sub-syncs (stores/returns/bookings) is deprecated. Running full Master Sync.');
+    }
+
+    const isInitial = args.includes('--initial');
+    const isIncremental = args.includes('--incremental');
+    const forceType = isInitial ? 'initial' : (isIncremental ? 'incremental' : null);
+    
+    console.log(`▶ Starting Master Sync (mode: ${forceType || 'auto-detect'})...`);
+    
+    // executeMasterSync handles locking and SyncMeta logging internally
+    const result = await executeMasterSync('manual', forceType); 
+    
+    if (result) {
+      console.log('\n✅ Sync complete result:', JSON.stringify(result, null, 2));
+    } else {
+      console.log('\n⚠️ Sync skipped (likely locked).');
+    }
+
+  } catch (err) {
+    console.error('\n❌ Sync failed:', err.message);
+  } finally {
+    await mongoose.disconnect();
+    console.log('🏁 Disconnected from MongoDB.');
+    process.exit(0);
   }
-
-  if (command === 'returns' || command === 'all') {
-    console.log('▶ Syncing Return Leads...');
-    const r = await syncReturnLeads({ initial });
-    console.log('✅ Returns done:', r, '\n');
-  }
-
-  if (command === 'bookings' || command === 'all') {
-    console.log('▶ Syncing Booking Confirmation Leads...');
-    const r = await syncBookingConfirmationLeads({ initial });
-    console.log('✅ Bookings done:', r, '\n');
-  }
-
-  await mongoose.disconnect();
-  console.log('🏁 Sync complete. Disconnected.');
-  process.exit(0);
 }
 
-run().catch(err => {
-  console.error('❌ Sync failed:', err.message);
-  process.exit(1);
-});
+run();

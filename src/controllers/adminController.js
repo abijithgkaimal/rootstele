@@ -110,7 +110,13 @@ const getReports = asyncHandler(async (req, res) => {
     .limit(1000)
     .lean();
 
-  return success(res, leads);
+  const mappedLeads = leads.map(l => ({
+    ...l,
+    customerName: l.customerName || l.name,
+    name: l.name || l.customerName
+  }));
+
+  return success(res, mappedLeads);
 });
 
 const getComplaintsPivot = asyncHandler(async (req, res) => {

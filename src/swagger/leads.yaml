@@ -117,9 +117,10 @@ paths:
                       type: object
                       properties:
                         _id: { type: string }
-                        createdAt: { type: string, format: date-time, description: "Original Lead Date (from RMS or manual entry)" }
+                        createdAt: { type: string, format: date-time, description: "Original Lead Date" }
                         store: { type: string }
-                        name: { type: string }
+                        name: { type: string, description: "Customer name (manual leads)" }
+                        customerName: { type: string, description: "Customer name (synced leads — always use this if name is empty)" }
                         phone: { type: string }
                         leadtype: { type: string, enum: [return, booked, enquiry, bookingConfirmation, justDial] }
                         leadStatus: { type: string, enum: [completed], description: "Always 'completed' for this endpoint" }

@@ -9,7 +9,7 @@ const syncLockSchema = new mongoose.Schema(
   {
     jobName: { type: String, required: true, unique: true },
     startedAt: { type: Date, required: true },
-    type: { type: String, enum: ['initial', 'incremental'], default: 'incremental' },
+    type: { type: String, enum: ['initial', 'incremental', 'manual'], default: 'incremental' },
   },
   {
     collection: 'synclock',

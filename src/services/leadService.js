@@ -15,7 +15,8 @@ const createLead = async (payload) => {
     leadStatus,
     phone: payload.phone,
     normalizedPhone: normalizedPhone || undefined,
-    name: payload.name,
+    customerName: payload.customerName || payload.name,   // Keep in sync: prefer customerName, fallback to name
+    name: payload.name || payload.customerName,           // Keep in sync: prefer name, fallback to customerName
     callStatus: payload.callStatus,
     store: payload.store,
     functionDate: payload.functionDate ? new Date(payload.functionDate) : null,
@@ -50,20 +51,26 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   if (leadtype && allowedTypes.includes(leadtype)) filter.leadtype = leadtype;
 
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-  const projection = 'createdAt store name phone leadtype leadStatus functionDate subCategory closingAction remarks followupDate followupremarks updatedAt updatedBy';
+  const projection = 'createdAt store name customerName phone leadtype leadStatus functionDate subCategory closingAction remarks followupDate followupremarks updatedAt updatedBy';
 
   const [leads, total] = await Promise.all([
     LeadMaster.find(filter).select(projection).sort({ updatedAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
     LeadMaster.countDocuments(filter),
   ]);
 
-  return { leads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
+  const mappedLeads = leads.map(l => ({
+    ...l,
+    customerName: l.customerName || l.name,
+    name: l.name || l.customerName
+  }));
+
+  return { leads: mappedLeads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
 };
 
 const getFollowups = async (options = {}) => {
   const { page = 1, limit = 100, store, dateFrom, dateTo } = options;
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-  const projection = 'name phone store functionDate subCategory closingAction remarks followupDate updatedBy updatedAt';
+  const projection = 'name customerName phone store functionDate subCategory closingAction remarks followupDate updatedBy updatedAt';
 
   const filter = { leadStatus: 'followup' };
   if (store) filter.store = store;
@@ -76,13 +83,19 @@ const getFollowups = async (options = {}) => {
     LeadMaster.countDocuments(filter),
   ]);
 
-  return { leads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
+  const mappedLeads = leads.map(l => ({
+    ...l,
+    customerName: l.customerName || l.name,
+    name: l.name || l.customerName
+  }));
+
+  return { leads: mappedLeads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
 };
 
 const getComplaints = async (options = {}) => {
   const { page = 1, limit = 100, store, dateFrom, dateTo } = options;
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-  const projection = 'name phone store leadtype functionDate subCategory remarks updatedBy updatedAt followupDate';
+  const projection = 'name customerName phone store leadtype functionDate subCategory remarks updatedBy updatedAt followupDate';
 
   const filter = { leadStatus: 'complaint' };
   if (store) filter.store = store;
@@ -96,7 +109,13 @@ const getComplaints = async (options = {}) => {
     LeadMaster.countDocuments(filter),
   ]);
 
-  return { leads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
+  const mappedLeads = leads.map(l => ({
+    ...l,
+    customerName: l.customerName || l.name,
+    name: l.name || l.customerName
+  }));
+
+  return { leads: mappedLeads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
 };
 
 const getNewLeads = async (filters = {}) => {
@@ -118,8 +137,15 @@ const getNewLeads = async (filters = {}) => {
     LeadMaster.countDocuments(filter),
   ]);
 
-  return { leads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
+  const mappedLeads = leads.map(l => ({
+    ...l,
+    customerName: l.customerName || l.name,
+    name: l.name || l.customerName
+  }));
+
+  return { leads: mappedLeads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
 };
+
 
 const updateFollowupById = async (id, payload, updatedBy) => {
   const update = pick(payload, ['followupclosingAction', 'followupremarks', 'followupcallDuration']);

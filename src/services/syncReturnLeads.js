@@ -40,15 +40,15 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
 
     for (const rec of leadsData) {
       // Extract system-level fields with clear aliases
-      const bookingNo   = rec.bookingNo   || rec.BookingNo   || rec.booking_no;
+      const bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
       if (!bookingNo) continue;
 
-      const phone        = rec.phoneNo    || rec.PhoneNo     || rec.mobile || rec.phone || '';
-      const normPhone    = normalize(phone);
+      const phone = rec.phoneNo || rec.PhoneNo || rec.mobile || rec.phone || '';
+      const normPhone = normalize(phone);
       const customerName = rec.customerName || rec.CustomerName || rec.name || '';
-      const location     = rec.location   || rec.Location    || 'Other';
-      const returnDateRaw = rec.returnDate || rec.ReturnDate  || rec.date  || rec.Date;
-      const returnDate   = returnDateRaw ? new Date(returnDateRaw) : null;
+      const location = rec.location || rec.Location || 'Other';
+      const returnDateRaw = rec.returnDate || rec.ReturnDate || rec.date || rec.Date;
+      const returnDate = returnDateRaw ? new Date(returnDateRaw) : null;
 
       if (normPhone) phonesToSync.add(normPhone);
 
@@ -120,7 +120,7 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
 
     // Background customer recompute
     for (const phone of phonesToSync) {
-      customerService.recomputeCustomerState(phone).catch(() => {});
+      customerService.recomputeCustomerState(phone).catch(() => { });
     }
 
     return { totalLeads: upserted + modified };

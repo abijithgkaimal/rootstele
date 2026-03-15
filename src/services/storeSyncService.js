@@ -74,20 +74,6 @@ const syncStores = async () => {
     upserted += 1;
   }
 
-  const now = new Date();
-  await SyncMeta.findOneAndUpdate(
-    { jobName: STORE_SYNC_JOB_NAME },
-    {
-      $set: {
-        jobName: STORE_SYNC_JOB_NAME,
-        lastRunAt: now,
-        lastSuccessAt: now,
-        firstSyncCompleted: true,
-      },
-    },
-    { upsert: true }
-  );
-
   return { total: records.length, upserted };
 };
 
