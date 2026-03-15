@@ -37,10 +37,11 @@ const updateReturnLead = asyncHandler(async (req, res) => {
   const leadStatus = statusResolver.resolveReturnLeadStatus(payload);
   const update = pick(payload, [
     'service', 'callDuration', 'noofFunctions', 'noofAttires', 'competitor', 'rating',
-    'remarks', 'updatedBy', 'markasComplaint', 'markasFollowup', 'followupDate',
+    'remarks', 'markasComplaint', 'markasFollowup', 'followupDate',
   ]);
-  update.updatedAt = payload.updatedAt ? new Date(payload.updatedAt) : new Date();
+  update.updatedAt = new Date();
   update.leadStatus = leadStatus;
+  update.updatedBy = req.user?.employeeId || req.user?.userId || req.user?.name || 'unknown';
 
   const lead = await LeadMaster.findOneAndUpdate(
     { _id: id, leadtype: 'return' },

@@ -46,8 +46,8 @@ Node.js + Express + MongoDB backend for the Telecaller application.
 - **GET /api/leads/complaints** – Complaint list
 
 ### Booking Confirmation
-- **GET /api/leads/booking-confirmation** – List booking confirmation leads
-- **POST /api/leads/booking-confirmation/:id** – Update (billReceived, amountMismatch → leadStatus)
+- **GET /api/leads/booking-confirmation** – List booking confirmation leads (leadStatus=new)
+- **POST /api/leads/booking-confirmation/:id** – Update (markasComplaint/markasFollowup → leadStatus; billReceived/amountMismatch as fallback)
 
 ### Returns
 - **GET /api/leads/returns** – List return leads
@@ -67,7 +67,8 @@ Node.js + Express + MongoDB backend for the Telecaller application.
 ### Reports (Completed Leads)
 - **GET /api/leads/completed** – Main report API returning all leads with `leadStatus: "completed"`.
 - **Filtering**: Uses `updatedAt` for date filtering.
-- **Fields**: returns `createdAt`, `store`, `name`, `phone`, `leadtype`, `functionDate`, `subCategory`, `closingAction`, `remarks`, `followupDate`, `followupremarks`, `updatedAt`, `updatedBy`.
+- **Fields returned**: `_id`, `name`, `phone`, `store`, `leadtype`, `leadStatus`, `createdAt`, `functionDate`, `subCategory`, `closingAction`, `remarks`, `followupDate`, `followupremarks`, `updatedAt`, `updatedBy`.
+- **`updatedBy`**: Automatically set by the server from the authenticated user's `employeeId`. Not accepted from the request body.
 
 ### 📅 Date Filtering Logic
 
@@ -85,6 +86,18 @@ All APIs follow a unified date filtering architecture based on `leadStatus`:
 **Date Format**: APIs expect ISO format strings like `2026-01-26T00:00:00`.
 
 All lead/sync/admin APIs require auth: JWT Bearer, Basic auth, or headers `x-user-id` and `x-password`.
+
+> **`updatedBy` is always auto-populated** from the authenticated user's `employeeId` on update calls — do not pass it in the request body.
+> **`updatedAt`** is always set by the server to the exact time of the update call.
+
+### Audit Field Rules
+
+| Operation | `createdAt` | `createdBy` | `updatedAt` | `updatedBy` |
+|-----------|------------|------------|------------|------------|
+| Manual lead creation (`POST /api/leads`) | `new Date()` | `req.user.employeeId` | — | — |
+| Telecaller updates lead (returns / booking / followup) | unchanged | unchanged | `new Date()` | `req.user.employeeId` |
+| External sync (new lead) | From API or `new Date()` | — | — | — |
+| External sync (existing lead re-sync) | unchanged (`$setOnInsert` only) | unchanged | unchanged | unchanged |
 
 ## Swagger
 

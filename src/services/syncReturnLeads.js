@@ -82,7 +82,10 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
       };
 
       // Flat merged document: API extras + system fields (system wins on conflicts)
-      const flatDoc = { ...apiRest, ...systemFields };
+      // Strip audit fields — these must NEVER be set by external sync.
+      // createdBy / updatedBy / updatedAt belong to telecaller actions only.
+      const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, createdAt: _ca, ...safeApiRest } = apiRest;
+      const flatDoc = { ...safeApiRest, ...systemFields };
 
       operations.push({
         updateOne: {
@@ -93,7 +96,7 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
               leadStatus: 'new',
               markasComplaint: false,
               markasFollowup: false,
-              createdAt: returnDate || new Date(),
+              createdAt: returnDate || new Date(), // set only on first insert
             },
           },
           upsert: true,

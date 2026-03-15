@@ -16,7 +16,8 @@ const updateFollowup = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Invalid lead ID');
   }
 
-  const lead = await leadService.updateFollowupById(id, req.body);
+  const updatedBy = req.user?.employeeId || req.user?.userId || req.user?.name || 'unknown';
+  const lead = await leadService.updateFollowupById(id, req.body, updatedBy);
   if (!lead) {
     throw new ApiError(404, 'Followup lead not found');
   }

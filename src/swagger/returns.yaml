@@ -38,7 +38,10 @@ paths:
       tags:
         - Returns
       summary: Update Return Lead
-      description: Update return lead. Default completed. markasFollowup→followup, markasComplaint→complaint
+      description: >
+        Update return lead after telecaller call.
+        Status priority: markasComplaint → complaint | markasFollowup → followup | default → completed.
+        **updatedBy** and **updatedAt** are automatically set by the server from the authenticated user — do NOT pass them in the request body.
       security:
         - BearerAuth: []
       parameters:
@@ -66,17 +69,12 @@ paths:
                   type: string
                 rating:
                   type: number
-                remarks:
-                  type: string
-                updatedBy:
-                  type: string
-                updatedAt:
-                  type: string
-                  format: date-time
                 markasComplaint:
                   type: boolean
+                  description: "If true → leadStatus = complaint"
                 markasFollowup:
                   type: boolean
+                  description: "If true → leadStatus = followup"
                 followupDate:
                   type: string
                   format: date-time

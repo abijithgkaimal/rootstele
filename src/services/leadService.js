@@ -50,7 +50,7 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   if (leadtype && allowedTypes.includes(leadtype)) filter.leadtype = leadtype;
 
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-  const projection = 'createdAt store name phone leadtype functionDate subCategory closingAction remarks followupDate followupremarks updatedAt updatedBy';
+  const projection = 'createdAt store name phone leadtype leadStatus functionDate subCategory closingAction remarks followupDate followupremarks updatedAt updatedBy';
 
   const [leads, total] = await Promise.all([
     LeadMaster.find(filter).select(projection).sort({ updatedAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
@@ -121,9 +121,10 @@ const getNewLeads = async (filters = {}) => {
   return { leads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
 };
 
-const updateFollowupById = async (id, payload) => {
-  const update = pick(payload, ['followupclosingAction', 'followupremarks', 'followupcallDuration', 'updatedBy']);
-  update.updatedAt = payload.updatedAt ? new Date(payload.updatedAt) : new Date();
+const updateFollowupById = async (id, payload, updatedBy) => {
+  const update = pick(payload, ['followupclosingAction', 'followupremarks', 'followupcallDuration']);
+  update.updatedAt = new Date();
+  update.updatedBy = updatedBy || 'unknown';
   update.leadStatus = 'completed';
 
   const lead = await LeadMaster.findOneAndUpdate(

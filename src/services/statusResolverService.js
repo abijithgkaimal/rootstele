@@ -21,13 +21,21 @@ const resolveManualLeadStatus = (payload) => {
 };
 
 const resolveBookingConfirmationStatus = (payload) => {
+  // Priority 1: explicit telecaller flags (same logic as return leads)
+  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true';
+  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true';
+
+  if (markasComplaint) return 'complaint';
+  if (markasFollowup) return 'followup';
+
+  // Priority 2: booking-specific business rules (billReceived / amountMismatch)
   const billReceived = (payload.billReceived || payload.billrecieved || '').toString().toLowerCase();
   const amountMismatch = payload.amountMismatch === true || payload.amountMismatch === 'true';
 
   if (billReceived === 'no') return 'complaint';
   if (amountMismatch) return 'complaint';
-  if (billReceived === 'yes' && !amountMismatch) return 'completed';
 
+  // Default: call handled → completed
   return 'completed';
 };
 

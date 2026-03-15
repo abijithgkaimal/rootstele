@@ -4,7 +4,11 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 
 const addLead = asyncHandler(async (req, res) => {
-  const lead = await leadService.createLead(req.body);
+  const payload = {
+    ...req.body,
+    createdBy: req.user?.employeeId || req.user?.userId || req.user?.name || 'unknown',
+  };
+  const lead = await leadService.createLead(payload);
   return success(res, lead, 'Lead created', 201);
 });
 

@@ -38,7 +38,10 @@ paths:
       tags:
         - Booking Confirmation
       summary: Update Booking Confirmation
-      description: Update booking confirmation. billReceived=no or amountMismatch=true → complaint. Otherwise completed.
+      description: >
+        Update booking confirmation after telecaller call.
+        Priority: markasComplaint → complaint | markasFollowup → followup | billReceived=no/amountMismatch → complaint | default → completed.
+        **updatedBy** and **updatedAt** are automatically set by the server from the authenticated user — do NOT pass them in the request body.
       security:
         - BearerAuth: []
       parameters:
@@ -65,9 +68,13 @@ paths:
                   type: boolean
                 remarks:
                   type: string
-                updatedBy:
-                  type: string
-                updatedAt:
+                markasComplaint:
+                  type: boolean
+                  description: "If true → leadStatus = complaint (highest priority)"
+                markasFollowup:
+                  type: boolean
+                  description: "If true → leadStatus = followup"
+                followupDate:
                   type: string
                   format: date-time
       responses:

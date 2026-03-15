@@ -113,19 +113,21 @@ paths:
                     items:
                       type: object
                       properties:
+                        _id: { type: string }
                         createdAt: { type: string, format: date-time, description: "Original Lead Date (from RMS or manual entry)" }
                         store: { type: string }
                         name: { type: string }
                         phone: { type: string }
-                        leadtype: { type: string }
+                        leadtype: { type: string, enum: [return, booked, enquiry, bookingConfirmation, justDial] }
+                        leadStatus: { type: string, enum: [completed], description: "Always 'completed' for this endpoint" }
                         functionDate: { type: string, format: date-time }
                         subCategory: { type: string }
                         closingAction: { type: string }
                         remarks: { type: string }
                         followupDate: { type: string, format: date-time }
                         followupremarks: { type: string }
-                        updatedAt: { type: string, format: date-time, description: "Action Date (when status changed by telecaller)" }
-                        updatedBy: { type: string, description: "Telecaller ID" }
+                        updatedAt: { type: string, format: date-time, description: "Action Date (when telecaller completed the lead)" }
+                        updatedBy: { type: string, description: "Auto-populated from authenticated user (employeeId)" }
                   total: { type: integer }
                   page: { type: integer }
                   limit: { type: integer }
@@ -201,7 +203,9 @@ paths:
       tags:
         - Leads
       summary: Update Followup
-      description: Update followup lead and set leadStatus = completed
+      description: >
+        Update a followup lead and set leadStatus = completed.
+        **updatedBy** and **updatedAt** are automatically set by the server from the authenticated user.
       security:
         - BearerAuth: []
       parameters:
@@ -222,11 +226,6 @@ paths:
                   type: string
                 followupcallDuration:
                   type: string
-                updatedBy:
-                  type: string
-                updatedAt:
-                  type: string
-                  format: date-time
       responses:
         '200':
           description: Followup updated

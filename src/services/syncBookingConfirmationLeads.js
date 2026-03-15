@@ -81,8 +81,11 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
         source: 'bookingSync',
       };
 
-      // Flat merged document
-      const flatDoc = { ...apiRest, ...systemFields };
+      // Flat merged document: API extras + system fields (system wins on conflicts)
+      // Strip audit fields — these must NEVER be set by external sync.
+      // createdBy / updatedBy / updatedAt belong to telecaller actions only.
+      const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, createdAt: _ca, ...safeApiRest } = apiRest;
+      const flatDoc = { ...safeApiRest, ...systemFields };
 
       operations.push({
         updateOne: {
@@ -93,7 +96,7 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
               leadStatus: 'new',
               markasComplaint: false,
               markasFollowup: false,
-              createdAt: bookingDate || new Date(),
+              createdAt: bookingDate || new Date(), // set only on first insert
             },
           },
           upsert: true,
