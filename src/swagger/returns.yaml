@@ -19,14 +19,18 @@ paths:
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter by returnDate (format 2026-01-26T00:00:00)
+            example: 2026-03-15
+          description: >
+            Filter by returnDate (inclusive).
+            Formats: YYYY-MM-DD or ISO.
         - name: toDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter by returnDate (format 2026-01-26T00:00:00)
+            example: 2026-03-15
+          description: >
+            Filter by returnDate (inclusive).
+            Formats: YYYY-MM-DD or ISO.
       responses:
         '200':
           description: List of return leads

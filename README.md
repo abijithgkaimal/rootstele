@@ -72,7 +72,14 @@ Node.js + Express + MongoDB backend for the Telecaller application.
 
 ### 📅 Date Filtering Logic
 
-All APIs follow a unified date filtering architecture based on `leadStatus`:
+All APIs support date filtering using these query parameters:
+- `fromDate`
+- `toDate`
+
+**Supported Formats:**
+1. **Simple Date**: `YYYY-MM-DD` (e.g. `2026-03-15`)
+   - Backend automatically expands `fromDate` to `00:00:00` and `toDate` to `23:59:59`.
+2. **ISO Format**: `YYYY-MM-DDTHH:mm:ss` (e.g. `2026-03-15T10:30:00`)
 
 | leadStatus | leadtype | Filtering Field | Description |
 |------------|----------|-----------------|-------------|
@@ -82,8 +89,6 @@ All APIs follow a unified date filtering architecture based on `leadStatus`:
 | **followup** | any | `followupDate` | Scheduled callback date |
 | **complaint** | any | `updatedAt` | Date when lead became a complaint |
 | **completed** | any | `updatedAt` | Date when lead was finalized (Closed) |
-
-**Date Format**: APIs expect ISO format strings like `2026-01-26T00:00:00`.
 
 All lead/sync/admin APIs require auth: JWT Bearer, Basic auth, or headers `x-user-id` and `x-password`.
 

@@ -78,14 +78,20 @@ paths:
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter by updatedAt (format 2026-01-26T00:00:00)
+            example: 2026-03-15
+          description: >
+            Filter by updatedAt (inclusive). 
+            Formats: YYYY-MM-DD (e.g. 2026-03-15) or ISO (e.g. 2026-03-15T00:00:00).
+            If time is missing, backend automatically expands to start of day.
         - name: toDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter by updatedAt (format 2026-01-26T00:00:00)
+            example: 2026-03-15
+          description: >
+            Filter by updatedAt (inclusive).
+            Formats: YYYY-MM-DD (e.g. 2026-03-15) or ISO (e.g. 2026-03-15T23:59:59).
+            If time is missing, backend automatically expands to end of day.
         - name: store
           in: query
           schema:
@@ -156,14 +162,18 @@ paths:
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter by followupDate (inclusive)
+            example: 2026-03-15
+          description: >
+            Filter by followupDate (inclusive).
+            Formats: YYYY-MM-DD or ISO.
         - name: toDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter by followupDate (inclusive)
+            example: 2026-03-15
+          description: >
+            Filter by followupDate (inclusive).
+            Formats: YYYY-MM-DD or ISO.
       responses:
         '200':
           description: List of followup leads
@@ -187,12 +197,18 @@ paths:
           in: query
           schema:
             type: string
-            format: date-time
+            example: 2026-03-15
+          description: >
+            Filter by updatedAt (inclusive).
+            Formats: YYYY-MM-DD or ISO.
         - name: toDate
           in: query
           schema:
             type: string
-            format: date-time
+            example: 2026-03-15
+          description: >
+            Filter by updatedAt (inclusive).
+            Formats: YYYY-MM-DD or ISO.
         - name: page
           in: query
           schema:

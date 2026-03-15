@@ -14,9 +14,8 @@ const addLead = asyncHandler(async (req, res) => {
 
 const getCompletedLeads = asyncHandler(async (req, res) => {
   const filters = {
-    // Accept both legacy fromDate/toDate and new dateFrom/dateTo
-    fromDate: req.query.dateFrom || req.query.fromDate,
-    toDate: req.query.dateTo || req.query.toDate,
+    fromDate: req.query.fromDate,
+    toDate: req.query.toDate,
     store: req.query.store,
     leadtype: req.query.leadtype,
     page: req.query.page,

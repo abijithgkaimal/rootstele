@@ -6,11 +6,11 @@ const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
 
 const getDashboardStats = asyncHandler(async (req, res) => {
-  const { dateFrom, dateTo, store } = req.query;
+  const { fromDate, toDate, store } = req.query;
   const filter = {};
   
   // Use updatedAt for filtering as it tracks when the lead was finalized to 'completed'
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
+  const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = buildStoreRegex(store);
 
@@ -49,10 +49,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 });
 
 const getTelecallerSummary = asyncHandler(async (req, res) => {
-  const { dateFrom, dateTo, store } = req.query;
+  const { fromDate, toDate, store } = req.query;
   const filter = {};
 
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
+  const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = buildStoreRegex(store);
 
@@ -97,10 +97,10 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
 });
 
 const getReports = asyncHandler(async (req, res) => {
-  const { dateFrom, dateTo, store, leadType, telecallerId } = req.query;
+  const { fromDate, toDate, store, leadType, telecallerId } = req.query;
   const filter = {};
 
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
+  const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = buildStoreRegex(store);
   if (leadType) filter.leadtype = leadType;
@@ -121,10 +121,10 @@ const getReports = asyncHandler(async (req, res) => {
 });
 
 const getComplaintsPivot = asyncHandler(async (req, res) => {
-  const { dateFrom, dateTo, store } = req.query;
+  const { fromDate, toDate, store } = req.query;
   const filter = { leadStatus: 'complaint' };
 
-  const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
+  const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = buildStoreRegex(store);
 

@@ -1,9 +1,15 @@
+const normalizeDateRange = require('./dateRange');
+
 const buildDateFilter = (fromDate, toDate, field = 'createdAt') => {
-  const filter = {};
   if (!fromDate && !toDate) return null;
+
+  const { from, to } = normalizeDateRange(fromDate, toDate);
+  const filter = {};
   filter[field] = {};
-  if (fromDate) filter[field].$gte = new Date(fromDate);
-  if (toDate) filter[field].$lte = new Date(toDate);
+  
+  if (from) filter[field].$gte = from;
+  if (to) filter[field].$lte = to;
+  
   return filter;
 };
 

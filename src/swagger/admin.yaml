@@ -6,18 +6,18 @@ paths:
       summary: Get Dashboard Stats
       description: Get total calls, duration, and complaints for the admin dashboard. Filtered by **updatedAt**.
       parameters:
-        - name: dateFrom
+        - name: fromDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter from date (format 2026-01-26T00:00:00)
-        - name: dateTo
+            example: 2026-03-15
+          description: Filter from date. Formats: YYYY-MM-DD or ISO.
+        - name: toDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter to date (format 2026-01-26T00:00:00)
+            example: 2026-03-15
+          description: Filter to date. Formats: YYYY-MM-DD or ISO.
         - name: store
           in: query
           schema:
@@ -33,18 +33,18 @@ paths:
       summary: Telecaller Performance leaderboard
       description: Get performance summary per telecaller. Filtered by **updatedAt**.
       parameters:
-        - name: dateFrom
+        - name: fromDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter from date (format 2026-01-26T00:00:00)
-        - name: dateTo
+            example: 2026-03-15
+          description: Filter from date. Formats: YYYY-MM-DD or ISO.
+        - name: toDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter to date (format 2026-01-26T00:00:00)
+            example: 2026-03-15
+          description: Filter to date. Formats: YYYY-MM-DD or ISO.
         - name: store
           in: query
           schema:
@@ -60,18 +60,18 @@ paths:
       summary: Calls Report
       description: Get detailed reports of completed leads. Supports Accept header text/csv for export. Filtered by **updatedAt**.
       parameters:
-        - name: dateFrom
+        - name: fromDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter from date (format 2026-01-26T00:00:00)
-        - name: dateTo
+            example: 2026-03-15
+          description: Filter from date. Formats: YYYY-MM-DD or ISO.
+        - name: toDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter to date (format 2026-01-26T00:00:00)
+            example: 2026-03-15
+          description: Filter to date. Formats: YYYY-MM-DD or ISO.
         - name: store
           in: query
           schema:
@@ -95,18 +95,18 @@ paths:
       summary: Complaints Pivot Data
       description: Get complaints breakdown by store and category. Filtered by **updatedAt**.
       parameters:
-        - name: dateFrom
+        - name: fromDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter from date (format 2026-01-26T00:00:00)
-        - name: dateTo
+            example: 2026-03-15
+          description: Filter from date. Formats: YYYY-MM-DD or ISO.
+        - name: toDate
           in: query
           schema:
             type: string
-            format: date-time
-          description: Filter to date (format 2026-01-26T00:00:00)
+            example: 2026-03-15
+          description: Filter to date. Formats: YYYY-MM-DD or ISO.
         - name: store
           in: query
           schema:
