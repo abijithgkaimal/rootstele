@@ -4,6 +4,7 @@ const customerService = require('./customerService');
 const { buildDateFilter } = require('../utils/dateFilters');
 const pick = require('../utils/pick');
 const { normalize } = require('../utils/phoneNormalizer');
+const { normalizeStore, buildStoreRegex } = require('../utils/storeNormalizer');
 
 const createLead = async (payload) => {
   const leadStatus = statusResolver.resolveManualLeadStatus(payload);
@@ -18,7 +19,7 @@ const createLead = async (payload) => {
     customerName: payload.customerName || payload.name,   // Keep in sync: prefer customerName, fallback to name
     name: payload.name || payload.customerName,           // Keep in sync: prefer name, fallback to customerName
     callStatus: payload.callStatus,
-    store: payload.store,
+    store: normalizeStore(payload.store),
     functionDate: payload.functionDate ? new Date(payload.functionDate) : null,
     callDuration: payload.callDuration,
     subCategory: payload.subCategory,
@@ -46,7 +47,7 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   // For completed leads, filter using updatedAt
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = store;
+  if (store) filter.store = buildStoreRegex(store);
   const allowedTypes = ['return', 'booked', 'enquiry', 'bookingConfirmation', 'justDial'];
   if (leadtype && allowedTypes.includes(leadtype)) filter.leadtype = leadtype;
 
@@ -73,7 +74,7 @@ const getFollowups = async (options = {}) => {
   const projection = 'name customerName phone store functionDate subCategory closingAction remarks followupDate updatedBy updatedAt';
 
   const filter = { leadStatus: 'followup' };
-  if (store) filter.store = store;
+  if (store) filter.store = buildStoreRegex(store);
 
   const dateFilter = buildDateFilter(fromDate, toDate, 'followupDate');
   if (dateFilter) Object.assign(filter, dateFilter);
@@ -98,7 +99,7 @@ const getComplaints = async (options = {}) => {
   const projection = 'name customerName phone store leadtype functionDate subCategory remarks updatedBy updatedAt followupDate';
 
   const filter = { leadStatus: 'complaint' };
-  if (store) filter.store = store;
+  if (store) filter.store = buildStoreRegex(store);
 
   // Use updatedAt for active complaints (leadStatus: 'complaint') as per user request
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
@@ -122,7 +123,7 @@ const getNewLeads = async (filters = {}) => {
   const { leadtype, store, fromDate, toDate, page = 1, limit = 100 } = filters;
   const filter = { leadStatus: 'new' };
   if (leadtype) filter.leadtype = leadtype;
-  if (store) filter.store = store;
+  if (store) filter.store = buildStoreRegex(store);
 
   let dateField = 'createdAt';
   if (leadtype === 'return') dateField = 'returnDate';

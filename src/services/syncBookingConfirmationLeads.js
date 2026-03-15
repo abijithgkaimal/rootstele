@@ -3,6 +3,7 @@ const dayjs = require('dayjs');
 const LeadMaster = require('../models/LeadMaster');
 const customerService = require('./customerService');
 const { normalize } = require('../utils/phoneNormalizer');
+const { normalizeStore } = require('../utils/storeNormalizer');
 
 const env = require('../config/env');
 const BOOKING_CONFIRMATION_API_URL =
@@ -73,10 +74,10 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
       const systemFields = {
         bookingNo,
         leadtype: 'bookingConfirmation',
-        phone,
+        phone: phone,
         normalizedPhone: normPhone || undefined,
         customerName,
-        store: location,
+        store: normalizeStore(location),
         bookingDate,
         source: 'bookingSync',
       };

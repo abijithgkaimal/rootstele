@@ -1,6 +1,7 @@
 const LeadMaster = require('../models/LeadMaster');
 const User = require('../models/User');
 const { buildDateFilter } = require('../utils/dateFilters');
+const { buildStoreRegex } = require('../utils/storeNormalizer');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
 
@@ -11,7 +12,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   // Use updatedAt for filtering as it tracks when the lead was finalized to 'completed'
   const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = store;
+  if (store) filter.store = buildStoreRegex(store);
 
   const stats = await LeadMaster.aggregate([
     { $match: filter },
@@ -53,7 +54,7 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
 
   const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = store;
+  if (store) filter.store = buildStoreRegex(store);
 
   const summary = await LeadMaster.aggregate([
     { $match: filter },
@@ -101,7 +102,7 @@ const getReports = asyncHandler(async (req, res) => {
 
   const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = store;
+  if (store) filter.store = buildStoreRegex(store);
   if (leadType) filter.leadtype = leadType;
   if (telecallerId) filter.createdBy = telecallerId;
 
@@ -125,7 +126,7 @@ const getComplaintsPivot = asyncHandler(async (req, res) => {
 
   const dateFilter = buildDateFilter(dateFrom, dateTo, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = store;
+  if (store) filter.store = buildStoreRegex(store);
 
   const pivotData = await LeadMaster.aggregate([
     { $match: filter },
@@ -147,11 +148,22 @@ const getComplaintsPivot = asyncHandler(async (req, res) => {
 
   return res.json(result);
 });
-
 const getFilterOptions = asyncHandler(async (req, res) => {
-  // Get unique stores from completed leads
-  const stores = await LeadMaster.distinct('store', { leadStatus: 'completed' });
+  const Store = require('../models/Store');
   
+  // 1. Get official stores from Store collection (master list)
+  const masterStores = await Store.distinct('normalizedName');
+  
+  // 2. Get unique stores that have active data in LeadMaster (fallback for historical data)
+  const leadStores = await LeadMaster.distinct('store');
+  
+  // Combine, normalize, and deduplicate
+  const { normalizeStore } = require('../utils/storeNormalizer');
+  const allStores = [...new Set([
+    ...masterStores.map(normalizeStore),
+    ...leadStores.map(normalizeStore)
+  ])].filter(Boolean).sort();
+
   // Get unique lead types from completed leads
   const leadTypes = await LeadMaster.distinct('leadtype', { leadStatus: 'completed' });
   
@@ -159,9 +171,8 @@ const getFilterOptions = asyncHandler(async (req, res) => {
   const telecallers = await User.find({ role: { $in: ['Telecaller', 'telecaller'] } })
     .select('employeeId name')
     .lean();
-    
   return success(res, {
-    stores: stores.filter(Boolean).sort(),
+    stores: allStores,
     leadTypes: leadTypes.filter(Boolean).sort(),
     telecallers: telecallers.map(t => ({
       id: t.employeeId,

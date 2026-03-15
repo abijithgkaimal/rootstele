@@ -3,6 +3,7 @@ const dayjs = require('dayjs');
 const LeadMaster = require('../models/LeadMaster');
 const customerService = require('./customerService');
 const { normalize } = require('../utils/phoneNormalizer');
+const { normalizeStore } = require('../utils/storeNormalizer');
 
 const env = require('../config/env');
 const RETURN_API_URL =
@@ -73,10 +74,10 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
       const systemFields = {
         bookingNo,
         leadtype: 'return',
-        phone,
+        phone: phone,
         normalizedPhone: normPhone || undefined,
         customerName,
-        store: location,
+        store: normalizeStore(location),
         returnDate,
         source: 'returnSync',
       };

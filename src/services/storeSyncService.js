@@ -1,34 +1,11 @@
 const axios = require('axios');
 const Store = require('../models/Store');
 const SyncMeta = require('../models/SyncMeta');
+const { normalizeStore } = require('../utils/storeNormalizer');
 const env = require('../config/env');
 
 const STORE_SYNC_JOB_NAME = 'storeSync';
 const STORE_API_URL = env.storeListUrl || process.env.STORE_LIST_API || 'https://rentalapi.rootments.live/api/Location/LocationList';
-
-// Normalization: z→zorucci, sg→suitorguy, z-edappally→zorucci-edappally, sg-edappally→suitorguy-edappally
-const normalizeStore = (rawName) => {
-  const raw = (rawName || '').trim();
-  if (!raw) {
-    return { brand: null, location: null, normalizedName: null };
-  }
-
-  const lower = raw.toLowerCase();
-  let normalizedName = raw;
-
-  if (lower.startsWith('sg-') || lower === 'sg') {
-    normalizedName = lower.replace(/^sg(-|$)/, 'suitorguy$1');
-  } else if (lower.startsWith('z-') || lower === 'z') {
-    normalizedName = lower.replace(/^z(-|$)/, 'zorucci$1');
-  }
-
-  const parts = normalizedName.split('-');
-  const brand = parts[0] || null;
-  const location = parts.slice(1).join('-') || null;
-  const finalNormalizedName = brand && location ? `${brand}-${location}` : normalizedName;
-
-  return { brand, location, normalizedName: finalNormalizedName };
-};
 
 const syncStores = async () => {
   const response = await axios.get(STORE_API_URL, {
@@ -49,14 +26,16 @@ const syncStores = async () => {
 
     if (!locCode || !rawName) continue;
 
-    const { brand, location, normalizedName } = normalizeStore(rawName);
+    const normalizedName = normalizeStore(rawName);
+    const [brand, ...locationParts] = normalizedName.split('-');
+    const location = locationParts.join('-') || null;
 
     const update = {
       externalId,
       rawName,
       storeName: rawName,
       normalizedName,
-      brand,
+      brand: brand || null,
       location,
       status,
       updatedAt: new Date(),
