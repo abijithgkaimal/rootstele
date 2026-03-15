@@ -69,6 +69,8 @@ paths:
                   type: string
                 rating:
                   type: number
+                remarks:
+                  type: string
                 markasComplaint:
                   type: boolean
                   description: "If true → leadStatus = complaint"

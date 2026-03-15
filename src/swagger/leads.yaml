@@ -4,6 +4,10 @@ paths:
       tags:
         - Leads
       summary: Add New Lead
+      description: >
+        Create a manual lead (booked or enquiry type).
+        **createdBy** is automatically set from the authenticated user's employeeId — do NOT pass it in the request body.
+        **createdAt** defaults to the server time at creation.
       security:
         - BearerAuth: []
       requestBody:
@@ -44,14 +48,11 @@ paths:
                   type: string
                 markasComplaint:
                   type: boolean
+                  description: "If true → leadStatus = complaint"
                 markasFollowup:
                   type: boolean
+                  description: "If true → leadStatus = followup"
                 followupDate:
-                  type: string
-                  format: date-time
-                createdBy:
-                  type: string
-                createdAt:
                   type: string
                   format: date-time
       responses:
@@ -59,6 +60,8 @@ paths:
           description: Lead created
         '400':
           description: Invalid input
+        '401':
+          description: Unauthorized
 
   /leads/completed:
     get:

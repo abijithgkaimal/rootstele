@@ -37,21 +37,21 @@ Node.js + Express + MongoDB backend for the Telecaller application.
 - **POST /api/auth/login** – Login (userId, password). Returns JWT on success.
 
 ### Leads
-- **POST /api/leads** – Add new lead (booked/enquiry)
+- **POST /api/leads** – Add new lead (booked/enquiry). `createdBy` auto-set from authenticated user — do NOT pass in body.
 - **GET /api/leads/completed** – Completed report (filters: fromDate, toDate, store, leadtype; pagination: page, limit)
 
 ### Followups
-- **GET /api/leads/followups** – Followup list
-- **POST /api/leads/followups/:id** – Update followup (sets leadStatus = completed)
-- **GET /api/leads/complaints** – Complaint list
+- **GET /api/leads/followups** – Followup list (leadStatus=followup)
+- **POST /api/leads/followups/:id** – Update followup → sets leadStatus=completed. `updatedBy`/`updatedAt` auto-set by server.
+- **GET /api/leads/complaints** – Complaint list (leadStatus=complaint)
 
 ### Booking Confirmation
 - **GET /api/leads/booking-confirmation** – List booking confirmation leads (leadStatus=new)
-- **POST /api/leads/booking-confirmation/:id** – Update (markasComplaint/markasFollowup → leadStatus; billReceived/amountMismatch as fallback)
+- **POST /api/leads/booking-confirmation/:id** – Update. Status priority: markasComplaint → complaint | markasFollowup → followup | billReceived=no/amountMismatch → complaint | default → completed. `updatedBy`/`updatedAt` auto-set.
 
 ### Returns
-- **GET /api/leads/returns** – List return leads
-- **POST /api/leads/returns/:id** – Update return lead
+- **GET /api/leads/returns** – List return leads (leadStatus=new, filtered by returnDate)
+- **POST /api/leads/returns/:id** – Update. Status priority: markasComplaint → complaint | markasFollowup → followup | default → completed. `updatedBy`/`updatedAt` auto-set.
 
 ### Customers (Phase 2 – popup detection)
 - **GET /api/customers/check-phone?phone=...** – Incoming call lookup; returns `popupType`, `customer`, `lead`
@@ -128,8 +128,10 @@ Fields:
 - `noofFunctions / noofAttires`: For return leads
 - `bookingNo`: Unique ID from RMS
 - `source`: [manual, bookingSync, returnSync]
-- `createdAt`: **Original Lead Date**. For synced leads, this is the date from the RMS API (returnDate/bookingDate). For manual leads, it is the creation time.
-- `updatedAt`: **Action Date**. Tracks when a telecaller updated the lead (e.g., moved to followup, complaint, or completed).
+- `createdAt`: **Original Lead Date**. For synced leads, set from the RMS API date (returnDate/bookingDate) on first insert only — never overwritten by re-syncs. For manual leads, set at creation time.
+- `updatedAt`: **Action Date**. Set by the server whenever a telecaller updates a lead (followup, complaint, or completed). Never set during external sync.
+- `createdBy`: Telecaller employeeId who created a manual lead. Auto-populated from auth token. Never set for synced leads.
+- `updatedBy`: Telecaller employeeId who last updated the lead. Auto-populated from auth token on every update call. Never set during external sync.
 
 Backward-compatible update fields:
 - `billrecieved` → mapped to `billReceived`
@@ -162,8 +164,8 @@ The system uses a Master Scheduler (`src/schedulers/masterSyncScheduler.js`) to 
 - Upsert logic uses `bookingNo + leadType` to prevent duplicates.
 
 ### 🔒 Sync Meta & Locking
-- **SyncMeta**: Tracks `lastRunAt` and `firstSyncCompleted` state to ensure we don't duplicate work.
-- **SyncLock**: Uses a database-level lock to prevent multiple sync processes from running at the same time if a previous process is still active.
+- **SyncMeta**: Tracks `lastRunAt`, `initialSequenceCompleted` (gate for incremental syncs), and per-job `firstSyncCompleted` state.
+- **SyncLock**: Database-level lock (collection `synclock`) — prevents overlapping syncs. Created when sync starts, deleted when all steps finish (success or failure). No time-based expiry.
 
 
 ---
