@@ -4,7 +4,7 @@ paths:
       tags:
         - Admin
       summary: Get Dashboard Stats
-      description: Get total calls, duration, and complaints for the admin dashboard. Filtered by **updatedAt**.
+      description: Get total calls, duration, and complaints for the admin dashboard. Includes telecaller stats. Filtered by **updatedAt**.
       parameters:
         - name: fromDate
           in: query
@@ -22,9 +22,29 @@ paths:
           in: query
           schema:
             type: string
+          description: "Store name filter. Use 'All Stores' to bypass."
       responses:
         '200':
           description: Dashboard stats retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalCalls: { type: number }
+                  totalDuration: { type: number, description: "In seconds" }
+                  avgDuration: { type: number }
+                  totalComplaints: { type: number }
+                  telecallerStats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        empId: { type: string }
+                        calls: { type: number }
+                        duration: { type: number }
+                        complaints: { type: number }
 
   /admin/telecaller-summary:
     get:
@@ -52,13 +72,25 @@ paths:
       responses:
         '200':
           description: Summary retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    telecaller: { type: string }
+                    totalCalls: { type: number }
+                    totalDuration: { type: number }
+                    avgDuration: { type: number }
+                    complaints: { type: number }
 
   /admin/reports:
     get:
       tags:
         - Admin
       summary: Calls Report
-      description: Get detailed reports of completed leads. Supports Accept header text/csv for export. Filtered by **updatedAt**.
+      description: Get detailed reports of completed leads. Filtered by **updatedAt**.
       parameters:
         - name: fromDate
           in: query
@@ -80,13 +112,23 @@ paths:
           in: query
           schema:
             type: string
-        - name: telecallerId
+        - name: telecaller
           in: query
           schema:
             type: string
       responses:
         '200':
           description: Report data retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads:
+                    type: array
+                    items:
+                      type: object
+                  total: { type: number }
 
   /admin/complaints/pivot:
     get:
@@ -114,6 +156,16 @@ paths:
       responses:
         '200':
           description: Pivot data retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    category: { type: string }
+                    store: { type: string }
+                    total: { type: number }
 
   /admin/filter-options:
     get:

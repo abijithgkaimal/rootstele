@@ -9,19 +9,111 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   const { fromDate, toDate, store } = req.query;
   const filter = {};
   
-  // Use updatedAt for filtering as it tracks when the lead was finalized to 'completed'
+  if (store && store !== 'All Stores') {
+    filter.store = buildStoreRegex(store);
+  }
+
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = buildStoreRegex(store);
+
+  // Consider only leads that have been handled (status changed from new)
+  const stats = await LeadMaster.aggregate([
+    { $match: { ...filter, leadStatus: { $in: ['completed', 'complaint'] } } },
+    {
+      $facet: {
+        overall: [
+          {
+            $group: {
+              _id: null,
+              totalCalls: { $sum: 1 },
+              totalDuration: { 
+                $sum: { 
+                  $convert: { 
+                    input: "$callDuration", 
+                    to: "double", 
+                    onError: 0, 
+                    onNull: 0 
+                  } 
+                } 
+              },
+              totalComplaints: {
+                $sum: { $cond: [{ $eq: ["$leadStatus", "complaint"] }, 1, 0] }
+              }
+            }
+          }
+        ],
+        telecallerStats: [
+          {
+            $group: {
+              _id: "$createdBy",
+              calls: { $sum: 1 },
+              duration: {
+                $sum: { 
+                  $convert: { 
+                    input: "$callDuration", 
+                    to: "double", 
+                    onError: 0, 
+                    onNull: 0 
+                  } 
+                } 
+              },
+              complaints: {
+                $sum: { $cond: [{ $eq: ["$leadStatus", "complaint"] }, 1, 0] }
+              }
+            }
+          },
+          { $sort: { calls: -1 } },
+          {
+            $project: {
+              _id: 0,
+              name: "$_id",
+              empId: "$_id",
+              calls: 1,
+              duration: 1,
+              complaints: 1
+            }
+          }
+        ]
+      }
+    }
+  ]);
+
+  const overall = stats[0]?.overall[0] || {
+    totalCalls: 0,
+    totalDuration: 0,
+    totalComplaints: 0
+  };
+
+  const result = {
+    totalCalls: overall.totalCalls,
+    totalDuration: overall.totalDuration,
+    avgDuration: overall.totalCalls > 0 ? overall.totalDuration / overall.totalCalls : 0,
+    totalComplaints: overall.totalComplaints,
+    telecallerStats: stats[0]?.telecallerStats || []
+  };
+
+  return success(res, result);
+});
+
+const getTelecallerSummary = asyncHandler(async (req, res) => {
+  const { fromDate, toDate, store } = req.query;
+  const filter = {};
   
-  // Dashboard shows handled leads (completed or complaints)
+  if (store && store !== 'All Stores') {
+    filter.store = buildStoreRegex(store);
+  }
+
+  const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
+  if (dateFilter) Object.assign(filter, dateFilter);
+
+  // Consider only leads that have been handled (status changed from new)
   filter.leadStatus = { $in: ['completed', 'complaint'] };
 
-  const stats = await LeadMaster.aggregate([
+  const summary = await LeadMaster.aggregate([
     { $match: filter },
     {
       $group: {
-        _id: null,
+        _id: "$createdBy",
         totalCalls: { $sum: 1 },
         totalDuration: { 
           $sum: { 
@@ -33,89 +125,52 @@ const getDashboardStats = asyncHandler(async (req, res) => {
             } 
           } 
         },
-        totalComplaints: {
+        complaints: {
           $sum: { $cond: [{ $eq: ["$leadStatus", "complaint"] }, 1, 0] }
         }
       }
-    }
-  ]);
-
-  const result = stats[0] || {
-    totalCalls: 0,
-    totalDuration: 0,
-    totalComplaints: 0
-  };
-
-  result.avgCallDuration = result.totalCalls > 0 ? result.totalDuration / result.totalCalls : 0;
-
-  return success(res, result);
-});
-
-const getTelecallerSummary = asyncHandler(async (req, res) => {
-  const { fromDate, toDate, store } = req.query;
-  const filter = {};
-
-  const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
-  if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = buildStoreRegex(store);
-
-  // Summary shows handled leads (completed or complaints)
-  filter.leadStatus = { $in: ['completed', 'complaint'] };
-
-  const summary = await LeadMaster.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: "$createdBy",
-        totalCalls: { $sum: 1 },
-        totalCallDuration: { 
-          $sum: { 
-            $convert: { 
-              input: "$callDuration", 
-              to: "double", 
-              onError: 0, 
-              onNull: 0 
-            } 
-          } 
-        },
-        totalComplaints: {
-          $sum: { $cond: [{ $eq: ["$leadStatus", "complaint"] }, 1, 0] }
-        },
-        name: { $first: "$createdBy" } 
-      }
     },
-    { $sort: { totalCalls: -1 } },
     {
       $project: {
         _id: 0,
-        telecaller: {
-          name: "$_id",
-          employeeId: "$_id"
-        },
+        telecaller: "$_id",
         totalCalls: 1,
-        totalCallDuration: 1,
-        totalComplaints: 1
+        totalDuration: 1,
+        avgDuration: { $cond: [{ $gt: ["$totalCalls", 0] }, { $divide: ["$totalDuration", "$totalCalls"] }, 0] },
+        complaints: 1
       }
-    }
+    },
+    { $sort: { totalCalls: -1 } }
   ]);
 
   return success(res, summary);
 });
 
 const getReports = asyncHandler(async (req, res) => {
-  const { fromDate, toDate, store, leadType, telecallerId } = req.query;
+  const { fromDate, toDate, store, leadType, telecaller, page = 1, limit = 1000 } = req.query;
   const filter = { leadStatus: 'completed' };
+
+  if (store && store !== 'All Stores') {
+    filter.store = buildStoreRegex(store);
+  }
+  if (leadType) filter.leadtype = leadType;
+  if (telecaller) filter.createdBy = telecaller;
 
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = buildStoreRegex(store);
-  if (leadType) filter.leadtype = leadType;
-  if (telecallerId) filter.createdBy = telecallerId;
 
-  const leads = await LeadMaster.find(filter)
-    .sort({ updatedAt: -1 }) // Sort by updatedAt as requested
-    .limit(1000)
-    .lean();
+  const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+  const projection = 'createdAt store name customerName phone leadtype createdBy callDuration refundStatus followupDate updatedAt';
+
+  const [leads, total] = await Promise.all([
+    LeadMaster.find(filter)
+      .select(projection)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit, 10))
+      .lean(),
+    LeadMaster.countDocuments(filter),
+  ]);
 
   const mappedLeads = leads.map(l => ({
     ...l,
@@ -123,36 +178,40 @@ const getReports = asyncHandler(async (req, res) => {
     name: l.name || l.customerName
   }));
 
-  return success(res, mappedLeads);
+  return success(res, { leads: mappedLeads, total });
 });
 
 const getComplaintsPivot = asyncHandler(async (req, res) => {
   const { fromDate, toDate, store } = req.query;
   const filter = { leadStatus: 'complaint' };
 
+  if (store && store !== 'All Stores') {
+    filter.store = buildStoreRegex(store);
+  }
+
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
-  if (store) filter.store = buildStoreRegex(store);
 
   const pivotData = await LeadMaster.aggregate([
     { $match: filter },
     {
       $group: {
         _id: { store: "$store", category: "$subCategory" },
-        count: { $sum: 1 }
+        total: { $sum: 1 }
       }
-    }
+    },
+    {
+      $project: {
+        _id: 0,
+        store: "$_id.store",
+        category: "$_id.category",
+        total: 1
+      }
+    },
+    { $sort: { total: -1 } }
   ]);
 
-  const result = {};
-  pivotData.forEach(item => {
-    const s = item._id.store || 'Unknown';
-    const c = item._id.category || 'General';
-    if (!result[s]) result[s] = {};
-    result[s][c] = item.count;
-  });
-
-  return res.json(result);
+  return success(res, pivotData);
 });
 const getFilterOptions = asyncHandler(async (req, res) => {
   const Store = require('../models/Store');
