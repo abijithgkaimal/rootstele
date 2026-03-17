@@ -89,20 +89,5 @@ paths:
         '401':
           description: Unauthorized
 
-  /sync/booking-confirmation:
-    post:
-      tags:
-        - Sync
-      summary: Sync Booking Confirmation
-      description: >
-        Trigger manual sync of booking confirmation leads from RMS.
-        Calls the external API once to fetch all store data.
-        In manual mode, it syncs the last 60 days of data.
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Sync completed
-        '401':
-          description: Unauthorized
+
 

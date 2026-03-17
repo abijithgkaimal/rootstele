@@ -38,7 +38,10 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
       console.log(`[BookingSync] Fetching for location: ${locCode} (${store.normalizedName})`);
 
       try {
-        const response = await axios.get(BOOKING_CONFIRMATION_API_URL, {
+        const fullUrl = BOOKING_CONFIRMATION_API_URL;
+        console.log(`[BookingSync] Calling GET ${fullUrl} with params:`, { locCode, dateFrom, dateTo });
+        
+        const response = await axios.get(fullUrl, {
           params: { locCode, dateFrom, dateTo },
           timeout: 60000 // 60s per store
         });

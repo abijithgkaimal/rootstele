@@ -12,10 +12,10 @@ module.exports = {
     getEnv('ROOTMENTS_VERIFY_API') ||
     'https://rootments.in/api/verify_employee',
   bookingSummaryUrl:
+    'https://rentalapi.rootments.live/api/GetBooking/GetBookingSummary' ||
     getEnv('BOOKING_SUMMARY_URL') ||
     getEnv('BOOKING_CONFIRMATION_RMS_API_URL') ||
-    getEnv('RENTAL_BOOKING_SUMMARY_API') ||
-    'https://rentalapi.rootments.live/api/GetBooking/GetBookingSummary',
+    getEnv('RENTAL_BOOKING_SUMMARY_API'),
   returnReportUrl:
     getEnv('RETURN_REPORT_URL') ||
     getEnv('RETURN_RMS_API_URL') ||
