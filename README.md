@@ -164,8 +164,9 @@ The system uses a Master Scheduler (`src/schedulers/masterSyncScheduler.js`) to 
    - Follows the same flow as the initial sync.
 
 ### ⚡ Parallel & Bulk Processing
-- The system calls the external RMS API once per sync type (Returns/Bookings) instead of per store.
-- Leads from all locations are returned in a single dataset and processed efficiently.
+- The system calls the external RMS API once per sync type for Returns.
+- **Booking Confirmation Sync**: Now iterates through each store in the database and calls the API per `locCode`.
+- Leads from all locations are processed efficiently and upserted into the `LeadMaster` collection.
 - Upsert logic uses `bookingNo + leadType` to prevent duplicates.
 
 ### 🔒 Sync Meta & Locking

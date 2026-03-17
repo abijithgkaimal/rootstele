@@ -1,6 +1,7 @@
 const axios = require('axios');
 const dayjs = require('dayjs');
 const LeadMaster = require('../models/LeadMaster');
+const Store = require('../models/Store');
 const customerService = require('./customerService');
 const { normalize } = require('../utils/phoneNormalizer');
 const { normalizeStore } = require('../utils/storeNormalizer');
@@ -9,7 +10,7 @@ const env = require('../config/env');
 const BOOKING_CONFIRMATION_API_URL =
   env.bookingSummaryUrl ||
   process.env.BOOKING_SUMMARY_URL ||
-  'https://rentalapi.rootments.live/api/Repo/GetBookingSummary';
+  'https://rentalapi.rootments.live/api/GetBooking/GetBookingSummary';
 
 const JOB_NAME = 'bookingConfirmationSync';
 
@@ -22,88 +23,97 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
   console.log(`[BookingSync] Starting ${initial ? '60-day' : '7-day'} sync: ${dateFrom} → ${dateTo}`);
 
   try {
-    const response = await axios.post(
-      BOOKING_CONFIRMATION_API_URL,
-      { dateFrom, dateTo },
-      { timeout: 900000, headers: { 'Content-Type': 'application/json' } }
-    );
-
-    const leadsData = response?.data?.dataSet?.data || response?.data || [];
-    if (!Array.isArray(leadsData) || !leadsData.length) {
-      console.log('[BookingSync] No data returned from API.');
+    const stores = await Store.find({ locCode: { $exists: true } });
+    if (!stores.length) {
+      console.log('[BookingSync] No stores found in database.');
       return { totalLeads: 0 };
     }
 
-    console.log(`[BookingSync] Fetched ${leadsData.length} records. Processing...`);
-
+    let allLeadsFetched = 0;
     const operations = [];
     const phonesToSync = new Set();
 
-    for (const rec of leadsData) {
-      // Extract system-level fields
-      const bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
-      if (!bookingNo) continue;
+    for (const store of stores) {
+      const locCode = store.locCode;
+      console.log(`[BookingSync] Fetching for location: ${locCode} (${store.normalizedName})`);
 
-      const phone = rec.phoneNo || rec.PhoneNo || rec.mobile || rec.phone || '';
-      const normPhone = normalize(phone);
-      const customerName = rec.customerName || rec.CustomerName || rec.name || '';
-      const location = rec.location || rec.Location || 'Other';
-      const bookingDateRaw = rec.bookingDate || rec.BookingDate || rec.functionDate || rec.FunctionDate;
-      const bookingDate = bookingDateRaw ? new Date(bookingDateRaw) : null;
+      try {
+        const response = await axios.get(BOOKING_CONFIRMATION_API_URL, {
+          params: { locCode, dateFrom, dateTo },
+          timeout: 60000 // 60s per store
+        });
 
-      if (normPhone) phonesToSync.add(normPhone);
+        // The API returns an array directly or inside data property
+        const leadsData = response?.data?.dataSet?.data || response?.data || [];
+        if (!Array.isArray(leadsData) || !leadsData.length) {
+          console.log(`[BookingSync] No data for locCode: ${locCode}`);
+          continue;
+        }
 
-      // Remove fields that will be set via systemFields to avoid duplicates
-      const {
-        bookingNo: _bn,
-        BookingNo: _bn2,
-        booking_no: _bn3,
-        customerName: _cn,
-        CustomerName: _cn2,
-        name: _n,
-        phoneNo: _p1,
-        PhoneNo: _p2,
-        mobile: _p3,
-        phone: _p4,
-        location: _loc1,
-        Location: _loc2,
-        ...apiRest
-      } = rec;
+        allLeadsFetched += leadsData.length;
 
-      // System fields — these take priority
-      const systemFields = {
-        bookingNo,
-        leadtype: 'bookingConfirmation',
-        phone: phone,
-        normalizedPhone: normPhone || undefined,
-        customerName,
-        store: normalizeStore(location),
-        bookingDate,
-        source: 'bookingSync',
-      };
+        for (const rec of leadsData) {
+          // Identify primary keys
+          const bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
+          if (!bookingNo) continue;
 
-      // Flat merged document: API extras + system fields (system wins on conflicts)
-      // Strip audit fields — these must NEVER be set by external sync.
-      // createdBy / updatedBy / updatedAt belong to telecaller actions only.
-      const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, createdAt: _ca, ...safeApiRest } = apiRest;
-      const flatDoc = { ...safeApiRest, ...systemFields };
+          // Normalize phone as per requirements (like return leads)
+          const rawPhone = rec.phoneNo || rec.PhoneNo || rec.mobile || rec.phone || '';
+          const normPhone = normalize(rawPhone);
+          
+          // System identification
+          const customerName = rec.customerName || rec.CustomerName || rec.name || '';
+          const rawLocation = rec.location || rec.Location || store.normalizedName || 'Other';
+          const bookingDateRaw = rec.bookingDate || rec.BookingDate || rec.functionDate || rec.FunctionDate;
+          const bookingDate = bookingDateRaw ? new Date(bookingDateRaw) : null;
 
-      operations.push({
-        updateOne: {
-          filter: { bookingNo, leadtype: 'bookingConfirmation' },
-          update: {
-            $set: flatDoc,
-            $setOnInsert: {
-              leadStatus: 'new',
-              markasComplaint: false,
-              markasFollowup: false,
-              createdAt: bookingDate || new Date(), // set only on first insert
+          if (normPhone) phonesToSync.add(normPhone);
+
+          // Build system fields - these are added at the root
+          const systemFields = {
+            leadtype: 'bookingConfirmation',
+            normalizedPhone: normPhone || undefined,
+            phone: rawPhone, // Standard field for our DB
+            customerName: customerName,
+            store: normalizeStore(rawLocation),
+            bookingDate: bookingDate,
+            source: 'bookingSync',
+          };
+
+          // Protect audit fields from being overwritten by external API
+          const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, createdAt: _ca, ...apiData } = rec;
+
+          // Merge: Original API data + System fields
+          // Note: systemFields will take priority if there's a key conflict
+          const flatDoc = { ...apiData, ...systemFields };
+
+          operations.push({
+            updateOne: {
+              filter: { bookingNo, leadtype: 'bookingConfirmation' },
+              update: {
+                $set: flatDoc,
+                $setOnInsert: {
+                  leadStatus: 'new',
+                  markasComplaint: false,
+                  markasFollowup: false,
+                  createdAt: bookingDate || new Date(),
+                },
+              },
+              upsert: true,
             },
-          },
-          upsert: true,
-        },
-      });
+          });
+        }
+      } catch (err) {
+        console.error(`[BookingSync] Error fetching for locCode ${locCode}:`, err.message);
+        // Continue with other stores
+      }
     }
+
+    if (operations.length === 0) {
+      return { totalLeads: 0 };
+    }
+
+    console.log(`[BookingSync] Processing ${operations.length} records...`);
 
     let upserted = 0;
     let modified = 0;
@@ -125,7 +135,7 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
 
     return { totalLeads: upserted + modified };
   } catch (err) {
-    console.error('[BookingSync] Sync failed:', err.message);
+    console.error('[BookingSync] Sync process failed:', err.message);
     throw err;
   }
 };
