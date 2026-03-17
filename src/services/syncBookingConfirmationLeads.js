@@ -46,8 +46,8 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
           timeout: 60000 // 60s per store
         });
 
-        // The API returns an array directly or inside data property
-        const leadsData = response?.data?.dataSet?.data || response?.data || [];
+        // API returns: { status: true, data: [...] }
+        const leadsData = response?.data?.data || response?.data?.dataSet?.data || [];
         if (!Array.isArray(leadsData) || !leadsData.length) {
           console.log(`[BookingSync] No data for locCode: ${locCode}`);
           continue;
