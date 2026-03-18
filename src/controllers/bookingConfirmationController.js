@@ -54,4 +54,34 @@ const updateBookingConfirmation = asyncHandler(async (req, res) => {
   return success(res, lead, 'Updated');
 });
 
-module.exports = { getBookingConfirmation, updateBookingConfirmation };
+const getBookingLeadById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, 'Invalid lead ID');
+  }
+
+  const lead = await LeadMaster.findOne({ _id: id, leadtype: 'bookingConfirmation', leadStatus: 'new' }).lean();
+
+  if (!lead) {
+    throw new ApiError(404, 'Booking confirmation lead not found or already actioned');
+  }
+
+  return success(res, {
+    id: lead._id,
+    customerName: lead.customerName || lead.name || '',
+    store: lead.store || '',
+    phone: lead.phone || lead.phoneNo || '',
+    attendedBy: lead.attendedBy || '',
+    bookingDate: lead.bookingDate ? new Date(lead.bookingDate).toISOString() : null,
+    pickupDate: lead.deliveryDate ? new Date(lead.deliveryDate).toISOString() : null,
+    advanceAmount: lead.advanceAmount ?? 0,
+    totalAmount: lead.totalAmount ?? 0,
+    subCategory: lead.subCategory || '',
+    category: lead.category || '',
+    bookingNo: lead.bookingNo || '',
+    leadStatus: lead.leadStatus || '',
+    items: lead.items || [],
+  });
+});
+
+module.exports = { getBookingConfirmation, updateBookingConfirmation, getBookingLeadById };

@@ -7,5 +7,6 @@ router.use(authMiddleware);
 
 router.get('/leads/returns', returnLeadController.getReturnLeads);
 router.post('/leads/returns/:id', returnLeadController.updateReturnLead);
+router.get('/leads/returns/:id', returnLeadController.getReturnLeadById);
 
 module.exports = router;
