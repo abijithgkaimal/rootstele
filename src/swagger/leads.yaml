@@ -222,6 +222,51 @@ paths:
           description: List of complaint leads
 
   /leads/followups/{id}:
+    get:
+      tags:
+        - Leads
+      summary: Get Followup Lead Detail by ID
+      description: Fetch a single followup lead by ID. Works across all lead types. Filters by leadStatus = followup.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Lead MongoDB _id
+      responses:
+        '200':
+          description: Followup lead detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      customerName: { type: string }
+                      phone: { type: string }
+                      store: { type: string }
+                      remarks: { type: string }
+                      subCategory: { type: string }
+                      functionDate: { type: string, format: date-time }
+                      closeAction: { type: string }
+                      followupDate: { type: string, format: date-time }
+                      leadtype: { type: string }
+                      leadStatus: { type: string, example: followup }
+                      callDuration: { type: string }
+                      updatedAt: { type: string, format: date-time }
+        '404':
+          description: Lead not found
+        '400':
+          description: Invalid ID
+        '401':
+          description: Unauthorized
     post:
       tags:
         - Leads
@@ -252,3 +297,47 @@ paths:
       responses:
         '200':
           description: Followup updated
+
+  /leads/complaints/{id}:
+    get:
+      tags:
+        - Leads
+      summary: Get Complaint Lead Detail by ID
+      description: Fetch a single complaint lead by ID. Works across all lead types. Filters by leadStatus = complaint.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Lead MongoDB _id
+      responses:
+        '200':
+          description: Complaint lead detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      customerName: { type: string }
+                      leadType: { type: string }
+                      phone: { type: string }
+                      store: { type: string }
+                      functionDate: { type: string, format: date-time }
+                      subCategory: { type: string }
+                      remarks: { type: string }
+                      leadStatus: { type: string, example: complaint }
+                      updatedAt: { type: string, format: date-time }
+        '404':
+          description: Lead not found
+        '400':
+          description: Invalid ID
+        '401':
+          description: Unauthorized
