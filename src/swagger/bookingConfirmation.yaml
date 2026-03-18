@@ -38,6 +38,59 @@ paths:
           description: Unauthorized
 
   /leads/booking-confirmation/{id}:
+    get:
+      tags:
+        - Booking Confirmation
+      summary: Get Booking Confirmation Lead Detail by ID
+      description: Fetch a single booking confirmation lead by its ID. Used by the Flutter lead detail screen.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Lead MongoDB _id
+      responses:
+        '200':
+          description: Booking confirmation lead detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      customerName: { type: string }
+                      store: { type: string }
+                      phone: { type: string }
+                      attendedBy: { type: string }
+                      bookingDate: { type: string, format: date-time }
+                      pickupDate: { type: string, format: date-time, description: "Maps from deliveryDate" }
+                      advanceAmount: { type: number }
+                      totalAmount: { type: number }
+                      subCategory: { type: string }
+                      category: { type: string }
+                      bookingNo: { type: string }
+                      leadStatus: { type: string }
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            itemCode: { type: string }
+                            itemName: { type: string }
+                            price: { type: number }
+        '404':
+          description: Lead not found
+        '400':
+          description: Invalid ID
+        '401':
+          description: Unauthorized
     post:
       tags:
         - Booking Confirmation

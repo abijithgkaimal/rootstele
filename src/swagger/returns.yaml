@@ -38,6 +38,48 @@ paths:
           description: Unauthorized
 
   /leads/returns/{id}:
+    get:
+      tags:
+        - Returns
+      summary: Get Return Lead Detail by ID
+      description: Fetch a single return lead by its ID. Used by the Flutter lead detail screen.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Lead MongoDB _id
+      responses:
+        '200':
+          description: Return lead detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      customerName: { type: string }
+                      store: { type: string }
+                      phone: { type: string }
+                      attendedBy: { type: string }
+                      returnDate: { type: string, format: date-time }
+                      bookingDate: { type: string, format: date-time }
+                      subCategory: { type: string }
+                      leadStatus: { type: string }
+                      bookingNo: { type: string }
+        '404':
+          description: Lead not found
+        '400':
+          description: Invalid ID
+        '401':
+          description: Unauthorized
     post:
       tags:
         - Returns

@@ -6,6 +6,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get('/leads/booking-confirmation', bookingConfirmationController.getBookingConfirmation);
+router.get('/leads/booking-confirmation/:id', bookingConfirmationController.getBookingLeadById);
 router.post('/leads/booking-confirmation/:id', bookingConfirmationController.updateBookingConfirmation);
 
 module.exports = router;
