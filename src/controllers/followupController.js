@@ -91,4 +91,40 @@ const getComplaintLeadById = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { getFollowups, updateFollowup, getComplaints, getFollowupLeadById, getComplaintLeadById };
+const updateComplaintLead = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { remarks } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, 'Invalid lead ID');
+  }
+
+  const updatedBy = req.user?.employeeId || req.user?.userId || req.user?.name || 'unknown';
+
+  const lead = await LeadMaster.findOneAndUpdate(
+    { _id: id, leadStatus: 'complaint' },
+    {
+      $set: {
+        remarks: remarks || '',
+        updatedBy,
+        updatedAt: new Date(),
+      },
+    },
+    { new: true }
+  );
+
+  if (!lead) {
+    throw new ApiError(404, 'Complaint lead not found');
+  }
+
+  return success(res, lead, 'Complaint updated');
+});
+
+module.exports = {
+  getFollowups,
+  updateFollowup,
+  getComplaints,
+  getFollowupLeadById,
+  getComplaintLeadById,
+  updateComplaintLead,
+};
