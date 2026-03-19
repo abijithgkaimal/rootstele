@@ -341,3 +341,38 @@ paths:
           description: Invalid ID
         '401':
           description: Unauthorized
+    post:
+      tags:
+        - Leads
+      summary: Update Complaint Lead
+      description: >
+        Update remarks and metadata for an existing complaint lead. 
+        **leadStatus remains as "complaint"**.
+        **updatedBy** and **updatedAt** are automatically set by the server from the authenticated user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Lead MongoDB _id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                remarks:
+                  type: string
+                  description: New complaint remarks
+      responses:
+        '200':
+          description: Complaint updated
+        '404':
+          description: Complaint lead not found
+        '400':
+          description: Invalid ID
+        '401':
+          description: Unauthorized
