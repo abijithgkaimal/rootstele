@@ -1,7 +1,7 @@
 const resolveManualLeadStatus = (payload) => {
   const { callStatus, markasFollowup, markasComplaint } = payload;
-  const mf = !!markasFollowup;
-  const mc = !!markasComplaint;
+  const mc = markasComplaint === true || markasComplaint === 'true';
+  const mf = markasFollowup === true || markasFollowup === 'true';
 
   if (mc) return 'complaint';
   if (mf) return 'followup';
@@ -12,7 +12,6 @@ const resolveManualLeadStatus = (payload) => {
     case 'forwarded':
       return 'completed';
     case 'not connected':
-      return 'new';
     case 'interested':
       return 'followup';
     default:
