@@ -27,7 +27,6 @@ const checkPhone = asyncHandler(async (req, res) => {
     return success(res, {
       exists: false,
       popupType: 'newLeadPopup',
-      options: ['enquiry', 'booked'],
     });
   }
 
@@ -44,16 +43,12 @@ const checkPhone = asyncHandler(async (req, res) => {
   return success(res, {
     exists: true,
     popupType,
-    customer: {
-      _id: customer._id,
-      phone: customer.phone,
-      name: customer.name,
-      leadCount: customer.leadCount,
-      latestLeadStatus: customer.latestLeadStatus,
-      latestLeadType: customer.latestLeadType,
-      latestStore: customer.latestStore,
-    },
-    lead,
+    customerId: customer._id,
+    customerName: customer.name,
+    customerPhone: customer.phone,
+    leadId: lead ? lead._id : null,
+    leadtype: lead ? lead.leadtype : null,
+    leadStatus: lead ? lead.leadStatus : null,
   });
 });
 
