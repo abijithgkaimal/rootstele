@@ -12,7 +12,6 @@ router.post(
   [
     body('leadtype').isIn(['booked', 'enquiry']).withMessage('leadtype must be booked or enquiry'),
     body('phone').notEmpty().withMessage('phone is required'),
-    body('name').notEmpty().withMessage('name is required'),
     body('callStatus').notEmpty().withMessage('callStatus is required'),
   ],
   validateRequest,
