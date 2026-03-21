@@ -41,8 +41,15 @@ const createLead = async (payload) => {
 };
 
 const getCompletedLeads = async (filters = {}, options = {}) => {
-  const { fromDate, toDate, store, leadtype, page = 1, limit = 100 } = filters;
-  const filter = { leadStatus: 'completed' };
+  const { fromDate, toDate, store, leadtype, page = 1, limit = 100, employeeId } = filters;
+  
+  const filter = { 
+    leadStatus: 'completed',
+    $or: [
+      { updatedBy: employeeId },
+      { updatedBy: { $exists: false } }
+    ]
+  };
 
   // For completed leads, filter using updatedAt
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
@@ -69,11 +76,18 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
 };
 
 const getFollowups = async (options = {}) => {
-  const { page = 1, limit = 100, store, fromDate, toDate } = options;
+  const { page = 1, limit = 100, store, fromDate, toDate, employeeId } = options;
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
   const projection = 'name customerName phone store functionDate subCategory closingAction remarks followupDate updatedBy updatedAt';
 
-  const filter = { leadStatus: 'followup' };
+  const filter = { 
+    leadStatus: 'followup',
+    $or: [
+      { updatedBy: employeeId },
+      { updatedBy: { $exists: false } }
+    ]
+  };
+  
   if (store) filter.store = buildStoreRegex(store);
 
   const dateFilter = buildDateFilter(fromDate, toDate, 'followupDate');
@@ -94,11 +108,18 @@ const getFollowups = async (options = {}) => {
 };
 
 const getComplaints = async (options = {}) => {
-  const { page = 1, limit = 100, store, fromDate, toDate } = options;
+  const { page = 1, limit = 100, store, fromDate, toDate, employeeId } = options;
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
   const projection = 'name customerName phone store leadtype functionDate subCategory remarks updatedBy updatedAt followupDate';
 
-  const filter = { leadStatus: 'complaint' };
+  const filter = { 
+    leadStatus: 'complaint',
+    $or: [
+      { updatedBy: employeeId },
+      { updatedBy: { $exists: false } }
+    ]
+  };
+  
   if (store) filter.store = buildStoreRegex(store);
 
   // Use updatedAt for active complaints (leadStatus: 'complaint') as per user request

@@ -37,6 +37,11 @@ const normalizeStore = (store) => {
     location = location.split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
+      
+    // Fix common misspelling: Edapally -> Edappally
+    if (location.toLowerCase().includes('edapally')) {
+      location = location.replace(/edapally/i, 'Edappally');
+    }
   }
 
   return location ? `${brand}-${location}` : brand;
@@ -57,11 +62,16 @@ const buildStoreRegex = (store) => {
   // Map brand back to alternatives
   const brandPattern = brand === 'SG' ? '(SG|SuitorGuy)' : '(Z|Zorucci)';
   
-  // Escaped location just in case
-  const escapedLocation = location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Escaped location and handle common typos (like Edapally/Edappally)
+  let locationPattern = location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  // Make Edapally/Edappally interchangeable in the search
+  if (locationPattern.toLowerCase().includes('edappally')) {
+    locationPattern = locationPattern.replace(/edappally/i, 'Edapp?ally');
+  }
   
   // Allow dash, dot, space, or none as separator
-  return new RegExp(`^${brandPattern}[-. ]*${escapedLocation}`, 'i');
+  return new RegExp(`^${brandPattern}[-. ]*${locationPattern}`, 'i');
 };
 
 module.exports = { normalizeStore, buildStoreRegex };
