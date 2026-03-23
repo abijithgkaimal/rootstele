@@ -20,7 +20,7 @@ const getCompletedLeads = asyncHandler(async (req, res) => {
     leadtype: req.query.leadtype,
     page: req.query.page,
     limit: req.query.limit,
-    employeeId: req.user.employeeId,
+    employeeId: (req.user.employeeId || req.user.userId || "").toString(),
   };
   const result = await leadService.getCompletedLeads(filters);
   return success(res, result);

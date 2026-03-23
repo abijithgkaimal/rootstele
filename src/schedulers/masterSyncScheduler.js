@@ -52,10 +52,11 @@ async function isSyncLocked() {
 /**
  * Create a new log entry in SyncMeta.
  */
-async function createSyncLog(type) {
+async function createSyncLog(type, trigger = 'auto') {
   return await SyncMeta.create({
     jobName: MASTER_JOB_NAME,
     type,
+    trigger,
     startedAt: new Date(),
     status: 'running',
     results: {}
@@ -78,32 +79,30 @@ async function updateSyncLog(logId, status, results, error = null) {
 
 /**
  * Execute a Master Sync job containing all sub-syncs.
- * @param {string} type - 'initial' | 'incremental' | 'manual'
- * @param {boolean} forceInitial - if true, runs a 60-day sync regardless of history
+ * @param {string} trigger - 'manual' | 'auto' | 'startup'
+ * @param {string} forcedType - optional 'initial' | 'incremental'
  */
-async function executeMasterSync(type = 'incremental', forceInitial = false) {
-  let isInitial = type === 'initial' || forceInitial;
+async function executeMasterSync(trigger = 'auto', forcedType = null) {
+  // Determine if this should be an initial (60-day) or incremental (7-day) sync
+  let type = forcedType;
 
-  // Auto-detection logic:
-  // If not forcing initial, check if we need an initial sync.
-  // We consider 'partial' as sufficient to avoid repeatedly hitting the 60-day fetch,
-  // since 'partial' means at least one sub-sync (like returns) finished successfully.
-  if (!isInitial) {
+  if (!type) {
+    // If not forcing, check if we've ever had a successful initial sync. 
+    // If not, we auto-default to initial.
     const lastInitialSync = await SyncMeta.findOne({
       jobName: MASTER_JOB_NAME,
       type: 'initial',
       status: { $in: ['completed', 'partial'] }
     });
-    if (!lastInitialSync) {
-      console.log(`[MasterSync] No past successful or partial initial sync found. Auto-switching log type ${type} to 60-day fetch.`);
-      isInitial = true;
-    }
+    type = lastInitialSync ? 'incremental' : 'initial';
+    console.log(`[MasterSync] No past successful initial sync found. Auto-detected type: ${type}`);
   }
 
-  const lock = await acquireSyncLock(type);
+  const isInitial = type === 'initial';
+  const lock = await acquireSyncLock(trigger);
 
   if (!lock) {
-    console.log(`[MasterSync] Skipping ${type} sync — lock active.`);
+    console.log(`[MasterSync] Skipping ${trigger} sync — lock active.`);
     return null;
   }
 
@@ -115,8 +114,8 @@ async function executeMasterSync(type = 'incremental', forceInitial = false) {
   };
 
   try {
-    log = await createSyncLog(type);
-    console.log(`[MasterSync] Starting ${type} sync job (Lookback: ${isInitial ? '60 days' : '7 days'})...`);
+    log = await createSyncLog(type, trigger);
+    console.log(`[MasterSync] Starting ${trigger} sync (Type: ${type}, Lookback: ${isInitial ? '60 days' : '7 days'})...`);
 
     // 1. Store Sync
     try {
@@ -166,7 +165,9 @@ async function executeMasterSync(type = 'incremental', forceInitial = false) {
 
   } catch (err) {
     console.error('[MasterSync] Fatal error in master sync:', err.message);
-    await updateSyncLog(log._id, 'failed', results, err.message);
+    if (log) {
+      await updateSyncLog(log._id, 'failed', results, err.message);
+    }
     throw err;
   } finally {
     await releaseSyncLock();
@@ -190,7 +191,7 @@ async function initializeMasterSyncScheduler() {
   if (!lastInitialSync) {
     console.log('[MasterSyncScheduler] No completed initial sync found. Triggering initial sync on startup...');
     // We don't await this to avoid blocking server boot, but we start it
-    executeMasterSync('initial').catch(err => {
+    executeMasterSync('startup', 'initial').catch(err => {
       console.error('[MasterSyncScheduler] Startup initial sync failed:', err.message);
     });
   } else {
@@ -207,7 +208,7 @@ async function initializeMasterSyncScheduler() {
     }
 
     try {
-      await executeMasterSync('incremental');
+      await executeMasterSync('auto', 'incremental');
     } catch (err) {
       console.error('[MasterSyncScheduler] Incremental sync error:', err.message);
     }

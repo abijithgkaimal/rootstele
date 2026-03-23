@@ -9,7 +9,7 @@ const getFollowups = asyncHandler(async (req, res) => {
   const { page, limit, store, fromDate, toDate } = req.query;
   const result = await leadService.getFollowups({ 
     page, limit, store, fromDate, toDate, 
-    employeeId: req.user.employeeId 
+    employeeId: (req.user.employeeId || req.user.userId || "").toString() 
   });
   return success(res, result);
 });
@@ -33,7 +33,7 @@ const getComplaints = asyncHandler(async (req, res) => {
   const { page, limit, store, fromDate, toDate } = req.query;
   const result = await leadService.getComplaints({ 
     page, limit, store, fromDate, toDate, 
-    employeeId: req.user.employeeId 
+    employeeId: (req.user.employeeId || req.user.userId || "").toString() 
   });
   return success(res, result);
 });

@@ -31,6 +31,7 @@ const createLead = async (payload) => {
     markasFollowup: !!payload.markasFollowup,
     followupDate: payload.followupDate ? new Date(payload.followupDate) : null,
     createdBy: payload.createdBy,
+    updatedBy: payload.createdBy,
     createdAt: payload.createdAt ? new Date(payload.createdAt) : new Date(),
     source: 'manual',
   });
