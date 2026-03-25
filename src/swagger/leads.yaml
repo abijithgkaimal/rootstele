@@ -138,6 +138,8 @@ paths:
                         followupremarks: { type: string }
                         updatedAt: { type: string, format: date-time, description: "Action Date (when telecaller completed the lead)" }
                         updatedBy: { type: string, description: "Auto-populated from authenticated user (employeeId)" }
+                        callDuration: { type: string }
+                        followupcallDuration: { type: string }
                   total: { type: integer }
                   page: { type: integer }
                   limit: { type: integer }

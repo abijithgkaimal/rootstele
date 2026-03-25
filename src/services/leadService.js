@@ -60,7 +60,7 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   if (leadtype && allowedTypes.includes(leadtype)) filter.leadtype = leadtype;
 
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-  const projection = 'createdAt store name customerName phone leadtype leadStatus functionDate subCategory closingAction remarks followupDate followupremarks updatedAt updatedBy';
+  const projection = 'createdAt store name customerName phone leadtype leadStatus functionDate subCategory closingAction remarks followupDate followupremarks updatedAt updatedBy callDuration followupcallDuration';
 
   const [leads, total] = await Promise.all([
     LeadMaster.find(filter).select(projection).sort({ updatedAt: -1 }).skip(skip).limit(parseInt(limit, 10)).lean(),
@@ -70,7 +70,8 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   const mappedLeads = leads.map(l => ({
     ...l,
     customerName: l.customerName || l.name,
-    name: l.name || l.customerName
+    name: l.name || l.customerName,
+    callDuration: l.callDuration || l.followupcallDuration
   }));
 
   return { leads: mappedLeads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
