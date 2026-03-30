@@ -186,6 +186,54 @@ const updateFollowupById = async (id, payload, updatedBy) => {
   return lead;
 };
 
+const getPerformanceStats = async (filters = {}) => {
+  const { fromDate, toDate, store, employeeId } = filters;
+  const filter = {};
+
+  if (store) filter.store = buildStoreRegex(store);
+  if (employeeId) filter.updatedBy = employeeId;
+
+  const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
+  if (dateFilter) Object.assign(filter, dateFilter);
+
+  filter.leadStatus = { $in: ['followup', 'complaint', 'completed'] };
+
+  const performance = await LeadMaster.aggregate([
+    { $match: filter },
+    {
+      $group: {
+        _id: "$updatedBy",
+        totalCalls: { $sum: 1 },
+        followup: { $sum: { $cond: [{ $eq: ["$leadStatus", "followup"] }, 1, 0] } },
+        complaint: { $sum: { $cond: [{ $eq: ["$leadStatus", "complaint"] }, 1, 0] } },
+        completed: { $sum: { $cond: [{ $eq: ["$leadStatus", "completed"] }, 1, 0] } }
+      }
+    },
+    {
+      $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: 'employeeId',
+        as: 'userInfo'
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        telecallerId: "$_id",
+        name: { $ifNull: [{ $arrayElemAt: ["$userInfo.name", 0] }, "$_id"] },
+        totalCalls: 1,
+        followup: 1,
+        complaint: 1,
+        completed: 1
+      }
+    },
+    { $sort: { totalCalls: -1 } }
+  ]);
+
+  return performance;
+};
+
 module.exports = {
   createLead,
   getCompletedLeads,
@@ -193,4 +241,5 @@ module.exports = {
   getComplaints,
   getNewLeads,
   updateFollowupById,
+  getPerformanceStats
 };

@@ -98,6 +98,7 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
               markasComplaint: false,
               markasFollowup: false,
               createdAt: returnDate || new Date(), // set only on first insert
+              updatedAt: returnDate || new Date(),
             },
           },
           upsert: true,
@@ -111,7 +112,7 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
     for (let i = 0; i < operations.length; i += chunkSize) {
       const result = await LeadMaster.bulkWrite(
         operations.slice(i, i + chunkSize),
-        { ordered: false }
+        { ordered: false, timestamps: false }
       );
       upserted += result.upsertedCount;
       modified += result.modifiedCount;

@@ -378,3 +378,39 @@ paths:
           description: Invalid ID
         '401':
           description: Unauthorized
+
+  /leads/performance:
+    get:
+      tags:
+        - Leads
+      summary: Get My Call Performance
+      description: Get personal call counts (followup, complaint, completed) for the authenticated telecaller. Filtered by **updatedAt**.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: fromDate
+          in: query
+          schema:
+            type: string
+            example: 2026-03-15
+          description: Filter from date (YYYY-MM-DD).
+        - name: toDate
+          in: query
+          schema:
+            type: string
+            example: 2026-03-15
+          description: Filter to date (YYYY-MM-DD).
+      responses:
+        '200':
+          description: My performance data retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  telecallerId: { type: string }
+                  name: { type: string }
+                  totalCalls: { type: number }
+                  followup: { type: number }
+                  complaint: { type: number }
+                  completed: { type: number }

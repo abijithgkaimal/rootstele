@@ -11,5 +11,4 @@ router.get('/admin/reports', adminController.getReports);
 router.get('/admin/complaints/pivot', adminController.getComplaintsPivot);
 router.get('/admin/filter-options', adminController.getFilterOptions);
 
-
 module.exports = router;

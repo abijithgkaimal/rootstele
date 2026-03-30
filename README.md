@@ -39,6 +39,7 @@ Node.js + Express + MongoDB backend for the Telecaller application.
 ### Leads
 - **POST /api/leads** – Add new lead (booked/enquiry). `createdBy` auto-set from authenticated user — do NOT pass in body.
 - **GET /api/leads/completed** – Completed report (filters: fromDate, toDate, store, leadtype; pagination: page, limit)
+- **GET /api/leads/performance** – Get personal call counts (followup, complaint, completed) with date filters.
 
 ### Followups
 - **GET /api/leads/followups** – Followup list (filters: fromDate, toDate, store; filtered by followupDate)

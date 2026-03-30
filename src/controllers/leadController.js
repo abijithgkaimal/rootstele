@@ -26,4 +26,27 @@ const getCompletedLeads = asyncHandler(async (req, res) => {
   return success(res, result);
 });
 
-module.exports = { addLead, getCompletedLeads };
+const getMyPerformance = asyncHandler(async (req, res) => {
+  const employeeId = (req.user.employeeId || req.user.userId || "").toString();
+  const filters = {
+    fromDate: req.query.fromDate,
+    toDate: req.query.toDate,
+    employeeId: employeeId
+  };
+
+  const stats = await leadService.getPerformanceStats(filters);
+  
+  // Single telecaller performance
+  const result = stats[0] || {
+    telecallerId: employeeId,
+    name: req.user.name || employeeId,
+    totalCalls: 0,
+    followup: 0,
+    complaint: 0,
+    completed: 0
+  };
+
+  return success(res, result);
+});
+
+module.exports = { addLead, getCompletedLeads, getMyPerformance };
