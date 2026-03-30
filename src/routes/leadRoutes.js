@@ -19,5 +19,6 @@ router.post(
 );
 
 router.get('/leads/completed', leadController.getCompletedLeads);
+router.get('/leads/performance', leadController.getMyPerformance);
 
 module.exports = router;
