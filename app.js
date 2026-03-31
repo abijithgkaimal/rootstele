@@ -17,6 +17,7 @@ const syncRoutes = require("./src/routes/syncRoutes");
 const storeRoutes = require("./src/routes/storeRoutes");
 const customerRoutes = require("./src/routes/customerRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
+const healthRoutes = require("./src/routes/healthRoutes");
 
 const {
   ensureAdminAuthenticated,
@@ -41,9 +42,9 @@ app.use(cookieParser());
 app.use(morgan("dev"));
 
 
-// Health check (important for Render)
+// Health check (important for monitoring)
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
+  res.redirect("/api/health");
 });
 
 
@@ -63,6 +64,7 @@ app.use("/api", returnRoutes);
 app.use("/api", syncRoutes);
 app.use("/api", storeRoutes);
 app.use("/api", customerRoutes);
+app.use("/api", healthRoutes);
 app.use("/api", adminRoutes);
 
 
