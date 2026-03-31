@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
-const leadTypeEnum   = ['booked', 'enquiry', 'bookingConfirmation', 'return', 'justDial'];
+const leadTypeEnum   = ['booked', 'enquiry', 'bookingConfirmation', 'return', 'justdial'];
 const leadStatusEnum = ['new', 'followup', 'complaint', 'completed'];
-const callStatusEnum = ['connected', 'not connected', 'interested', 'not interested', 'forwarded'];
+const callStatusEnum = ['connected', 'not connected', 'interested', 'not interested', 'forwarded', 'missed'];
 
 /**
  * LeadMaster — single collection for all lead types.
@@ -22,7 +22,7 @@ const leadMasterSchema = new mongoose.Schema(
     name:            { type: String },           // for manual leads
     customerName:    { type: String },           // from API / manual
     store:           { type: String },
-    source:          { type: String, enum: ['manual', 'bookingSync', 'returnSync'] },
+    source:          { type: String, enum: ['manual', 'bookingSync', 'returnSync', 'justDialSync'] },
 
     // ── Manual-lead fields ─────────────────────────────────────────────────────
     callStatus:      { type: String, enum: callStatusEnum },

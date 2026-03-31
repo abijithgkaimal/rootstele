@@ -24,6 +24,9 @@ module.exports = {
   storeListUrl:
     getEnv('STORE_LIST_API') ||
     'https://rentalapi.rootments.live/api/Location/LocationList',
+  justDialApiUrl:
+    getEnv('JUSTDIAL_API_URL') ||
+    'https://api.justdial.com/v1/leads', // Placeholder as per requirement
   // Admin
   adminUsername: getEnv('ADMIN_USERNAME', 'admin'),
   adminPassword: getEnv('ADMIN_PASSWORD', 'admin123'),

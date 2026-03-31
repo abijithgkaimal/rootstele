@@ -1,3 +1,4 @@
+const LeadMaster = require('../models/LeadMaster');
 const leadService = require('../services/leadService');
 const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
@@ -13,6 +14,12 @@ const addLead = asyncHandler(async (req, res) => {
 });
 
 const getCompletedLeads = asyncHandler(async (req, res) => {
+  console.log("JWT USER:", req.user);
+  console.log("Employee ID:", req.user.employeeId);
+
+  const sampleLead = await LeadMaster.findOne({ leadStatus: "completed" });
+  console.log("Sample DB Lead updatedBy:", sampleLead?.updatedBy);
+
   const filters = {
     fromDate: req.query.fromDate,
     toDate: req.query.toDate,

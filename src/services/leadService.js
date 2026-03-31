@@ -47,7 +47,7 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   const filter = { 
     leadStatus: 'completed',
     $or: [
-      { updatedBy: employeeId },
+      { updatedBy: { $regex: `^${employeeId}$`, $options: "i" } },
       { updatedBy: { $exists: false } }
     ]
   };
@@ -56,7 +56,7 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = buildStoreRegex(store);
-  const allowedTypes = ['return', 'booked', 'enquiry', 'bookingConfirmation', 'justDial'];
+  const allowedTypes = ['return', 'booked', 'enquiry', 'bookingConfirmation', 'justdial'];
   if (leadtype && allowedTypes.includes(leadtype)) filter.leadtype = leadtype;
 
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
@@ -85,7 +85,7 @@ const getFollowups = async (options = {}) => {
   const filter = { 
     leadStatus: 'followup',
     $or: [
-      { updatedBy: employeeId },
+      { updatedBy: { $regex: `^${employeeId}$`, $options: "i" } },
       { updatedBy: { $exists: false } }
     ]
   };
@@ -117,7 +117,7 @@ const getComplaints = async (options = {}) => {
   const filter = { 
     leadStatus: 'complaint',
     $or: [
-      { updatedBy: employeeId },
+      { updatedBy: { $regex: `^${employeeId}$`, $options: "i" } },
       { updatedBy: { $exists: false } }
     ]
   };

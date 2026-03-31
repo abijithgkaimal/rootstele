@@ -100,7 +100,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [return, booked, enquiry, bookingConfirmation, justDial]
+            enum: [return, booked, enquiry, bookingConfirmation, justdial]
         - name: page
           in: query
           schema:
@@ -128,7 +128,7 @@ paths:
                         name: { type: string, description: "Customer name (manual leads)" }
                         customerName: { type: string, description: "Customer name (synced leads — always use this if name is empty)" }
                         phone: { type: string }
-                        leadtype: { type: string, enum: [return, booked, enquiry, bookingConfirmation, justDial] }
+                        leadtype: { type: string, enum: [return, booked, enquiry, bookingConfirmation, justdial] }
                         leadStatus: { type: string, enum: [completed], description: "Always 'completed' for this endpoint" }
                         functionDate: { type: string, format: date-time }
                         subCategory: { type: string }

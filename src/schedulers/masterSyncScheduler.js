@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const { syncStores } = require('../services/storeSyncService');
 const { syncReturnLeads } = require('../services/syncReturnLeads');
 const { syncBookingConfirmationLeads } = require('../services/syncBookingConfirmationLeads');
+const { syncJustDialLeads } = require('../services/justDialSync');
 const SyncLock = require('../models/SyncLock');
 const SyncMeta = require('../models/SyncMeta');
 
@@ -109,8 +110,9 @@ async function executeMasterSync(trigger = 'auto', forcedType = null) {
   let log;
   const results = {
     store: 'pending',
+    bookingConfirmation: 'pending',
     return: 'pending',
-    bookingConfirmation: 'pending'
+    justDial: 'pending'
   };
 
   try {
@@ -128,7 +130,18 @@ async function executeMasterSync(trigger = 'auto', forcedType = null) {
       console.error('[MasterSync] Store sync FAILED:', e.message);
     }
 
-    // 2. Return Sync
+    // 2. Booking Confirmation Sync
+    try {
+      console.log('[MasterSync] Booking confirmation sync starting...');
+      await syncBookingConfirmationLeads({ initial: isInitial });
+      results.bookingConfirmation = 'success';
+      console.log('[MasterSync] Booking confirmation sync SUCCESS');
+    } catch (e) {
+      results.bookingConfirmation = 'failed';
+      console.error('[MasterSync] Booking confirmation sync FAILED:', e.message);
+    }
+
+    // 3. Return Sync
     try {
       console.log('[MasterSync] Return sync starting...');
       await syncReturnLeads({ initial: isInitial });
@@ -139,15 +152,15 @@ async function executeMasterSync(trigger = 'auto', forcedType = null) {
       console.error('[MasterSync] Return sync FAILED:', e.message);
     }
 
-    // 3. Booking Confirmation Sync
+    // 4. JustDial Sync
     try {
-      console.log('[MasterSync] Booking confirmation sync starting...');
-      await syncBookingConfirmationLeads({ initial: isInitial });
-      results.bookingConfirmation = 'success';
-      console.log('[MasterSync] Booking confirmation sync SUCCESS');
+      console.log('[MasterSync] JustDial sync starting...');
+      await syncJustDialLeads({ initial: isInitial });
+      results.justDial = 'success';
+      console.log('[MasterSync] JustDial sync SUCCESS');
     } catch (e) {
-      results.bookingConfirmation = 'failed';
-      console.error('[MasterSync] Booking confirmation sync FAILED:', e.message);
+      results.justDial = 'failed';
+      console.error('[MasterSync] JustDial sync FAILED:', e.message);
     }
 
     // Determine overall status
