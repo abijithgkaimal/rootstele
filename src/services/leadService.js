@@ -7,6 +7,14 @@ const { normalize } = require('../utils/phoneNormalizer');
 const { normalizeStore, buildStoreRegex } = require('../utils/storeNormalizer');
 
 const createLead = async (payload) => {
+  if (payload.leadtype === "lossofsale" && !payload.closingReason) {
+    throw new Error("closingReason is required for lossofsale");
+  }
+
+  if (payload.leadtype === "justdial" && !payload.source) {
+    payload.source = "manual";
+  }
+
   const leadStatus = statusResolver.resolveManualLeadStatus(payload);
   const closingAction = payload.closingAction ?? payload.closingReason;
   const normalizedPhone = normalize(payload.phone || '');
@@ -56,7 +64,7 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
   if (store) filter.store = buildStoreRegex(store);
-  const allowedTypes = ['return', 'booked', 'enquiry', 'bookingConfirmation', 'justdial'];
+  const allowedTypes = ['return', 'booked', 'enquiry', 'bookingConfirmation', 'justdial', 'lossofsale'];
   if (leadtype && allowedTypes.includes(leadtype)) filter.leadtype = leadtype;
 
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);

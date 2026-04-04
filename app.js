@@ -18,6 +18,7 @@ const storeRoutes = require("./src/routes/storeRoutes");
 const customerRoutes = require("./src/routes/customerRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const healthRoutes = require("./src/routes/healthRoutes");
+const justDialRoutes = require("./src/routes/justDialRoutes");
 
 const {
   ensureAdminAuthenticated,
@@ -65,6 +66,7 @@ app.use("/api", syncRoutes);
 app.use("/api", storeRoutes);
 app.use("/api", customerRoutes);
 app.use("/api", healthRoutes);
+app.use("/api", justDialRoutes);
 app.use("/api", adminRoutes);
 
 

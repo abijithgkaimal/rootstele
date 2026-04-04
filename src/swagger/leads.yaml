@@ -5,7 +5,7 @@ paths:
         - Leads
       summary: Add New Lead
       description: >
-        Create a manual lead (booked or enquiry type).
+        Create a manual lead (booked, enquiry, lossofsale, or justdial type).
         **createdBy** is automatically set from the authenticated user's employeeId — do NOT pass it in the request body.
         **createdAt** defaults to the server time at creation.
       security:
@@ -21,7 +21,8 @@ paths:
               properties:
                 leadtype:
                   type: string
-                  enum: [booked, enquiry]
+                  enum: [booked, enquiry, lossofsale, justdial]
+                  description: "Type of lead (manual, booking, lossofsale, or justdial)"
                 phone:
                   type: string
                 name:
@@ -40,6 +41,7 @@ paths:
                   type: string
                 closingReason:
                   type: string
+                  description: "Required if leadtype is lossofsale"
                 closingAction:
                   type: string
                 itemCategory:
@@ -100,7 +102,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [return, booked, enquiry, bookingConfirmation, justdial]
+            enum: [return, booked, enquiry, bookingConfirmation, justdial, lossofsale]
         - name: page
           in: query
           schema:
@@ -128,7 +130,7 @@ paths:
                         name: { type: string, description: "Customer name (manual leads)" }
                         customerName: { type: string, description: "Customer name (synced leads — always use this if name is empty)" }
                         phone: { type: string }
-                        leadtype: { type: string, enum: [return, booked, enquiry, bookingConfirmation, justdial] }
+                        leadtype: { type: string, enum: [return, booked, enquiry, bookingConfirmation, justdial, lossofsale] }
                         leadStatus: { type: string, enum: [completed], description: "Always 'completed' for this endpoint" }
                         functionDate: { type: string, format: date-time }
                         subCategory: { type: string }
