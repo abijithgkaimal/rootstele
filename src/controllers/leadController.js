@@ -43,7 +43,7 @@ const getMyPerformance = asyncHandler(async (req, res) => {
 
   const stats = await leadService.getPerformanceStats(filters);
   
-  // Single telecaller performance
+  // Return single telecaller performance object
   const result = stats[0] || {
     telecallerId: employeeId,
     name: req.user.name || employeeId,
