@@ -1,0 +1,104 @@
+paths:
+  /leads/justdial:
+    get:
+      tags:
+        - JustDial
+      summary: Get JustDial New Leads
+      description: >
+        Return leads where leadtype = justdial AND leadStatus = new.
+        Sorted by createdAt descending (original JustDial timestamp).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: store
+          in: query
+          schema:
+            type: string
+          description: Filter by store name.
+        - name: fromDate
+          in: query
+          schema:
+            type: string
+          description: Filter by createdAt (inclusive).
+        - name: toDate
+          in: query
+          schema:
+            type: string
+          description: Filter by createdAt (inclusive).
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of JustDial leads
+        '401':
+          description: Unauthorized
+
+  /leads/justdial/{id}:
+    get:
+      tags:
+        - JustDial
+      summary: Get JustDial Lead Detail by ID
+      description: Fetch a single JustDial lead by its ID. Used for telecaller interaction.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Lead MongoDB _id
+      responses:
+        '200':
+          description: JustDial lead detail
+        '404':
+          description: Lead not found
+        '401':
+          description: Unauthorized
+    post:
+      tags:
+        - JustDial
+      summary: Update JustDial Lead
+      description: >
+        Update JustDial lead after interaction.
+        **updatedBy** and **updatedAt** are automatically set by the server from the authenticated user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                remarks:
+                  type: string
+                markasComplaint:
+                  type: boolean
+                markasFollowup:
+                  type: boolean
+                followupDate:
+                  type: string
+                  format: date-time
+                callDuration:
+                  type: string
+                service:
+                  type: string
+      responses:
+        '200':
+          description: Lead updated
+        '404':
+          description: Lead not found
+        '401':
+          description: Unauthorized

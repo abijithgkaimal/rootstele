@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const leadTypeEnum   = ['booked', 'enquiry', 'bookingConfirmation', 'return', 'justdial'];
+const leadTypeEnum   = ['booked', 'enquiry', 'bookingConfirmation', 'return', 'justdial', 'lossofsale'];
 const leadStatusEnum = ['new', 'followup', 'complaint', 'completed'];
 const callStatusEnum = ['connected', 'not connected', 'interested', 'not interested', 'forwarded', 'missed'];
 

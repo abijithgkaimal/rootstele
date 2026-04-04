@@ -55,6 +55,10 @@ Node.js + Express + MongoDB backend for the Telecaller application.
 - **GET /api/leads/returns** – List return leads (leadStatus=new, filtered by returnDate)
 - **POST /api/leads/returns/:id** – Update. Status priority: markasComplaint → complaint | markasFollowup → followup | default → completed. `updatedBy`/`updatedAt` auto-set.
 
+### JustDial
+- **GET /api/leads/justdial** – List new JustDial leads (leadStatus=new, filtered by createdAt)
+- **POST /api/leads/justdial/:id** – Update. Status priority: markasComplaint → complaint | markasFollowup → followup | default → completed. `updatedBy`/`updatedAt` auto-set.
+
 ### Customers (Phase 2 – popup detection)
 - **GET /api/customers/check-phone?phone=...** – Incoming call lookup; returns `popupType`, `customer`, `lead`
 - **GET /api/customers/:id/history** – Customer lead history (newest first)
@@ -119,7 +123,7 @@ Single MongoDB collection `leadmaster` stores all lead types:
 - JustDial
 
 Fields:
-- `leadtype`: [booked, enquiry, bookingConfirmation, return, justDial]
+- `leadtype`: [booked, enquiry, bookingConfirmation, return, justdial, lossofsale]
 - `leadStatus`: [new, followup, complaint, completed]
 - `phone`: Raw phone number
 - `normalizedPhone`: Normalized last 10 digits
@@ -131,10 +135,11 @@ Fields:
 - `callDuration`: Duration in seconds/minutes
 - `subCategory`: Enquiry category/type
 - `remarks`: Lead notes
+- `closingReason`: Required if `leadtype` is `lossofsale`
 - `billReceived / amountMismatch`: For booking confirmation leads
 - `noofFunctions / noofAttires`: For return leads
 - `bookingNo`: Unique ID from RMS
-- `source`: [manual, bookingSync, returnSync]
+- `source`: [manual, bookingSync, returnSync, justDialSync]
 - `createdAt`: **Original Lead Date**. For synced leads, set from the RMS API date (returnDate/bookingDate) on first insert only — never overwritten by re-syncs. For manual leads, set at creation time.
 - `updatedAt`: **Action Date**. Set by the server whenever a telecaller updates a lead (followup, complaint, or completed). Never set during external sync.
 - `createdBy`: Telecaller employeeId who created a manual lead. Auto-populated from auth token. Never set for synced leads.
