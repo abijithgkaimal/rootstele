@@ -47,7 +47,14 @@ async function releaseSyncLock() {
  * Check if sync is locked.
  */
 async function isSyncLocked() {
-  return !!(await SyncLock.findOne({ jobName: MASTER_JOB_NAME }));
+  const existing = await SyncLock.findOne({ jobName: MASTER_JOB_NAME });
+  if (!existing) return false;
+  
+  const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+  if (existing.startedAt < thirtyMinsAgo) {
+    return false; // Stale, treat as not locked
+  }
+  return true;
 }
 
 /**
@@ -213,17 +220,12 @@ async function initializeMasterSyncScheduler() {
 
   // 2. Incremental Sync Cron: Every 30 minutes
   cron.schedule('*/30 * * * *', async () => {
-    console.log('[MasterSyncScheduler] Cron tick: Checking for incremental sync...');
-
-    if (await isSyncLocked()) {
-      console.log('[MasterSyncScheduler] Skipping incremental sync — lock active.');
-      return;
-    }
+    console.log('[MasterSyncScheduler] Cron tick: Checking for sync...');
 
     try {
-      await executeMasterSync('auto', 'incremental');
+      await executeMasterSync('auto');
     } catch (err) {
-      console.error('[MasterSyncScheduler] Incremental sync error:', err.message);
+      console.error('[MasterSyncScheduler] Auto sync error:', err.message);
     }
   });
 
