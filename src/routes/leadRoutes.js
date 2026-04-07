@@ -10,7 +10,7 @@ router.use(authMiddleware);
 router.post(
   '/leads',
   [
-    body('leadtype').isIn(['booked', 'enquiry']).withMessage('leadtype must be booked or enquiry'),
+    body('leadtype').isIn(['booked', 'enquiry', 'lossofsale', 'justdial', 'return', 'bookingConfirmation']).withMessage('leadtype must be booked or enquiry or lossofsale or justdial'),
     body('phone').notEmpty().withMessage('phone is required'),
     body('callStatus').notEmpty().withMessage('callStatus is required'),
   ],
