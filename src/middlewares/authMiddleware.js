@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const ApiError = require('../utils/ApiError');
 const authService = require('../services/authService');
 const env = require('../config/env');
+const User = require('../models/User');
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -13,7 +14,25 @@ const authMiddleware = async (req, res, next) => {
     if (token) {
       try {
         const decoded = jwt.verify(token, env.jwtSecret);
-        req.user = decoded;
+
+        let user = await User.findOne({ employeeId: decoded.employeeId || decoded.userId });
+
+
+        if (!user) {
+          console.warn("User not found in DB, but token is valid");
+          
+          // fallback user object from token
+          user = {
+            employeeId: decoded.employeeId || decoded.userId,
+            userId: decoded.userId || decoded.employeeId,
+            name: decoded.name,
+            role: decoded.role
+          };
+        } else {
+          user = { ...user.toObject(), userId: user.employeeId, employeeId: user.employeeId };
+        }
+
+        req.user = user;
         return next();
       } catch (e) {
         throw new ApiError(401, 'Invalid or expired token');
