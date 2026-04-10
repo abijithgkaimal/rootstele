@@ -3,7 +3,7 @@ const adminController = require('../controllers/adminController');
 const { ensureAdminAuthenticated } = require('../middlewares/adminSession');
 const router = express.Router();
 
-router.use('/admin', ensureAdminAuthenticated);
+router.use(ensureAdminAuthenticated);
 
 router.get('/admin/dashboard', adminController.getDashboardStats);
 router.get('/admin/telecaller-summary', adminController.getTelecallerSummary);

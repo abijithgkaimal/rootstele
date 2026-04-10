@@ -54,7 +54,7 @@ const buildStoreRegex = (store) => {
   if (!store || typeof store !== 'string') return store;
 
   const normalized = normalizeStore(store);
-  if (!normalized.includes('-')) return new RegExp(`^${normalized}`, 'i');
+  if (!normalized.includes('-')) return new RegExp(`^${normalized}$`, 'i');
 
   const [brand, location] = normalized.split('-');
   
@@ -71,7 +71,8 @@ const buildStoreRegex = (store) => {
   }
   
   // Allow dash, dot, space, or none as separator
-  return new RegExp(`^${brandPattern}[-. ]*${locationPattern}`, 'i');
+  // Add $ to prevent partial matches like Edappal matching Edappally
+  return new RegExp(`^${brandPattern}[-. ]*${locationPattern}$`, 'i');
 };
 
 module.exports = { normalizeStore, buildStoreRegex };
