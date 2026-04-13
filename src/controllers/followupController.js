@@ -21,6 +21,17 @@ const updateFollowup = asyncHandler(async (req, res) => {
   }
 
   const updatedBy = req.user?.employeeId || req.user?.userId || req.user?.name || 'unknown';
+  // Verify ownership before updating
+  const existing = await LeadMaster.findOne({
+    _id: id,
+    leadStatus: 'followup',
+    updatedBy: { $regex: `^${updatedBy}$`, $options: 'i' }
+  }).lean();
+
+  if (!existing) {
+    throw new ApiError(403, 'Forbidden: You are not assigned to this followup lead');
+  }
+
   const lead = await leadService.updateFollowupById(id, req.body, updatedBy);
   if (!lead) {
     throw new ApiError(404, 'Followup lead not found');
@@ -44,7 +55,12 @@ const getFollowupLeadById = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Invalid lead ID');
   }
 
-  const lead = await LeadMaster.findOne({ _id: id, leadStatus: 'followup' }).lean();
+  const employeeId = req.user?.employeeId || req.user?.userId || '';
+  const lead = await LeadMaster.findOne({ 
+    _id: id, 
+    leadStatus: 'followup',
+    updatedBy: { $regex: `^${employeeId}$`, $options: 'i' }
+  }).lean();
 
   if (!lead) {
     throw new ApiError(404, 'Followup lead not found');
@@ -75,7 +91,12 @@ const getComplaintLeadById = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Invalid lead ID');
   }
 
-  const lead = await LeadMaster.findOne({ _id: id, leadStatus: 'complaint' }).lean();
+  const employeeId = req.user?.employeeId || req.user?.userId || '';
+  const lead = await LeadMaster.findOne({ 
+    _id: id, 
+    leadStatus: 'complaint',
+    updatedBy: { $regex: `^${employeeId}$`, $options: 'i' }
+  }).lean();
 
   if (!lead) {
     throw new ApiError(404, 'Complaint lead not found');
@@ -108,7 +129,11 @@ const updateComplaintLead = asyncHandler(async (req, res) => {
   const updatedBy = req.user?.employeeId || req.user?.userId || req.user?.name || 'unknown';
 
   const lead = await LeadMaster.findOneAndUpdate(
-    { _id: id, leadStatus: 'complaint' },
+    { 
+      _id: id, 
+      leadStatus: 'complaint',
+      updatedBy: { $regex: `^${updatedBy}$`, $options: 'i' }
+    },
     {
       $set: {
         remarks: remarks || '',
