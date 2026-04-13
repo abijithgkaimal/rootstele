@@ -1,6 +1,7 @@
 const axios = require('axios');
 const dayjs = require('dayjs');
 const LeadMaster = require('../models/LeadMaster');
+const { assignNewlySyncedLeads } = require('../utils/leadAssigner');
 const customerService = require('./customerService');
 const { normalize } = require('../utils/phoneNormalizer');
 const { normalizeStore } = require('../utils/storeNormalizer');
@@ -48,7 +49,7 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
       const normPhone = normalize(phone);
       const customerName = rec.customerName || rec.CustomerName || rec.name || '';
       const location = rec.location || rec.Location || 'Other';
-      const returnDateRaw = rec.returnDate || rec.ReturnDate || rec.date || rec.Date;
+      const returnDateRaw = rec.returnDate || rec.ReturnDate;
       const returnDate = returnDateRaw ? new Date(returnDateRaw) : null;
 
       if (normPhone) phonesToSync.add(normPhone);
@@ -97,7 +98,9 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
               leadStatus: 'new',
               markasComplaint: false,
               markasFollowup: false,
-              createdAt: returnDate || new Date(), // set only on first insert
+              createdBy: 'system',
+              updatedBy: 'system',
+              createdAt: returnDate || new Date(),
               updatedAt: returnDate || new Date(),
             },
           },
@@ -109,6 +112,8 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
     let upserted = 0;
     let modified = 0;
     const chunkSize = 500;
+    const newlySyncedIds = [];
+
     for (let i = 0; i < operations.length; i += chunkSize) {
       const result = await LeadMaster.bulkWrite(
         operations.slice(i, i + chunkSize),
@@ -116,9 +121,18 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
       );
       upserted += result.upsertedCount;
       modified += result.modifiedCount;
+      
+      if (result.upsertedIds) {
+        newlySyncedIds.push(...Object.values(result.upsertedIds));
+      }
     }
 
     console.log(`[ReturnSync] Done. New: ${upserted}, Updated: ${modified}`);
+    
+    // Distribute newly added leads
+    if (newlySyncedIds.length > 0) {
+      await assignNewlySyncedLeads(newlySyncedIds);
+    }
 
     // Background customer recompute
     for (const phone of phonesToSync) {

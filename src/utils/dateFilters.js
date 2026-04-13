@@ -4,6 +4,8 @@ const buildDateFilter = (fromDate, toDate, field = 'createdAt') => {
   if (!fromDate && !toDate) return null;
 
   const { from, to } = normalizeDateRange(fromDate, toDate);
+  if (!from && !to) return null;
+  
   const filter = {};
   filter[field] = {};
   

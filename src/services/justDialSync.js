@@ -3,6 +3,7 @@ const dayjs = require('dayjs');
 const LeadMaster = require('../models/LeadMaster');
 const customerService = require('./customerService');
 const { normalize } = require('../utils/phoneNormalizer');
+const { assignNewlySyncedLeads } = require('../utils/leadAssigner');
 const env = require('../config/env');
 
 const JOB_NAME = 'justDialSync';
@@ -39,6 +40,7 @@ const syncJustDialLeads = async ({ initial = false } = {}) => {
     let updated = 0;
     let created = 0;
     const phonesToSync = new Set();
+    const newLeadIds = [];
 
     for (const jdLead of leadsData) {
       const rawPhone = jdLead.phone || jdLead.phoneNo || '';
@@ -64,7 +66,9 @@ const syncJustDialLeads = async ({ initial = false } = {}) => {
         updated++;
       } else {
         // CASE 2: Phone does not exist → Create new lead
-        await LeadMaster.create({
+        const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, ...apiData } = jdLead;
+        const newLead = await LeadMaster.create({
+          ...apiData,
           phone: rawPhone,
           normalizedPhone: normPhone,
           customerName: jdLead.name || '',
@@ -73,14 +77,22 @@ const syncJustDialLeads = async ({ initial = false } = {}) => {
           source: 'justDialSync',
           callStatus: jdLead.callStatus || '',
           remarks: jdLead.message || '',
+          createdBy: 'system',
+          updatedBy: 'system',
           createdAt: jdLead.createdAt ? new Date(jdLead.createdAt) : new Date(),
           updatedAt: new Date()
         });
         created++;
+        newLeadIds.push(newLead._id);
       }
     }
 
     console.log(`[JustDialSync] Sync complete. Created: ${created}, Updated: ${updated}`);
+
+    // Distribute newly added leads
+    if (newLeadIds.length > 0) {
+      await assignNewlySyncedLeads(newLeadIds);
+    }
 
     // Recompute customer mapping if needed
     for (const phone of phonesToSync) {
