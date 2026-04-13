@@ -2,6 +2,7 @@ const axios = require('axios');
 const dayjs = require('dayjs');
 const LeadMaster = require('../models/LeadMaster');
 const Store = require('../models/Store');
+const { assignNewlySyncedLeads } = require('../utils/leadAssigner');
 const customerService = require('./customerService');
 const { normalize } = require('../utils/phoneNormalizer');
 const { normalizeStore } = require('../utils/storeNormalizer');
@@ -67,7 +68,7 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
           // System identification
           const customerName = rec.customerName || rec.CustomerName || rec.name || '';
           const rawLocation = rec.location || rec.Location || store.normalizedName || 'Other';
-          const bookingDateRaw = rec.bookingDate || rec.BookingDate || rec.functionDate || rec.FunctionDate;
+          const bookingDateRaw = rec.bookingDate || rec.BookingDate;
           const bookingDate = bookingDateRaw ? new Date(bookingDateRaw) : null;
 
           if (normPhone) phonesToSync.add(normPhone);
@@ -99,6 +100,8 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
                   leadStatus: 'new',
                   markasComplaint: false,
                   markasFollowup: false,
+                  createdBy: 'system',
+                  updatedBy: 'system',
                   createdAt: bookingDate || new Date(),
                   updatedAt: bookingDate || new Date(),
                 },
@@ -122,6 +125,8 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
     let upserted = 0;
     let modified = 0;
     const chunkSize = 500;
+    const newlySyncedIds = [];
+    
     for (let i = 0; i < operations.length; i += chunkSize) {
       const result = await LeadMaster.bulkWrite(
         operations.slice(i, i + chunkSize),
@@ -129,9 +134,18 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
       );
       upserted += result.upsertedCount;
       modified += result.modifiedCount;
+      
+      if (result.upsertedIds) {
+        newlySyncedIds.push(...Object.values(result.upsertedIds));
+      }
     }
 
     console.log(`[BookingSync] Done. New: ${upserted}, Updated: ${modified}`);
+
+    // Distribute newly added leads
+    if (newlySyncedIds.length > 0) {
+      await assignNewlySyncedLeads(newlySyncedIds);
+    }
 
     for (const phone of phonesToSync) {
       customerService.recomputeCustomerState(phone).catch(() => { });

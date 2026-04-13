@@ -199,7 +199,7 @@ const getPerformanceStats = async (filters = {}) => {
   const filter = {};
 
   if (store) filter.store = buildStoreRegex(store);
-  if (employeeId) filter.updatedBy = employeeId;
+  if (employeeId) filter.updatedBy = { $regex: `^${employeeId}$`, $options: 'i' };
 
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
@@ -210,7 +210,7 @@ const getPerformanceStats = async (filters = {}) => {
     { $match: filter },
     {
       $group: {
-        _id: "$updatedBy",
+        _id: employeeId ? { $toLower: employeeId } : { $toLower: "$updatedBy" },
         totalCalls: { $sum: 1 },
         followup: { $sum: { $cond: [{ $eq: ["$leadStatus", "followup"] }, 1, 0] } },
         complaint: { $sum: { $cond: [{ $eq: ["$leadStatus", "complaint"] }, 1, 0] } },
@@ -228,7 +228,7 @@ const getPerformanceStats = async (filters = {}) => {
     {
       $project: {
         _id: 0,
-        telecallerId: "$_id",
+        telecallerId: { $ifNull: [{ $arrayElemAt: ["$userInfo.employeeId", 0] }, "$_id"] },
         name: { $ifNull: [{ $arrayElemAt: ["$userInfo.name", 0] }, "$_id"] },
         totalCalls: 1,
         followup: 1,

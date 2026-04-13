@@ -68,9 +68,9 @@ const leadMasterSchema = new mongoose.Schema(
     attendedBy:      { type: String },
 
     // ── Timestamps (manual override for synced leads) ──────────────────────────
-    createdBy:  { type: String },
+    createdBy:  { type: String, default: 'system' },
     createdAt:  { type: Date, default: Date.now },
-    updatedBy:  { type: String },
+    updatedBy:  { type: String, default: 'system' },
     updatedAt:  { type: Date },
   },
   {
