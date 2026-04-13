@@ -54,10 +54,7 @@ const getCompletedLeads = async (filters = {}, options = {}) => {
   
   const filter = { 
     leadStatus: 'completed',
-    $or: [
-      { updatedBy: { $regex: `^${employeeId}$`, $options: "i" } },
-      { updatedBy: { $exists: false } }
-    ]
+    updatedBy: { $regex: `^${employeeId}$`, $options: "i" }
   };
 
   // For completed leads, filter using updatedAt
@@ -92,10 +89,7 @@ const getFollowups = async (options = {}) => {
 
   const filter = { 
     leadStatus: 'followup',
-    $or: [
-      { updatedBy: { $regex: `^${employeeId}$`, $options: "i" } },
-      { updatedBy: { $exists: false } }
-    ]
+    updatedBy: { $regex: `^${employeeId}$`, $options: "i" }
   };
   
   if (store) filter.store = buildStoreRegex(store);
@@ -124,10 +118,7 @@ const getComplaints = async (options = {}) => {
 
   const filter = { 
     leadStatus: 'complaint',
-    $or: [
-      { updatedBy: { $regex: `^${employeeId}$`, $options: "i" } },
-      { updatedBy: { $exists: false } }
-    ]
+    updatedBy: { $regex: `^${employeeId}$`, $options: "i" }
   };
   
   if (store) filter.store = buildStoreRegex(store);

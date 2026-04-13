@@ -14,4 +14,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// TTL index to automatically remove users 12 hours after last login
+userSchema.index({ lastLoginAt: 1 }, { expireAfterSeconds: 43200 });
+
 module.exports = mongoose.model('User', userSchema);
