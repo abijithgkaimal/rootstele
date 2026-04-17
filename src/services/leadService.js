@@ -7,10 +7,6 @@ const { normalize } = require('../utils/phoneNormalizer');
 const { normalizeStore, buildStoreRegex } = require('../utils/storeNormalizer');
 
 const createLead = async (payload) => {
-  if (payload.leadtype === "lossofsale" && !payload.closingReason) {
-    throw new Error("closingReason is required for lossofsale");
-  }
-
   if (payload.leadtype === "justdial" && !payload.source) {
     payload.source = "manual";
   }
