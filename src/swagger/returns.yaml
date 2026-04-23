@@ -14,12 +14,13 @@ paths:
           in: query
           schema:
             type: string
+            example: "Zorucci - Edapally"
           description: Filter by store name.
         - name: fromDate
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by returnDate (inclusive).
             Formats: YYYY-MM-DD or ISO.
@@ -27,15 +28,25 @@ paths:
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by returnDate (inclusive).
             Formats: YYYY-MM-DD or ISO.
       responses:
         '200':
           description: List of return leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '400':
+          description: Bad request
         '401':
           description: Unauthorized
+        '500':
+          description: Internal server error
 
   /leads/returns/{id}:
     get:
@@ -51,6 +62,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
           description: Lead MongoDB _id
       responses:
         '200':
@@ -60,26 +72,52 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
+                  success: 
+                    type: boolean
+                    example: true
                   data:
                     type: object
                     properties:
-                      id: { type: string }
-                      customerName: { type: string }
-                      store: { type: string }
-                      phone: { type: string }
-                      attendedBy: { type: string }
-                      returnDate: { type: string, format: date-time }
-                      bookingDate: { type: string, format: date-time }
-                      subCategory: { type: string }
-                      leadStatus: { type: string }
-                      bookingNo: { type: string }
-        '404':
-          description: Lead not found
+                      id: 
+                        type: string
+                        example: "6452abc123"
+                      customerName: 
+                        type: string
+                        example: "Alice Smith"
+                      store: 
+                        type: string
+                        example: "Zorucci - Edapally"
+                      phone: 
+                        type: string
+                        example: "9876543210"
+                      attendedBy: 
+                        type: string
+                        example: "emp123"
+                      returnDate: 
+                        type: string
+                        format: date-time
+                        example: "2026-03-15T10:00:00Z"
+                      bookingDate: 
+                        type: string
+                        format: date-time
+                        example: "2026-03-10T10:00:00Z"
+                      subCategory: 
+                        type: string
+                        example: "Bridal"
+                      leadStatus: 
+                        type: string
+                        example: "new"
+                      bookingNo: 
+                        type: string
+                        example: "BK-1002"
         '400':
           description: Invalid ID
         '401':
           description: Unauthorized
+        '404':
+          description: Lead not found
+        '500':
+          description: Internal server error
     post:
       tags:
         - Returns
@@ -96,6 +134,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
       requestBody:
         content:
           application/json:
@@ -104,50 +143,57 @@ paths:
               properties:
                 service:
                   type: string
+                  example: "Excellent"
                 callDuration:
                   type: string
+                  example: "120"
                 noofFunctions:
                   type: number
                   description: "Alias: noofFuctions"
+                  example: 1
                 noofAttires:
                   type: number
+                  example: 2
                 competitor:
                   type: string
+                  example: "Competitor A"
                 rating:
                   type: number
+                  example: 5
                 remarks:
                   type: string
+                  example: "Customer returned items on time."
                 markasComplaint:
                   type: boolean
                   description: "If true → leadStatus = complaint"
+                  example: false
                 markasFollowup:
                   type: boolean
                   description: "If true → leadStatus = followup"
+                  example: false
                 followupDate:
                   type: string
                   format: date-time
+                  example: "2026-03-20T10:00:00Z"
       responses:
         '200':
-          description: Updated
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Return lead updated"
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
         '404':
           description: Lead not found
-        '401':
-          description: Unauthorized
-
-  /sync/returns:
-    post:
-      tags:
-        - Sync
-      summary: Sync Return Leads
-      description: >
-        Trigger manual sync of return leads from RMS. 
-        Calls the external API once to fetch all store data.
-        In manual mode, it syncs the last 60 days of data.
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Sync completed
-        '401':
-          description: Unauthorized
-
+        '500':
+          description: Internal server error

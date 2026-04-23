@@ -8,6 +8,7 @@ paths:
       security:
         - BasicAuth: []
         - HeaderAuth: []
+        - BearerAuth: []
       responses:
         '200':
           description: List of stores
@@ -27,5 +28,9 @@ paths:
                     normalizedName:
                       type: string
                       example: Zorucci - Edapally
+        '400':
+          description: Bad request
         '401':
           description: Unauthorized
+        '500':
+          description: Internal server error

@@ -16,6 +16,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "+91-9876543210"
           description: Raw phone number (any format; will be normalized to last 10 digits)
       responses:
         '200':
@@ -59,28 +60,40 @@ paths:
                           popupType:
                             type: string
                             enum: [followupPopup, reportPopup, complaintPopup, returnPopup, bookingConfirmationPopup, newLeadPopup]
+                            example: "followupPopup"
                           customer:
                             type: object
                             properties:
                               _id:
                                 type: string
+                                example: "cust123"
                               phone:
                                 type: string
+                                example: "9876543210"
                               name:
                                 type: string
+                                example: "Alice Smith"
                               leadCount:
                                 type: integer
+                                example: 3
                               latestLeadStatus:
                                 type: string
+                                example: "followup"
                               latestLeadType:
                                 type: string
+                                example: "enquiry"
                               latestStore:
                                 type: string
+                                example: "Zorucci - Edapally"
                           lead:
                             type: object
                             description: Latest lead document from LeadMaster
+        '400':
+          description: Bad request - Missing phone number
         '401':
           description: Unauthorized
+        '500':
+          description: Internal server error
 
   /customers/{id}/history:
     get:
@@ -96,6 +109,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "cust123"
           description: Customer _id
       responses:
         '200':
@@ -107,6 +121,7 @@ paths:
                 properties:
                   success:
                     type: boolean
+                    example: true
                   data:
                     type: object
                     properties:
@@ -116,7 +131,11 @@ paths:
                         type: array
                         items:
                           type: object
+        '400':
+          description: Invalid ID
         '401':
           description: Unauthorized
         '404':
           description: Customer not found
+        '500':
+          description: Internal server error

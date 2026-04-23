@@ -4,7 +4,7 @@ paths:
       summary: Get backend health status
       tags: [System]
       responses:
-        200:
+        '200':
           description: Health check success
           content:
             application/json:
@@ -26,6 +26,7 @@ paths:
                       timestamp:
                         type: string
                         format: date-time
+                        example: "2026-04-23T10:00:00.000Z"
                       uptime:
                         type: number
                         example: 3600
@@ -34,4 +35,8 @@ paths:
                         example: connected
                       node_version:
                         type: string
-                        example: v18.1.0
+                        example: v20.x.x
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error

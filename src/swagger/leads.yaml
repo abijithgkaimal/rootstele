@@ -18,52 +18,82 @@ paths:
               type: object
               required:
                 - leadtype
+                - phone
+                - callStatus
               properties:
                 leadtype:
                   type: string
                   enum: [booked, enquiry, lossofsale, justdial]
                   description: "Type of lead (manual, booking, lossofsale, or justdial)"
+                  example: "enquiry"
                 phone:
                   type: string
+                  example: "9876543210"
                 name:
                   type: string
+                  example: "Alice Smith"
                 callStatus:
                   type: string
                   enum: [connected, "not connected", interested, "not interested", forwarded]
+                  example: "connected"
                 store:
                   type: string
+                  example: "Zorucci - Edapally"
                 functionDate:
                   type: string
                   format: date-time
+                  example: "2026-05-10T00:00:00Z"
                 callDuration:
                   type: string
+                  example: "120"
                 subCategory:
                   type: string
+                  example: "Bridal"
                 closingReason:
                   type: string
                   description: "Required if leadtype is lossofsale"
+                  example: "Price too high"
                 closingAction:
                   type: string
+                  example: "Closed"
                 itemCategory:
                   type: string
+                  example: "Lehenga"
                 remarks:
                   type: string
+                  example: "Looking for red color."
                 markasComplaint:
                   type: boolean
                   description: "If true → leadStatus = complaint"
+                  example: false
                 markasFollowup:
                   type: boolean
                   description: "If true → leadStatus = followup"
+                  example: true
                 followupDate:
                   type: string
                   format: date-time
+                  example: "2026-03-20T10:00:00Z"
       responses:
         '201':
-          description: Lead created
+          description: Lead created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Lead added successfully"
         '400':
-          description: Invalid input
+          description: Bad request - Invalid input
         '401':
           description: Unauthorized
+        '500':
+          description: Internal server error
 
   /leads/completed:
     get:
@@ -80,7 +110,7 @@ paths:
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by updatedAt (inclusive). 
             Formats: YYYY-MM-DD (e.g. 2026-03-15) or ISO (e.g. 2026-03-15T00:00:00).
@@ -89,7 +119,7 @@ paths:
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by updatedAt (inclusive).
             Formats: YYYY-MM-DD (e.g. 2026-03-15) or ISO (e.g. 2026-03-15T23:59:59).
@@ -98,19 +128,23 @@ paths:
           in: query
           schema:
             type: string
+            example: "Zorucci - Edapally"
         - name: leadtype
           in: query
           schema:
             type: string
             enum: [return, booked, enquiry, bookingConfirmation, justdial, lossofsale]
+            example: "enquiry"
         - name: page
           in: query
           schema:
             type: integer
+            example: 1
         - name: limit
           in: query
           schema:
             type: integer
+            example: 10
       responses:
         '200':
           description: List of completed leads
@@ -124,27 +158,87 @@ paths:
                     items:
                       type: object
                       properties:
-                        _id: { type: string }
-                        createdAt: { type: string, format: date-time, description: "Original Lead Date" }
-                        store: { type: string }
-                        name: { type: string, description: "Customer name (manual leads)" }
-                        customerName: { type: string, description: "Customer name (synced leads — always use this if name is empty)" }
-                        phone: { type: string }
-                        leadtype: { type: string, enum: [return, booked, enquiry, bookingConfirmation, justdial, lossofsale] }
-                        leadStatus: { type: string, enum: [completed], description: "Always 'completed' for this endpoint" }
-                        functionDate: { type: string, format: date-time }
-                        subCategory: { type: string }
-                        closingAction: { type: string }
-                        remarks: { type: string }
-                        followupDate: { type: string, format: date-time }
-                        followupremarks: { type: string }
-                        updatedAt: { type: string, format: date-time, description: "Action Date (when telecaller completed the lead)" }
-                        updatedBy: { type: string, description: "Auto-populated from authenticated user (employeeId)" }
-                        callDuration: { type: string }
-                        followupcallDuration: { type: string }
-                  total: { type: integer }
-                  page: { type: integer }
-                  limit: { type: integer }
+                        _id: 
+                          type: string
+                          example: "6452abc123"
+                        createdAt: 
+                          type: string
+                          format: date-time
+                          description: "Original Lead Date"
+                          example: "2026-03-10T10:00:00Z"
+                        store: 
+                          type: string
+                          example: "Zorucci - Edapally"
+                        name: 
+                          type: string
+                          description: "Customer name (manual leads)"
+                          example: "Alice Smith"
+                        customerName: 
+                          type: string
+                          description: "Customer name (synced leads — always use this if name is empty)"
+                          example: "Alice Smith"
+                        phone: 
+                          type: string
+                          example: "9876543210"
+                        leadtype: 
+                          type: string
+                          enum: [return, booked, enquiry, bookingConfirmation, justdial, lossofsale]
+                          example: "enquiry"
+                        leadStatus: 
+                          type: string
+                          enum: [completed]
+                          description: "Always 'completed' for this endpoint"
+                          example: "completed"
+                        functionDate: 
+                          type: string
+                          format: date-time
+                          example: "2026-05-10T00:00:00Z"
+                        subCategory: 
+                          type: string
+                          example: "Bridal"
+                        closingAction: 
+                          type: string
+                          example: "Purchased"
+                        remarks: 
+                          type: string
+                          example: "Done."
+                        followupDate: 
+                          type: string
+                          format: date-time
+                          example: "2026-03-12T10:00:00Z"
+                        followupremarks: 
+                          type: string
+                          example: "Called."
+                        updatedAt: 
+                          type: string
+                          format: date-time
+                          description: "Action Date (when telecaller completed the lead)"
+                          example: "2026-03-15T15:00:00Z"
+                        updatedBy: 
+                          type: string
+                          description: "Auto-populated from authenticated user (employeeId)"
+                          example: "emp123"
+                        callDuration: 
+                          type: string
+                          example: "120"
+                        followupcallDuration: 
+                          type: string
+                          example: "60"
+                  total: 
+                    type: integer
+                    example: 50
+                  page: 
+                    type: integer
+                    example: 1
+                  limit: 
+                    type: integer
+                    example: 10
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
 
   /leads/followups:
     get:
@@ -162,11 +256,12 @@ paths:
           in: query
           schema:
             type: string
+            example: "Zorucci - Edapally"
         - name: fromDate
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by followupDate (inclusive).
             Formats: YYYY-MM-DD or ISO.
@@ -174,13 +269,28 @@ paths:
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by followupDate (inclusive).
             Formats: YYYY-MM-DD or ISO.
       responses:
         '200':
           description: List of followup leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
 
   /leads/complaints:
     get:
@@ -197,11 +307,12 @@ paths:
           in: query
           schema:
             type: string
+            example: "Zorucci - Edapally"
         - name: fromDate
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by updatedAt (inclusive).
             Formats: YYYY-MM-DD or ISO.
@@ -209,7 +320,7 @@ paths:
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by updatedAt (inclusive).
             Formats: YYYY-MM-DD or ISO.
@@ -217,13 +328,30 @@ paths:
           in: query
           schema:
             type: integer
+            example: 1
         - name: limit
           in: query
           schema:
             type: integer
+            example: 10
       responses:
         '200':
           description: List of complaint leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
 
   /leads/followups/{id}:
     get:
@@ -239,6 +367,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
           description: Lead MongoDB _id
       responses:
         '200':
@@ -248,29 +377,62 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
+                  success: 
+                    type: boolean
+                    example: true
                   data:
                     type: object
                     properties:
-                      id: { type: string }
-                      customerName: { type: string }
-                      phone: { type: string }
-                      store: { type: string }
-                      remarks: { type: string }
-                      subCategory: { type: string }
-                      functionDate: { type: string, format: date-time }
-                      closeAction: { type: string }
-                      followupDate: { type: string, format: date-time }
-                      leadtype: { type: string }
-                      leadStatus: { type: string, example: followup }
-                      callDuration: { type: string }
-                      updatedAt: { type: string, format: date-time }
-        '404':
-          description: Lead not found
+                      id: 
+                        type: string
+                        example: "6452abc123"
+                      customerName: 
+                        type: string
+                        example: "Alice Smith"
+                      phone: 
+                        type: string
+                        example: "9876543210"
+                      store: 
+                        type: string
+                        example: "Zorucci - Edapally"
+                      remarks: 
+                        type: string
+                        example: "Wants to rethink."
+                      subCategory: 
+                        type: string
+                        example: "Bridal"
+                      functionDate: 
+                        type: string
+                        format: date-time
+                        example: "2026-05-10T00:00:00Z"
+                      closeAction: 
+                        type: string
+                        example: ""
+                      followupDate: 
+                        type: string
+                        format: date-time
+                        example: "2026-03-20T10:00:00Z"
+                      leadtype: 
+                        type: string
+                        example: "enquiry"
+                      leadStatus: 
+                        type: string
+                        example: "followup"
+                      callDuration: 
+                        type: string
+                        example: "45"
+                      updatedAt: 
+                        type: string
+                        format: date-time
+                        example: "2026-03-15T10:00:00Z"
         '400':
           description: Invalid ID
         '401':
           description: Unauthorized
+        '404':
+          description: Lead not found
+        '500':
+          description: Internal server error
     post:
       tags:
         - Leads
@@ -286,6 +448,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
       requestBody:
         content:
           application/json:
@@ -294,13 +457,35 @@ paths:
               properties:
                 followupclosingAction:
                   type: string
+                  example: "Purchased"
                 followupremarks:
                   type: string
+                  example: "Customer bought the dress."
                 followupcallDuration:
                   type: string
+                  example: "120"
       responses:
         '200':
-          description: Followup updated
+          description: Followup updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Lead updated to completed"
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Lead not found
+        '500':
+          description: Internal server error
 
   /leads/complaints/{id}:
     get:
@@ -316,6 +501,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
           description: Lead MongoDB _id
       responses:
         '200':
@@ -325,26 +511,52 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
+                  success: 
+                    type: boolean
+                    example: true
                   data:
                     type: object
                     properties:
-                      id: { type: string }
-                      customerName: { type: string }
-                      leadType: { type: string }
-                      phone: { type: string }
-                      store: { type: string }
-                      functionDate: { type: string, format: date-time }
-                      subCategory: { type: string }
-                      remarks: { type: string }
-                      leadStatus: { type: string, example: complaint }
-                      updatedAt: { type: string, format: date-time }
-        '404':
-          description: Lead not found
+                      id: 
+                        type: string
+                        example: "6452abc123"
+                      customerName: 
+                        type: string
+                        example: "Alice Smith"
+                      leadType: 
+                        type: string
+                        example: "enquiry"
+                      phone: 
+                        type: string
+                        example: "9876543210"
+                      store: 
+                        type: string
+                        example: "Zorucci - Edapally"
+                      functionDate: 
+                        type: string
+                        format: date-time
+                        example: "2026-05-10T00:00:00Z"
+                      subCategory: 
+                        type: string
+                        example: "Bridal"
+                      remarks: 
+                        type: string
+                        example: "Fitting issue."
+                      leadStatus: 
+                        type: string
+                        example: "complaint"
+                      updatedAt: 
+                        type: string
+                        format: date-time
+                        example: "2026-03-15T10:00:00Z"
         '400':
           description: Invalid ID
         '401':
           description: Unauthorized
+        '404':
+          description: Lead not found
+        '500':
+          description: Internal server error
     post:
       tags:
         - Leads
@@ -361,6 +573,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
           description: Lead MongoDB _id
       requestBody:
         content:
@@ -371,15 +584,29 @@ paths:
                 remarks:
                   type: string
                   description: New complaint remarks
+                  example: "Resolved fitting issue."
       responses:
         '200':
-          description: Complaint updated
-        '404':
-          description: Complaint lead not found
+          description: Complaint updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Complaint updated"
         '400':
-          description: Invalid ID
+          description: Invalid ID or request
         '401':
           description: Unauthorized
+        '404':
+          description: Complaint lead not found
+        '500':
+          description: Internal server error
 
   /leads/performance:
     get:
@@ -394,13 +621,13 @@ paths:
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: Filter from date (YYYY-MM-DD).
         - name: toDate
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: Filter to date (YYYY-MM-DD).
       responses:
         '200':
@@ -410,9 +637,27 @@ paths:
               schema:
                 type: object
                 properties:
-                  telecallerId: { type: string }
-                  name: { type: string }
-                  totalCalls: { type: number }
-                  followup: { type: number }
-                  complaint: { type: number }
-                  completed: { type: number }
+                  telecallerId: 
+                    type: string
+                    example: "emp123"
+                  name: 
+                    type: string
+                    example: "John Doe"
+                  totalCalls: 
+                    type: number
+                    example: 25
+                  followup: 
+                    type: number
+                    example: 5
+                  complaint: 
+                    type: number
+                    example: 2
+                  completed: 
+                    type: number
+                    example: 18
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
