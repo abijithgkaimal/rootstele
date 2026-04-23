@@ -14,12 +14,13 @@ paths:
           in: query
           schema:
             type: string
+            example: "Zorucci - Edapally"
           description: Filter by store name.
         - name: fromDate
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by bookingDate (inclusive).
             Formats: YYYY-MM-DD or ISO.
@@ -27,15 +28,38 @@ paths:
           in: query
           schema:
             type: string
-            example: 2026-03-15
+            example: "2026-03-15"
           description: >
             Filter by bookingDate (inclusive).
             Formats: YYYY-MM-DD or ISO.
       responses:
         '200':
           description: List of booking confirmation leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    _id:
+                      type: string
+                      example: "6452abc123"
+                    customerName:
+                      type: string
+                      example: "Alice Smith"
+                    bookingDate:
+                      type: string
+                      example: "2026-03-15T00:00:00.000Z"
+                    store:
+                      type: string
+                      example: "Zorucci - Edapally"
+        '400':
+          description: Bad request
         '401':
           description: Unauthorized
+        '500':
+          description: Internal server error
 
   /leads/booking-confirmation/{id}:
     get:
@@ -51,6 +75,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
           description: Lead MongoDB _id
       responses:
         '200':
@@ -60,37 +85,76 @@ paths:
               schema:
                 type: object
                 properties:
-                  success: { type: boolean }
+                  success: 
+                    type: boolean
+                    example: true
                   data:
                     type: object
                     properties:
-                      id: { type: string }
-                      customerName: { type: string }
-                      store: { type: string }
-                      phone: { type: string }
-                      attendedBy: { type: string }
-                      bookingDate: { type: string, format: date-time }
-                      pickupDate: { type: string, format: date-time, description: "Maps from deliveryDate" }
-                      advanceAmount: { type: number }
-                      totalAmount: { type: number }
-                      subCategory: { type: string }
-                      category: { type: string }
-                      bookingNo: { type: string }
-                      leadStatus: { type: string }
+                      id: 
+                        type: string
+                        example: "6452abc123"
+                      customerName: 
+                        type: string
+                        example: "Alice Smith"
+                      store: 
+                        type: string
+                        example: "Zorucci - Edapally"
+                      phone: 
+                        type: string
+                        example: "9876543210"
+                      attendedBy: 
+                        type: string
+                        example: "emp123"
+                      bookingDate: 
+                        type: string
+                        format: date-time
+                        example: "2026-03-15T10:00:00Z"
+                      pickupDate: 
+                        type: string
+                        format: date-time
+                        description: "Maps from deliveryDate"
+                        example: "2026-03-20T10:00:00Z"
+                      advanceAmount: 
+                        type: number
+                        example: 1000
+                      totalAmount: 
+                        type: number
+                        example: 5000
+                      subCategory: 
+                        type: string
+                        example: "Bridal"
+                      category: 
+                        type: string
+                        example: "Dress"
+                      bookingNo: 
+                        type: string
+                        example: "BK-1002"
+                      leadStatus: 
+                        type: string
+                        example: "new"
                       items:
                         type: array
                         items:
                           type: object
                           properties:
-                            itemCode: { type: string }
-                            itemName: { type: string }
-                            price: { type: number }
-        '404':
-          description: Lead not found
+                            itemCode: 
+                              type: string
+                              example: "ITM-01"
+                            itemName: 
+                              type: string
+                              example: "Red Lehenga"
+                            price: 
+                              type: number
+                              example: 5000
         '400':
           description: Invalid ID
         '401':
           description: Unauthorized
+        '404':
+          description: Lead not found
+        '500':
+          description: Internal server error
     post:
       tags:
         - Booking Confirmation
@@ -107,6 +171,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
       requestBody:
         content:
           application/json:
@@ -115,32 +180,52 @@ paths:
               properties:
                 service:
                   type: string
+                  example: "Excellent"
                 callDuration:
                   type: string
+                  example: "120"
                 billReceived:
                   type: string
                   enum: [yes, no]
                   description: "Alias: billrecieved"
+                  example: "yes"
                 amountMismatch:
                   type: boolean
+                  example: false
                 remarks:
                   type: string
+                  example: "Customer is happy."
                 markasComplaint:
                   type: boolean
                   description: "If true → leadStatus = complaint (highest priority)"
+                  example: false
                 markasFollowup:
                   type: boolean
                   description: "If true → leadStatus = followup"
+                  example: false
                 followupDate:
                   type: string
                   format: date-time
+                  example: "2026-03-25T10:00:00Z"
       responses:
         '200':
-          description: Updated
-        '404':
-          description: Lead not found
+          description: Updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Lead updated"
+        '400':
+          description: Bad request
         '401':
           description: Unauthorized
-
-
-
+        '404':
+          description: Lead not found
+        '500':
+          description: Internal server error

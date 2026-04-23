@@ -14,30 +14,54 @@ paths:
           in: query
           schema:
             type: string
+            example: "Zorucci - Edapally"
           description: Filter by store name.
         - name: fromDate
           in: query
           schema:
             type: string
+            example: "2026-03-15"
           description: Filter by createdAt (inclusive).
         - name: toDate
           in: query
           schema:
             type: string
+            example: "2026-03-15"
           description: Filter by createdAt (inclusive).
         - name: page
           in: query
           schema:
             type: integer
+            example: 1
         - name: limit
           in: query
           schema:
             type: integer
+            example: 10
       responses:
         '200':
           description: List of JustDial leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+                    example: 5
+                  page:
+                    type: integer
+                    example: 1
+        '400':
+          description: Bad request
         '401':
           description: Unauthorized
+        '500':
+          description: Internal server error
 
   /leads/justdial/{id}:
     get:
@@ -53,14 +77,29 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
           description: Lead MongoDB _id
       responses:
         '200':
           description: JustDial lead detail
-        '404':
-          description: Lead not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+        '400':
+          description: Invalid ID
         '401':
           description: Unauthorized
+        '404':
+          description: Lead not found
+        '500':
+          description: Internal server error
     post:
       tags:
         - JustDial
@@ -76,6 +115,7 @@ paths:
           required: true
           schema:
             type: string
+            example: "6452abc123"
       requestBody:
         content:
           application/json:
@@ -84,21 +124,42 @@ paths:
               properties:
                 remarks:
                   type: string
+                  example: "Customer is interested."
                 markasComplaint:
                   type: boolean
+                  example: false
                 markasFollowup:
                   type: boolean
+                  example: true
                 followupDate:
                   type: string
                   format: date-time
+                  example: "2026-03-20T10:00:00Z"
                 callDuration:
                   type: string
+                  example: "45"
                 service:
                   type: string
+                  example: "Good"
       responses:
         '200':
-          description: Lead updated
-        '404':
-          description: Lead not found
+          description: Lead updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "JustDial lead updated"
+        '400':
+          description: Bad request
         '401':
           description: Unauthorized
+        '404':
+          description: Lead not found
+        '500':
+          description: Internal server error

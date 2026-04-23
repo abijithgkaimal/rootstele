@@ -1,241 +1,106 @@
-# Telecaller Backend
+<div align="center">
+  <h1>🚀 Telecaller Backend Engine</h1>
+  <p><strong>A high-performance, robust, and scalable lead management API built for seamless telecaller operations.</strong></p>
+  <p>This backend engine powers the entire lifecycle of lead management—from initial inquiries to complex follow-ups, complaints, and external synchronization. With auto-deduplication, smart caching layers, and a dynamic incoming call popup detection system, it provides the ultimate developer and user experience.</p>
 
-Node.js + Express + MongoDB backend for the Telecaller application.
-
-## Tech Stack
-
-- Node.js
-- Express
-- MongoDB + Mongoose
-- Axios (external APIs)
-- Swagger (swagger-jsdoc, swagger-ui-express)
-- dotenv, cors, morgan
-- express-validator
-- jsonwebtoken (JWT)
-
-## Setup
-
-1. Install dependencies: `npm install`
-2. Copy `.env.example` to `.env` and set variables
-3. Ensure MongoDB is running
-4. Run: `npm start` or `npm run dev` (nodemon)
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| PORT | Server port (default: 3000) |
-| MONGODB_URI | MongoDB connection string |
-| JWT_SECRET | Secret for JWT signing |
-| ROOTMENTS_VERIFY_API | Login verification API URL |
-| RENTAL_BOOKING_SUMMARY_API | Booking summary sync API |
-| RENTAL_RETURN_REPORT_API | Return report sync API |
-
-## API Overview
-
-### Auth
-- **POST /api/auth/login** – Login (userId, password). Returns JWT on success.
-
-### Leads
-- **POST /api/leads** – Add new lead (booked/enquiry). `createdBy` auto-set from authenticated user — do NOT pass in body.
-- **GET /api/leads/completed** – Completed report (filters: fromDate, toDate, store, leadtype; pagination: page, limit)
-- **GET /api/leads/performance** – Get personal call counts (followup, complaint, completed) with date filters.
-
-### Followups
-- **GET /api/leads/followups** – Followup list (filters: fromDate, toDate, store; filtered by followupDate)
-- **POST /api/leads/followups/:id** – Update followup → sets leadStatus=completed. `updatedBy`/`updatedAt` auto-set by server.
-- **GET /api/leads/complaints** – Complaint list (filters: fromDate, toDate, store; filtered by updatedAt)
-- **POST /api/leads/complaints/:id** – Update complaint remarks and metadata. `leadStatus` remains `complaint`. `updatedBy`/`updatedAt` auto-set.
-
-### Booking Confirmation
-- **GET /api/leads/booking-confirmation** – List booking confirmation leads (leadStatus=new)
-- **POST /api/leads/booking-confirmation/:id** – Update. Status priority: markasComplaint → complaint | markasFollowup → followup | billReceived=no/amountMismatch → complaint | default → completed. `updatedBy`/`updatedAt` auto-set.
-
-### Returns
-- **GET /api/leads/returns** – List return leads (leadStatus=new, filtered by returnDate)
-- **POST /api/leads/returns/:id** – Update. Status priority: markasComplaint → complaint | markasFollowup → followup | default → completed. `updatedBy`/`updatedAt` auto-set.
-
-### JustDial
-- **GET /api/leads/justdial** – List new JustDial leads (leadStatus=new, filtered by createdAt)
-- **POST /api/leads/justdial/:id** – Update. Status priority: markasComplaint → complaint | markasFollowup → followup | default → completed. `updatedBy`/`updatedAt` auto-set.
-
-### Customers (Phase 2 – popup detection)
-- **GET /api/customers/check-phone?phone=...** – Incoming call lookup; returns `popupType`, `customer`, `lead`
-- **GET /api/customers/:id/history** – Customer lead history (newest first)
-
-### Admin Console
-- **GET /api/admin/dashboard** – Get main dashboard stats (Total calls, duration, complaints).
-- **GET /api/admin/telecaller-summary** – Performance leaderboard for telecallers.
-- **GET /api/admin/reports** – Detailed calls report with CSV export support.
-- **GET /api/admin/complaints/pivot** – Complaint breakdown by store and category.
-- **GET /api/admin/filter-options** – Fetch unique stores, lead types, and users for dashboard filters.
-
-### Reports (Completed Leads)
-- **GET /api/leads/completed** – Main report API returning all leads with `leadStatus: "completed"`.
-- **Filtering**: Uses `updatedAt` for date filtering.
-- **Fields returned**: `_id`, `name`, `phone`, `store`, `leadtype`, `leadStatus`, `createdAt`, `functionDate`, `subCategory`, `closingAction`, `remarks`, `followupDate`, `followupremarks`, `updatedAt`, `updatedBy`.
-- **`updatedBy`**: Automatically set by the server from the authenticated user's `employeeId`. Not accepted from the request body.
-
-### 📅 Date Filtering Logic
-
-All APIs support date filtering using these query parameters:
-- `fromDate`
-- `toDate`
-
-**Supported Formats:**
-1. **Simple Date**: `YYYY-MM-DD` (e.g. `2026-03-15`)
-   - Backend automatically expands `fromDate` to `00:00:00` and `toDate` to `23:59:59`.
-2. **ISO Format**: `YYYY-MM-DDTHH:mm:ss` (e.g. `2026-03-15T10:30:00`)
-
-| leadStatus | leadtype | Filtering Field | Description |
-|------------|----------|-----------------|-------------|
-| **new** | return | `returnDate` | Specific date from RMS return API |
-| **new** | bookingConfirmation | `bookingDate` | Specific date from RMS booking API |
-| **new** | enquiry / booked / justDial | `createdAt` | System creation date |
-| **followup** | any | `followupDate` | Scheduled callback date |
-| **complaint** | any | `updatedAt` | Date when lead became a complaint |
-| **completed** | any | `updatedAt` | Date when lead was finalized (Closed) |
-
-All lead/sync/admin APIs require auth: JWT Bearer, Basic auth, or headers `x-user-id` and `x-password`.
-
-> **`updatedBy` is always auto-populated** from the authenticated user's `employeeId` on update calls — do not pass it in the request body.
-> **`updatedAt`** is always set by the server to the exact time of the update call.
-
-### Audit Field Rules
-
-| Operation | `createdAt` | `createdBy` | `updatedAt` | `updatedBy` |
-|-----------|------------|------------|------------|------------|
-| Manual lead creation (`POST /api/leads`) | `new Date()` | `req.user.employeeId` | — | — |
-| Telecaller updates lead (returns / booking / followup) | unchanged | unchanged | `new Date()` | `req.user.employeeId` |
-| External sync (new lead) | From API or `new Date()` | — | — | — |
-| External sync (existing lead re-sync) | unchanged (`$setOnInsert` only) | unchanged | unchanged | unchanged |
-
-## Swagger
-
-http://localhost:3000/api-docs
-
-## Leadmaster Collection
-
-Single MongoDB collection `leadmaster` stores all lead types:
-- Manual leads (booked, enquiry)
-- Booking confirmation (from sync)
-- Return leads (from sync)
-- JustDial
-
-Fields:
-- `leadtype`: [booked, enquiry, bookingConfirmation, return, justdial, lossofsale]
-- `leadStatus`: [new, followup, complaint, completed]
-- `phone`: Raw phone number
-- `normalizedPhone`: Normalized last 10 digits
-- `name`: Customer name
-- `store`: Store location (e.g., Zorucci - Edapally)
-- `functionDate / bookingDate`: Date of event/booking
-- `returnDate`: Date of return (for return leads)
-- `callStatus`: [connected, not connected, interested, etc.]
-- `callDuration`: Duration in seconds/minutes
-- `subCategory`: Enquiry category/type
-- `remarks`: Lead notes
-- `closingReason`: Required if `leadtype` is `lossofsale`
-- `billReceived / amountMismatch`: For booking confirmation leads
-- `noofFunctions / noofAttires`: For return leads
-- `bookingNo`: Unique ID from RMS
-- `source`: [manual, bookingSync, returnSync, justDialSync]
-- `createdAt`: **Original Lead Date**. For synced leads, set from the RMS API date (returnDate/bookingDate) on first insert only — never overwritten by re-syncs. For manual leads, set at creation time.
-- `updatedAt`: **Action Date**. Set by the server whenever a telecaller updates a lead (followup, complaint, or completed). Never set during external sync.
-- `createdBy`: Telecaller employeeId who created a manual lead. Auto-populated from auth token. Never set for synced leads.
-- `updatedBy`: Telecaller employeeId who last updated the lead. Auto-populated from auth token on every update call. Never set during external sync.
-
-Backward-compatible update fields:
-- `billrecieved` → mapped to `billReceived`
-- `noofFuctions` → mapped to `noofFunctions`
-- `followupclosingAction / followupremarks / followupcallDuration`: Used for followup updates.
-
-### Data Flattening
-All leads synced from external APIs are **flattened**. Instead of storing original fields in a `rawData` sub-object, they are spread directly into the root of the `LeadMaster` document. This ensures all fields are accessible in a single "roll" without nesting.
-
-## Sync Deduplication
-
-- **Booking confirmation**: Upsert by `bookingNo`
-- **Return leads**: Upsert by `bookingNo` or `returnId` (depends on external API response shape)
-
-## Scheduler & Sync Architecture
-
-The system uses a Master Scheduler (`src/schedulers/masterSyncScheduler.js`) to keep data in sync with external RMS APIs.
-
-### 🔄 Sync Flow
-1. **Initial Sync (on start)**:
-   - Fetches **last 60 days** of data.
-   - Flow: `syncStores` → `syncReturnLeads` → `syncBookingConfirmationLeads`.
-2. **Incremental Sync (every 30 minutes)**:
-   - Fetches **last 7 days** of data to ensure no updates are missed.
-   - Follows the same flow as the initial sync.
-
-### ⚡ Parallel & Bulk Processing
-- The system calls the external RMS API once per sync type for Returns.
-- **Booking Confirmation Sync**: Now iterates through each store in the database and calls the API per `locCode`.
-- Leads from all locations are processed efficiently and upserted into the `LeadMaster` collection.
-- Upsert logic uses `bookingNo + leadType` to prevent duplicates.
-
-### 🔒 Sync Meta & Locking
-- **SyncMeta**: Tracks `lastRunAt`, `initialSequenceCompleted` (gate for incremental syncs), and per-job `firstSyncCompleted` state.
-- **SyncLock**: Database-level lock (collection `synclock`) — prevents overlapping syncs. Created when sync starts, deleted when all steps finish (success or failure). No time-based expiry.
-
+  [![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+  [![Express.js](https://img.shields.io/badge/Express.js-Fast-000000?logo=express&logoColor=white)](https://expressjs.com/)
+  [![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+  [![Swagger](https://img.shields.io/badge/Swagger-OpenAPI_3.0-85EA2D?logo=swagger&logoColor=black)](https://swagger.io/)
+</div>
 
 ---
 
-## Customer Collection / Phase 2 Popup Detection
+## ⚡ Architecture & UX Philosophy
 
-### Why Customer collection
+We believe that **APIs should be as intuitive as the UIs they power**. 
 
-The `Customer` collection is a **fast lookup layer** for incoming call popup behavior. When a call arrives, the frontend sends the phone number; the backend checks `Customer` and returns which popup to show, plus the latest lead when available.
+- **Developer-First Design**: Unified data models, strictly typed routes, and comprehensive OpenAPI documentation.
+- **Resilient Synchronization**: Master schedulers handle concurrent syncs from external systems (RMS, JustDial) with robust database locks, preventing data duplication.
+- **Flattened Data Models**: Synced leads are flattened into the root of the document for O(1) query complexity without deep nesting.
+- **Smart Call Intelligence**: The `Customer` collection serves as a fast lookup layer to instantly detect customer history and suggest dynamic UI popups (`newLeadPopup`, `followupPopup`, etc.) on incoming calls.
 
-### Relationship
+---
 
-- **LeadMaster**: source of truth for all leads (manual, return, booking confirmation, etc.)
-- **Customer**: denormalized index per phone number, holding `latestLeadId`, `latestLeadStatus`, `latestLeadType`, lead counts, and ID arrays
-- **Updates**: Whenever a lead is created or updated, `customerService.upsertCustomerFromLead()` runs and keeps the Customer document in sync
+## 🛠 Tech Stack
 
-### Phone normalization
+| Technology | Purpose |
+|------------|---------|
+| **Node.js 20.x** | Core runtime for asynchronous high performance |
+| **Express.js** | Minimalist web framework for routing and middleware |
+| **MongoDB & Mongoose** | NoSQL database with strict schema validation |
+| **JSON Web Tokens (JWT)** | Stateless, secure API authentication |
+| **Node-Cron** | Automated synchronization scheduling |
+| **Swagger / OpenAPI** | World-class interactive API documentation |
 
-- Remove all non-digits
-- Keep last 10 digits
-- Stored as `normalizedPhone` in Customer and LeadMaster
-- Used for lookup, lead creation, and updates
+---
 
-### Incoming call popup workflow
+## 🚀 Quick Start
 
-1. Incoming call → frontend sends `GET /api/customers/check-phone?phone=...`
-2. Backend normalizes phone and looks up Customer
-3. If **no customer**:
-   - `exists: false`, `popupType: "newLeadPopup"`, `options: ["enquiry", "booked"]`
-4. If **customer exists**:
-   - Load latest lead from LeadMaster
-   - Compute `popupType` and return `customer`, `lead`
+Get the engine running locally in less than 2 minutes.
 
-### popupType mapping
+### 1. Clone & Install
+```bash
+git clone <repository-url>
+cd telebackend
+npm install
+```
 
-| latestLeadStatus | latestLeadType | popupType |
-|------------------|----------------|-----------|
-| followup | any | followupPopup |
-| completed | any | reportPopup |
-| complaint | any | complaintPopup |
-| new | return | returnPopup |
-| new | bookingConfirmation | bookingConfirmationPopup |
-| new | other | newLeadPopup |
-| (other) | any | newLeadPopup |
+### 2. Environment Configuration
+Duplicate the example environment file and configure your local setup.
+```bash
+cp .env.example .env
+```
 
-### Latest lead priority
+| Environment Variable | Description |
+|----------------------|-------------|
+| `PORT` | The port the server runs on (default: `3000`) |
+| `MONGODB_URI` | Your MongoDB connection string |
+| `JWT_SECRET` | Cryptographic key for signing auth tokens |
+| `ROOTMENTS_VERIFY_API` | External API for employee verification |
+| `RENTAL_BOOKING_SUMMARY_API`| Sync endpoint for booking confirmations |
+| `RENTAL_RETURN_REPORT_API` | Sync endpoint for return leads |
+| `JUSTDIAL_API_URL` | Sync endpoint for JustDial leads |
 
-Order used to pick the “latest” lead for a customer:
+### 3. Ignite the Server
+```bash
+# Development mode with hot-reloading
+npm run dev
 
-1. complaint  
-2. followup  
-3. new  
-4. completed  
+# Production mode
+npm start
+```
 
-Within the same priority, the lead with the most recent `updatedAt` is chosen.
+---
 
-### APIs
+## 📖 API Documentation (Swagger)
 
-- **GET /api/customers/check-phone?phone=...** – Incoming call lookup (auth required)
-- **GET /api/customers/:id/history** – All leads for a customer (auth required)
+The entire API surface is fully documented using Swagger OpenAPI 3.0. Once the server is running, explore the interactive docs at:
+👉 **[http://localhost:3000/api-docs](http://localhost:3000/api-docs)**
+
+---
+
+## 🧩 Core Systems & Workflows
+
+### 🔐 Authentication (`/api/auth`)
+Stateless JWT authentication. Telecallers login using `employeeId` (or `userId`) and `password`. The system automatically populates audit fields (`createdBy`, `updatedBy`) from the bearer token.
+
+### 🎯 Lead Management (`/api/leads`)
+The single source of truth for `booked`, `enquiry`, `bookingConfirmation`, `return`, and `justdial` leads. Supports advanced, ISO-compliant date filtering (`fromDate`, `toDate`) based on lead status (e.g., `updatedAt` for completed, `returnDate` for returns).
+
+### 📞 Call Intelligence & Popups (`/api/customers`)
+An optimized layer specifically designed to power incoming call UIs. When a call drops in, the API returns the exact popup type to display based on the customer's historical interactions and latest lead status.
+
+### 🔄 Master Scheduler & Sync
+- **Initial Sync**: Fetches the last 60 days of store, return, and booking data on startup.
+- **Incremental Sync**: Runs every 30 minutes for the last 7 days.
+- **Concurrency Control**: A resilient `synclock` collection prevents overlapping external API calls.
+
+### 📊 Admin Console (`/api/admin`)
+High-level aggregations and pivot data for dashboards, empowering administrators with insights on telecaller performance, complaint analytics, and total call durations.
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for High-Velocity Telecalling Teams.</sub>
+</div>
