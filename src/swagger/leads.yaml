@@ -72,6 +72,7 @@ paths:
                   example: true
                 followupDate:
                   type: string
+                  description: "Mandatory if callStatus is 'interested' or 'not connected'"
                   format: date-time
                   example: "2026-03-20T10:00:00Z"
       responses:

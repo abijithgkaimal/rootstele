@@ -13,6 +13,15 @@ router.post(
     body('leadtype').isIn(['booked', 'enquiry', 'lossofsale', 'justdial', 'return', 'bookingConfirmation']).withMessage('leadtype must be booked or enquiry or lossofsale or justdial'),
     body('phone').notEmpty().withMessage('phone is required'),
     body('callStatus').notEmpty().withMessage('callStatus is required'),
+    body('followupDate').custom((value, { req }) => {
+      const { callStatus } = req.body;
+      if (['not connected', 'interested'].includes(callStatus)) {
+        if (!value) {
+          throw new Error('followupDate is required when callStatus is interested or not connected');
+        }
+      }
+      return true;
+    }),
   ],
   validateRequest,
   leadController.addLead
