@@ -162,6 +162,7 @@ paths:
           schema:
             type: string
             example: "emp123"
+          description: "Filters by telecaller who completed the lead (matches updatedBy field)."
       responses:
         '200':
           description: Report data retrieved
