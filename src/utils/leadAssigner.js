@@ -24,8 +24,18 @@ const assignNewlySyncedLeads = async (leadIds) => {
   console.log(`[LeadAssigner] Distributing ${leadIds.length} leads among ${activeUsers.length} telecallers.`);
 
   const bulkOps = [];
+  const assignmentsLog = [];
+  
+  // Fetch phone numbers for better logging
+  const leadsToAssign = await LeadMaster.find({ _id: { $in: leadIds } }).select('phone');
+  const phoneMap = {};
+  leadsToAssign.forEach(l => { phoneMap[l._id.toString()] = l.phone || 'Unknown'; });
+
   leadIds.forEach((id, index) => {
     const telecaller = activeUsers[index % activeUsers.length];
+    
+    assignmentsLog.push(`Lead: ${id} (Phone: ${phoneMap[id.toString()]}) -> Assigned to: ${telecaller.employeeId}`);
+    
     bulkOps.push({
       updateOne: {
         filter: { _id: id },
@@ -40,6 +50,7 @@ const assignNewlySyncedLeads = async (leadIds) => {
     });
   });
 
+  console.log(`[LeadAssigner] Assignment Details:\n  ${assignmentsLog.join('\n  ')}`);
   await LeadMaster.bulkWrite(bulkOps, { ordered: false });
 };
 
