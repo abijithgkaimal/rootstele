@@ -45,7 +45,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         telecallerStats: [
           {
             $group: {
-              _id: "$createdBy",
+              _id: "$updatedBy",
               calls: { $sum: 1 },
               duration: {
                 $sum: { 
@@ -113,7 +113,7 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
     { $match: filter },
     {
       $group: {
-        _id: "$createdBy",
+        _id: "$updatedBy",
         totalCalls: { $sum: 1 },
         totalDuration: { 
           $sum: { 
@@ -154,13 +154,13 @@ const getReports = asyncHandler(async (req, res) => {
     filter.store = buildStoreRegex(store);
   }
   if (leadType) filter.leadtype = leadType;
-  if (telecaller) filter.createdBy = telecaller;
+  if (telecaller) filter.updatedBy = telecaller;
 
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);
 
   const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-  const projection = 'createdAt store name customerName phone leadtype createdBy callDuration refundStatus followupDate updatedAt';
+  const projection = 'createdAt store name customerName phone leadtype updatedBy callDuration refundStatus followupDate updatedAt';
 
   const [leads, total] = await Promise.all([
     LeadMaster.find(filter)
