@@ -1,9 +1,27 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, Settings, Search, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, Search, X } from 'lucide-react';
+
+// Custom toggle icons matching the requested design
+const CollapseIcon = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 18l-6-6 6-6" />
+    <line x1="16" y1="6" x2="16" y2="18" />
+    <line x1="20" y1="6" x2="20" y2="18" />
+  </svg>
+);
+
+const ExpandIcon = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 6l6 6-6 6" />
+    <line x1="8" y1="6" x2="8" y2="18" />
+    <line x1="4" y1="6" x2="4" y2="18" />
+  </svg>
+);
 
 const Layout = () => {
   const location = useLocation();
+  // Sidebar closed by default as requested
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -19,105 +37,114 @@ const Layout = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
-      {/* Mobile Sidebar Overlay */}
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
+      {/* Mobile/Desktop Sidebar Overlay - only visible on small screens when open */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-800/50 z-20 md:hidden" 
+          className="fixed inset-0 bg-slate-800/20 z-20 md:hidden backdrop-blur-sm transition-opacity" 
           onClick={toggleSidebar}
         ></div>
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed md:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
+      <aside 
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-in-out shadow-lg md:shadow-none ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
+            <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">A</div>
+            <span className="font-semibold text-slate-800 tracking-tight">Admin</span>
           </div>
-          <button className="md:hidden p-1 text-slate-400 hover:text-slate-600 ml-auto" onClick={toggleSidebar}>
+          <button className="md:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-50" onClick={toggleSidebar}>
             <X className="w-5 h-5" />
           </button>
         </div>
         
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 py-5 px-3 space-y-1.5 overflow-y-auto">
           <NavLink
             to="/admin/dashboard"
-            onClick={() => setIsSidebarOpen(false)}
+            onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
             className={({ isActive }) =>
-              `flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              `flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                isActive ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               }`
             }
           >
-            <LayoutDashboard className="w-5 h-5 mr-3" />
+            <LayoutDashboard className="w-5 h-5 mr-3 opacity-80" />
             Dashboard
           </NavLink>
           
           <NavLink
             to="/admin/telecallers"
-            onClick={() => setIsSidebarOpen(false)}
+            onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
             className={({ isActive }) =>
-              `flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              `flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                isActive ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               }`
             }
           >
-            <Users className="w-5 h-5 mr-3" />
+            <Users className="w-5 h-5 mr-3 opacity-80" />
             Telecallers
           </NavLink>
 
           <NavLink
             to="/admin/reports"
-            onClick={() => setIsSidebarOpen(false)}
+            onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
             className={({ isActive }) =>
-              `flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              `flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                isActive ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               }`
             }
           >
-            <FileText className="w-5 h-5 mr-3" />
+            <FileText className="w-5 h-5 mr-3 opacity-80" />
             Reports
           </NavLink>
 
-          <div className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-not-allowed opacity-70">
-            <LayoutDashboard className="w-5 h-5 mr-3" />
-            Categories & Reason
-          </div>
-
-          <div className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-not-allowed opacity-70">
-            <Settings className="w-5 h-5 mr-3" />
+          <div className="flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-400 cursor-not-allowed mt-4 border-t border-slate-100 pt-4">
+            <Settings className="w-5 h-5 mr-3 opacity-50" />
             Settings
           </div>
         </nav>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden w-full">
+      {/* Main Content - dynamically adjusts margin based on sidebar state on desktop */}
+      <main 
+        className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 ease-in-out ${
+          isSidebarOpen ? 'md:ml-64' : 'ml-0'
+        }`}
+      >
         {/* Topbar */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 lg:px-8 shrink-0">
-          <button className="md:hidden p-2 text-slate-400 hover:text-slate-600 mr-2" onClick={toggleSidebar}>
-            <Menu className="w-5 h-5" />
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 lg:px-6 shrink-0 sticky top-0 z-10">
+          <button 
+            className="p-2 mr-4 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center focus:outline-none" 
+            onClick={toggleSidebar}
+            aria-label="Toggle Sidebar"
+          >
+            {isSidebarOpen ? <CollapseIcon className="w-5 h-5" /> : <ExpandIcon className="w-5 h-5" />}
           </button>
-          <h1 className="text-xl font-semibold text-slate-800 hidden sm:block">
+          
+          <h1 className="text-lg font-bold text-slate-800 hidden sm:block tracking-tight">
             {getPageTitle()}
           </h1>
           
           <div className="flex items-center space-x-4 ml-auto">
-            <div className="relative hidden md:block">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+            <div className="relative hidden md:block group">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
               <input
                 type="text"
                 placeholder="Search telecallers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-2 w-64 rounded-full bg-slate-100 border-none text-sm focus:ring-2 focus:ring-slate-200 outline-none transition-shadow"
+                className="pl-10 pr-4 py-2 w-64 rounded-full bg-slate-100 border border-transparent text-sm focus:bg-white focus:border-slate-300 focus:ring-4 focus:ring-slate-100 outline-none transition-all shadow-inner"
               />
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
+        <div className="flex-1 overflow-auto bg-[#fafafa] p-4 sm:p-6 lg:p-8">
           <Outlet context={{ searchTerm }} />
         </div>
       </main>
