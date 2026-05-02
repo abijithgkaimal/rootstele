@@ -8,7 +8,7 @@ const Telecallers = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Date range state
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -102,18 +102,18 @@ const Telecallers = () => {
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-[28px] font-bold text-slate-900 tracking-tight">Call Category Report</h1>
-        
+
         <div className="flex flex-wrap items-center gap-3">
           {/* Telecaller Dropdown */}
           <div className="relative" ref={dropdownRef}>
-            <button 
+            <button
               onClick={() => setIsTelecallerOpen(!isTelecallerOpen)}
               className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center shadow-sm hover:bg-slate-50 transition-colors w-44 justify-between"
             >
               <span className="truncate">{selectedTelecaller}</span>
               <ChevronDown className="w-4 h-4 ml-2 text-slate-400 shrink-0" />
             </button>
-            
+
             {isTelecallerOpen && (
               <div className="absolute z-10 top-full right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto py-1">
                 {telecallerNames.map(name => (
@@ -143,7 +143,7 @@ const Telecallers = () => {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mt-4">
         <div className="p-7 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Telecaller Leaderboard</h2>
-          
+
           <div className="flex items-center gap-4">
             <div className="relative group">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
@@ -155,10 +155,10 @@ const Telecallers = () => {
                 className="pl-10 pr-4 py-2.5 rounded-full border border-slate-200 text-sm focus:ring-4 focus:ring-slate-100 outline-none w-64 transition-all"
               />
             </div>
-            
+
             {/* Custom Date Range Picker */}
             <div className="relative" ref={datePickerRef}>
-              <button 
+              <button
                 onClick={() => {
                   setTempFromDate(fromDate);
                   setTempToDate(toDate);
@@ -178,12 +178,12 @@ const Telecallers = () => {
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">From Date</label>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         value={tempFromDate}
                         onChange={(e) => setTempFromDate(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
@@ -191,8 +191,8 @@ const Telecallers = () => {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">To Date</label>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         value={tempToDate}
                         onChange={(e) => setTempToDate(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
@@ -201,13 +201,13 @@ const Telecallers = () => {
                   </div>
 
                   <div className="flex gap-2 mt-6">
-                    <button 
+                    <button
                       onClick={clearDateRange}
                       className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors"
                     >
                       Clear
                     </button>
-                    <button 
+                    <button
                       onClick={applyDateRange}
                       disabled={!tempFromDate || !tempToDate || tempFromDate > tempToDate}
                       className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -220,16 +220,16 @@ const Telecallers = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto px-7 pb-4">
           <table className="w-full text-sm text-left">
             <thead>
               <tr className="text-[11px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/60">
                 <th className="py-4 px-2 w-1/4">Employee</th>
                 <th className="py-4 px-2 text-center">Total Calls</th>
-                <th className="py-4 px-2 text-center">Feedback Calls</th>
-                <th className="py-4 px-2 text-center">Booking Confirmation Calls</th>
-                <th className="py-4 px-2 text-center">Enquiry Calls</th>
+                <th className="py-4 px-2 text-center">Feedback </th>
+                <th className="py-4 px-2 text-center">Booking Confirmation </th>
+                <th className="py-4 px-2 text-center">Enquiry</th>
                 <th className="py-4 px-2 text-center">Follow-ups Done</th>
                 <th className="py-4 px-2 text-center">Loss of Sale</th>
                 <th className="py-4 px-2 text-center">Performance</th>
@@ -241,8 +241,8 @@ const Telecallers = () => {
               ) : filteredLeaderboard.length === 0 ? (
                 <tr><td colSpan="8" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
               ) : filteredLeaderboard.map((row) => (
-                <tr 
-                  key={row.employeeId} 
+                <tr
+                  key={row.employeeId}
                   className="hover:bg-slate-50/50 cursor-pointer transition-colors"
                   onClick={() => navigate(`/admin/telecallers/${row.employeeId}`)}
                 >
