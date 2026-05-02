@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Download, PhoneCall, Headphones, TrendingDown, CheckSquare, MessageSquare, Briefcase, PhoneMissed } from 'lucide-react';
+import { Calendar, Download, PhoneCall, Headphones, TrendingDown, CheckSquare, MessageSquare, Briefcase, PhoneMissed, X } from 'lucide-react';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => (
   <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm flex flex-col relative overflow-hidden">
@@ -44,12 +44,25 @@ const TelecallerDetails = () => {
   const [recentCalls, setRecentCalls] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Date range state
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [tempFromDate, setTempFromDate] = useState('');
+  const [tempToDate, setTempToDate] = useState('');
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const datePickerRef = useRef(null);
+
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
+        let query = '';
+        if (fromDate && toDate) {
+          query = `?fromDate=${fromDate}&toDate=${toDate}`;
+        }
         const [sumRes, catRes, recentRes] = await Promise.all([
-          axios.get(`/api/admin/telecallers/${employeeId}/summary`),
-          axios.get(`/api/admin/telecallers/${employeeId}/category-performance`),
+          axios.get(`/api/admin/telecallers/${employeeId}/summary${query}`),
+          axios.get(`/api/admin/telecallers/${employeeId}/category-performance${query}`),
           axios.get(`/api/admin/telecallers/${employeeId}/recent-calls`)
         ]);
         
@@ -63,7 +76,47 @@ const TelecallerDetails = () => {
       }
     };
     fetchData();
-  }, [employeeId]);
+  }, [employeeId, fromDate, toDate]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
+        setIsDatePickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const applyDateRange = () => {
+    setFromDate(tempFromDate);
+    setToDate(tempToDate);
+    setIsDatePickerOpen(false);
+  };
+
+  const clearDateRange = () => {
+    setFromDate('');
+    setToDate('');
+    setTempFromDate('');
+    setTempToDate('');
+    setIsDatePickerOpen(false);
+  };
+
+  const getDateRangeDisplay = () => {
+    if (fromDate && toDate) {
+      const format = (d) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      return `${format(fromDate)} - ${format(toDate)}`;
+    }
+    return 'Date Range';
+  };
+
+  const handleExportCSV = () => {
+    let query = `?telecallerId=${employeeId}`;
+    if (fromDate && toDate) {
+      query += `&fromDate=${fromDate}&toDate=${toDate}`;
+    }
+    window.open(`/api/admin/reports/completed-leads/export${query}`, '_blank');
+  };
 
   if (loading || !summary || !category) {
     return <div className="p-8 text-center text-slate-500">Loading details...</div>;
@@ -84,11 +137,70 @@ const TelecallerDetails = () => {
         </div>
         
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 font-medium bg-white hover:bg-slate-50 transition-colors shadow-sm">
-            <Calendar className="w-4 h-4 text-slate-400" />
-            02-12-2025
-          </button>
-          <button className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center shadow-sm transition-colors">
+          {/* Custom Date Range Picker */}
+          <div className="relative" ref={datePickerRef}>
+            <button 
+              onClick={() => {
+                setTempFromDate(fromDate);
+                setTempToDate(toDate);
+                setIsDatePickerOpen(!isDatePickerOpen);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium shadow-sm transition-colors ${fromDate ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Calendar className="w-4 h-4 text-slate-400" />
+              {getDateRangeDisplay()}
+            </button>
+
+            {isDatePickerOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-5 z-20">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-slate-800">Select Date Range</h3>
+                  <button onClick={() => setIsDatePickerOpen(false)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">From Date</label>
+                    <input 
+                      type="date" 
+                      value={tempFromDate}
+                      onChange={(e) => setTempFromDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">To Date</label>
+                    <input 
+                      type="date" 
+                      value={tempToDate}
+                      onChange={(e) => setTempToDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-6">
+                  <button 
+                    onClick={clearDateRange}
+                    className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button 
+                    onClick={applyDateRange}
+                    disabled={!tempFromDate || !tempToDate || tempFromDate > tempToDate}
+                    className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <button onClick={handleExportCSV} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center shadow-sm transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </button>

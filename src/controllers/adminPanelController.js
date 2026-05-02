@@ -50,11 +50,11 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
         _id: "$updatedBy",
         totalCalls: { $sum: 1 },
         connectedCalls: { $sum: { $cond: [{ $eq: ["$callStatus", "connected"] }, 1, 0] } },
-        feedbackCalls: { $sum: { $cond: [{ $eq: ["$leadtype", "return"] }, 1, 0] } },
-        bookingConfirmationCalls: { $sum: { $cond: [{ $eq: ["$leadtype", "bookingconfirmation"] }, 1, 0] } },
-        enquiryCalls: { $sum: { $cond: [{ $eq: ["$leadtype", "enquiry"] }, 1, 0] } },
+        feedbackCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["return"]] }, 1, 0] } },
+        bookingConfirmationCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["bookingconfirmation"]] }, 1, 0] } },
+        enquiryCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["enquiry"]] }, 1, 0] } },
         followupsDone: { $sum: { $cond: [{ $ifNull: ["$followupDate", false] }, 1, 0] } },
-        lossOfSale: { $sum: { $cond: [{ $eq: ["$leadtype", "lossofsale"] }, 1, 0] } }
+        lossOfSale: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["lossofsale"]] }, 1, 0] } }
       }
     }
   ];
@@ -141,11 +141,11 @@ const getTelecallerCategoryPerformance = asyncHandler(async (req, res) => {
   if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
 
   const [bookingCalls, lossOfSaleCalls, customerFeedbackCalls, followupCalls, enquiryCalls] = await Promise.all([
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: 'bookingConfirmation' }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: 'lossofsale' }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: 'return' }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /bookingconfirmation/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /lossofsale/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /return/i }),
     LeadMaster.countDocuments({ ...matchObj, leadStatus: 'followup' }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: 'enquiry' })
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /enquiry/i })
   ]);
 
   return success(res, {
