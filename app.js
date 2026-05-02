@@ -85,7 +85,6 @@ app.get("/", (req, res, next) => {
   return res.redirect("/admin/login");
 });
 
-app.get("/admin/login", renderLoginPage);
 app.post("/admin/login", handleAdminLogin);
 app.post("/admin/logout", handleAdminLogout);
 
