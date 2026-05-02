@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, Settings, Search, Bell, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, Search, Menu, X } from 'lucide-react';
 
 const Layout = () => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const getPageTitle = () => {
     if (location.pathname.includes('/admin/dashboard')) return 'Dashboard';
@@ -32,7 +33,6 @@ const Layout = () => {
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
-            {/* Removed the 'LOGO' text here */}
           </div>
           <button className="md:hidden p-1 text-slate-400 hover:text-slate-600" onClick={toggleSidebar}>
             <X className="w-5 h-5" />
@@ -90,18 +90,6 @@ const Layout = () => {
             Settings
           </div>
         </nav>
-
-        <div className="p-4 border-t border-slate-200">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium">
-              A
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-slate-900">Office Admin</p>
-              <p className="text-xs text-slate-500 truncate w-32">admin@example.com</p>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* Main Content */}
@@ -120,7 +108,9 @@ const Layout = () => {
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search data, users, or reports"
+                placeholder="Search telecallers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 pr-4 py-2 w-64 rounded-full bg-slate-100 border-none text-sm focus:ring-2 focus:ring-slate-200 outline-none transition-shadow"
               />
             </div>
@@ -129,7 +119,7 @@ const Layout = () => {
 
         {/* Page Content */}
         <div className="flex-1 overflow-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
-          <Outlet />
+          <Outlet context={{ searchTerm }} />
         </div>
       </main>
     </div>

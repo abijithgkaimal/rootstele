@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
 import { Download, PhoneCall, Headphones, TrendingDown, Calendar, AlertCircle, Search } from 'lucide-react';
 
@@ -101,6 +101,20 @@ const Dashboard = () => {
     window.open(`/api/admin/reports/completed-leads/export${queryParams}`, '_blank');
   };
 
+  // Use Context for Search
+  const outletContext = useOutletContext();
+  const searchTerm = outletContext?.searchTerm || '';
+
+  // Filter the leaderboard based on the searchTerm
+  const filteredLeaderboard = leaderboard.filter(row => {
+    if (!searchTerm) return true;
+    const lowerTerm = searchTerm.toLowerCase();
+    return (
+      (row.name && row.name.toLowerCase().includes(lowerTerm)) ||
+      (row.employeeId && row.employeeId.toLowerCase().includes(lowerTerm))
+    );
+  });
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header section */}
@@ -199,9 +213,9 @@ const Dashboard = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr><td colSpan="7" className="text-center py-8 text-slate-400">Loading...</td></tr>
-              ) : leaderboard.length === 0 ? (
+              ) : filteredLeaderboard.length === 0 ? (
                 <tr><td colSpan="7" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
-              ) : leaderboard.map((row) => (
+              ) : filteredLeaderboard.map((row) => (
                 <tr 
                   key={row.employeeId} 
                   className="hover:bg-slate-50 cursor-pointer transition-colors"
