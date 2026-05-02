@@ -113,47 +113,25 @@ const handleJustDialLead = async (req, res) => {
       return res.send("RECEIVED");
     }
 
-    const data = req.method === "GET" ? req.query : req.body;
-    const {
-      leadid,
-      name,
-      mobile,
-      phone,
-      email,
-      category,
-      city,
-      area,
-      company,
-      date,
-      time
-    } = data;
+    const apiData = req.method === "GET" ? req.query : req.body;
+    console.log("JustDial Incoming:", apiData);
 
     // Normalize phone
     const { normalize: normalizePhone } = require("../utils/phoneNormalizer");
-    const rawPhone = mobile || phone;
+    const rawPhone = apiData.mobile || apiData.phone;
     const normalizedPhone = normalizePhone(rawPhone);
+    console.log("Normalized Phone:", normalizedPhone);
+
     if (!normalizedPhone) {
       return res.send("RECEIVED"); // silently ignore invalid
     }
 
     // Prepare system fields and fallback name
+    const { date, time } = apiData;
     const createdAt = date && time
       ? new Date(`${date} ${time}`)
       : new Date();
-    const updatedAt = date && time
-      ? new Date(`${date} ${time}`)
-      : new Date();
-
-    const customerName = name || company || "";
-    const fallbackName = name || company || "";
-
-    const systemFields = {
-      leadtype: "justdial",
-      source: "justdialPush",
-      createdAt,
-      updatedAt,
-      normalizedPhone
-    };
+    const updatedAt = createdAt;
 
     // Check existing lead using robust matching criteria
     const escaped = normalizedPhone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -174,7 +152,7 @@ const handleJustDialLead = async (req, res) => {
           $set: {
             leadtype: "justdial",
             source: "justdialPush",
-            lastJustDialHitAt: new Date()
+            updatedAt
           }
         }
       );
@@ -196,16 +174,22 @@ const handleJustDialLead = async (req, res) => {
         createdBy = assignee.employeeId;
       }
 
-      const newLead = {
-        ...data, // FLATTEN ALL JUSTDIAL FIELDS
-        ...systemFields,
-        customerName: customerName,
+      const fallbackName = apiData.name || apiData.company || "";
+
+      const flatDoc = {
+        ...apiData,
+        customerName: fallbackName,
         name: fallbackName,
         phone: rawPhone,
+        normalizedPhone,
+        leadtype: "justdial",
         leadStatus: "new",
+        source: "justdialPush",
+        createdAt,
+        updatedAt,
         createdBy
       };
-      await LeadMaster.create(newLead);
+      await LeadMaster.create(flatDoc);
     }
 
     // Update customer state (for popup system)
