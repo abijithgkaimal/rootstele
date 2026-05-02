@@ -124,15 +124,6 @@ const Layout = () => {
                 className="pl-9 pr-4 py-2 w-64 rounded-full bg-slate-100 border-none text-sm focus:ring-2 focus:ring-slate-200 outline-none transition-shadow"
               />
             </div>
-            
-            <button className="p-2 text-slate-400 hover:text-slate-600 relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-            
-            <div className="w-8 h-8 rounded-full bg-slate-800 overflow-hidden border-2 border-white shadow-sm shrink-0">
-              <img src="https://i.pravatar.cc/150?img=47" alt="Profile" className="w-full h-full object-cover" />
-            </div>
           </div>
         </header>
 
