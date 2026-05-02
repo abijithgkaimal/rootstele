@@ -68,7 +68,7 @@ const Dashboard = () => {
           axios.get(`/api/admin/dashboard-summary${queryParams}`),
           axios.get(`/api/admin/telecaller-leaderboard${queryParams}`)
         ]);
-        
+
         if (summaryRes.data.success) setSummary(summaryRes.data.data);
         if (leaderRes.data.success) setLeaderboard(leaderRes.data.data.telecallers);
       } catch (error) {
@@ -139,17 +139,16 @@ const Dashboard = () => {
             Export CSV
           </button>
         </div>
-        
+
         <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-max">
           {['YESTERDAY', 'TODAY', 'THIS MONTH', 'CUSTOM'].map((filter) => (
             <button
               key={filter}
               onClick={() => setDateFilter(filter)}
-              className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${
-                filter === dateFilter 
-                  ? 'bg-white text-slate-900 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${filter === dateFilter
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+                }`}
             >
               {filter}
             </button>
@@ -207,15 +206,16 @@ const Dashboard = () => {
         <div className="p-7 pb-5">
           <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Telecaller Leaderboard</h2>
         </div>
-        
+
         <div className="overflow-x-auto px-7 pb-4">
           <table className="w-full text-sm text-left">
             <thead>
               <tr className="text-[11px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/60">
                 <th className="py-4 px-2 w-1/4">Employee</th>
                 <th className="py-4 px-2 text-center">Total Calls</th>
-                <th className="py-4 px-2 text-center">Feedback Calls</th>
-                <th className="py-4 px-2 text-center">Booking Confirmation Calls</th>
+                <th className="py-4 px-2 text-center">Feedback</th>
+                <th className="py-4 px-2 text-center">Booking Confirmation</th>
+                <th className="py-4 px-2 text-center">Enquiry</th>
                 <th className="py-4 px-2 text-center">Follow-ups Done</th>
                 <th className="py-4 px-2 text-center">Loss of Sale</th>
                 <th className="py-4 px-2 text-center">Performance</th>
@@ -223,12 +223,12 @@ const Dashboard = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan="7" className="text-center py-8 text-slate-400">Loading...</td></tr>
+                <tr><td colSpan="8" className="text-center py-8 text-slate-400">Loading...</td></tr>
               ) : filteredLeaderboard.length === 0 ? (
-                <tr><td colSpan="7" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
+                <tr><td colSpan="8" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
               ) : filteredLeaderboard.map((row) => (
-                <tr 
-                  key={row.employeeId} 
+                <tr
+                  key={row.employeeId}
                   className="hover:bg-slate-50/50 cursor-pointer transition-colors"
                   onClick={() => navigate(`/admin/telecallers/${row.employeeId}`)}
                 >
@@ -239,6 +239,7 @@ const Dashboard = () => {
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.enquiryCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followupsDone}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
