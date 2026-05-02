@@ -42,17 +42,22 @@ const Dashboard = () => {
         let fromDate = null;
         let toDate = null;
 
+        const pad = (n) => String(n).padStart(2, '0');
+        const toYMD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
         if (dateFilter === 'TODAY') {
-          fromDate = today.toISOString().split('T')[0];
+          fromDate = toYMD(today);
           toDate = fromDate;
         } else if (dateFilter === 'YESTERDAY') {
           const yesterday = new Date(today);
           yesterday.setDate(yesterday.getDate() - 1);
-          fromDate = yesterday.toISOString().split('T')[0];
+          fromDate = toYMD(yesterday);
           toDate = fromDate;
         } else if (dateFilter === 'THIS MONTH') {
-          fromDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-          toDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+          const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+          const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          fromDate = toYMD(firstDay);
+          toDate = toYMD(lastDay);
         }
 
         if (fromDate && toDate) {
@@ -81,17 +86,22 @@ const Dashboard = () => {
     let fromDate = null;
     let toDate = null;
 
+    const pad = (n) => String(n).padStart(2, '0');
+    const toYMD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
     if (dateFilter === 'TODAY') {
-      fromDate = today.toISOString().split('T')[0];
+      fromDate = toYMD(today);
       toDate = fromDate;
     } else if (dateFilter === 'YESTERDAY') {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      fromDate = yesterday.toISOString().split('T')[0];
+      fromDate = toYMD(yesterday);
       toDate = fromDate;
     } else if (dateFilter === 'THIS MONTH') {
-      fromDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-      toDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      fromDate = toYMD(firstDay);
+      toDate = toYMD(lastDay);
     }
 
     if (fromDate && toDate) {

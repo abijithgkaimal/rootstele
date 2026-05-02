@@ -34,10 +34,9 @@ const Layout = () => {
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
           </div>
-          <button className="md:hidden p-1 text-slate-400 hover:text-slate-600" onClick={toggleSidebar}>
+          <button className="md:hidden p-1 text-slate-400 hover:text-slate-600 ml-auto" onClick={toggleSidebar}>
             <X className="w-5 h-5" />
           </button>
-          <Menu className="ml-auto w-5 h-5 text-slate-400 cursor-pointer hidden md:block" />
         </div>
         
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
