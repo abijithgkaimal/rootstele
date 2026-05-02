@@ -140,7 +140,7 @@ const Telecallers = () => {
       </div>
 
       {/* Leaderboard Table Container */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mt-4">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-visible mt-4">
         <div className="p-7 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Telecaller Leaderboard</h2>
 
