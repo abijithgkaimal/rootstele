@@ -1,0 +1,77 @@
+paths:
+  /admin/dashboard-summary:
+    get:
+      tags:
+        - Admin Panel
+      summary: "Get Dashboard Summary"
+      description: "Get summary stats for dashboard."
+      responses:
+        '200':
+          description: "Success"
+  /admin/telecaller-leaderboard:
+    get:
+      tags:
+        - Admin Panel
+      summary: "Get Telecaller Leaderboard"
+      description: "Get performance stats for all active telecallers."
+      responses:
+        '200':
+          description: "Success"
+  /admin/telecallers/{employeeId}/summary:
+    get:
+      tags:
+        - Admin Panel
+      summary: "Get Telecaller Detail Summary"
+      parameters:
+        - name: "employeeId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        '200':
+          description: "Success"
+  /admin/telecallers/{employeeId}/category-performance:
+    get:
+      tags:
+        - Admin Panel
+      summary: "Get Category Performance"
+      parameters:
+        - name: "employeeId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        '200':
+          description: "Success"
+  /admin/telecallers/{employeeId}/recent-calls:
+    get:
+      tags:
+        - Admin Panel
+      summary: "Get Recent Calls"
+      parameters:
+        - name: "employeeId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        '200':
+          description: "Success"
+  /admin/reports/completed-leads:
+    get:
+      tags:
+        - Admin Panel
+      summary: "Get Completed Reports"
+      responses:
+        '200':
+          description: "Success"
+  /admin/reports/completed-leads/export:
+    get:
+      tags:
+        - Admin Panel
+      summary: "Export Completed Reports to CSV"
+      responses:
+        '200':
+          description: "Success"
