@@ -50,7 +50,8 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
         _id: "$updatedBy",
         totalCalls: { $sum: 1 },
         connectedCalls: { $sum: { $cond: [{ $eq: ["$callStatus", "connected"] }, 1, 0] } },
-        notConnectedCalls: { $sum: { $cond: [{ $eq: ["$callStatus", "not connected"] }, 1, 0] } },
+        feedbackCalls: { $sum: { $cond: [{ $eq: ["$leadtype", "return"] }, 1, 0] } },
+        bookingConfirmationCalls: { $sum: { $cond: [{ $eq: ["$leadtype", "bookingconfirmation"] }, 1, 0] } },
         followupsDone: { $sum: { $cond: [{ $ifNull: ["$followupDate", false] }, 1, 0] } },
         lossOfSale: { $sum: { $cond: [{ $eq: ["$leadtype", "lossofsale"] }, 1, 0] } }
       }
@@ -60,8 +61,6 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
   const results = await LeadMaster.aggregate(aggregationPipeline);
 
   // Fetch names for the employeeIds from active users or try to find them if possible.
-  // Since users get deleted after 12hrs, we might not find them in the 'users' collection.
-  // But we can at least map the ones that exist.
   const activeUsers = await User.find({ role: { $ne: 'admin' } });
   const userMap = {};
   activeUsers.forEach(u => {
@@ -70,7 +69,7 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
 
   let telecallers = results.map(r => {
     const employeeId = r._id;
-    const name = userMap[employeeId] || employeeId; // Fallback to employeeId if name not found
+    const name = userMap[employeeId] || employeeId;
     
     // Apply search filter here if needed
     if (search && !name.toLowerCase().includes(search.toLowerCase()) && !employeeId.toLowerCase().includes(search.toLowerCase())) {
@@ -83,8 +82,8 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
       employeeId,
       name,
       totalCalls: r.totalCalls,
-      connectedCalls: r.connectedCalls,
-      notConnectedCalls: r.notConnectedCalls,
+      feedbackCalls: r.feedbackCalls,
+      bookingConfirmationCalls: r.bookingConfirmationCalls,
       followupsDone: r.followupsDone,
       lossOfSale: r.lossOfSale,
       performance: parseFloat(performance)

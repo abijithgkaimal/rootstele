@@ -144,8 +144,8 @@ const Telecallers = () => {
               <tr className="text-[11px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/60">
                 <th className="py-4 px-2 w-1/4">Employee</th>
                 <th className="py-4 px-2 text-center">Total Calls</th>
-                <th className="py-4 px-2 text-center">Connected</th>
-                <th className="py-4 px-2 text-center">Not Connected</th>
+                <th className="py-4 px-2 text-center">Feedback Calls</th>
+                <th className="py-4 px-2 text-center">Booking Confirmation Calls</th>
                 <th className="py-4 px-2 text-center">Follow-ups Done</th>
                 <th className="py-4 px-2 text-center">Loss of Sale</th>
                 <th className="py-4 px-2 text-center">Performance</th>
@@ -167,8 +167,8 @@ const Telecallers = () => {
                     <div className="text-[11px] font-bold tracking-wide text-slate-500 mt-1">{row.employeeId}</div>
                   </td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.connectedCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.notConnectedCalls}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followupsDone}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
