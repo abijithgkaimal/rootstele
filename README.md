@@ -118,13 +118,25 @@ The backend also serves a fully integrated Admin Dashboard (React SPA).
   - Telecaller Details (Summary & Recent Calls)
 
 ### Backend APIs for Admin
-The following APIs reside under `/api/admin/` and require valid admin authentication.
-- `GET /api/admin/dashboard-summary`
-- `GET /api/admin/telecaller-leaderboard`
-- `GET /api/admin/telecallers/:employeeId/summary`
-- `GET /api/admin/telecallers/:employeeId/category-performance`
-- `GET /api/admin/telecallers/:employeeId/recent-calls`
-- `GET /api/admin/reports/completed-leads`
-- `GET /api/admin/reports/completed-leads/export`
+
+#### Admin Panel APIs (New)
+The following endpoints reside under `/api/admin/` and are used by the modern Admin Dashboard:
+- `POST /api/admin/login` - Authenticate admin users with username/password
+- `POST /api/admin/logout` - Clear admin session cookies
+- `GET /api/admin/dashboard-summary` - High-level total leads and summary statistics
+- `GET /api/admin/telecaller-leaderboard` - Active telecaller leaderboard and performance
+- `GET /api/admin/telecallers/:employeeId/summary` - Detailed metric summary for a single telecaller
+- `GET /api/admin/telecallers/:employeeId/category-performance` - Performance breakdown across categories
+- `GET /api/admin/telecallers/:employeeId/recent-calls` - View recent completed calls for a telecaller
+- `GET /api/admin/reports/completed-leads` - Completed leads report
+- `GET /api/admin/reports/completed-leads/export` - Export completed reports to CSV
+
+#### Legacy Admin APIs
+The following endpoints reside under `/api/admin/` for older admin integrations:
+- `GET /api/admin/dashboard` - Get old style dashboard stats
+- `GET /api/admin/telecaller-summary` - Old style telecaller summary stats
+- `GET /api/admin/reports` - Get detailed reports of completed leads
+- `GET /api/admin/complaints/pivot` - Complaints pivot breakdown
+- `GET /api/admin/filter-options` - Retrieve filtering options for the legacy frontend
 
 All APIs support optional date filtering (`fromDate`, `toDate`), which predominantly applies to the `updatedAt` field.
