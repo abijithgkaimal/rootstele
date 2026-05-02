@@ -65,7 +65,7 @@ const TelecallerDetails = () => {
           axios.get(`/api/admin/telecallers/${employeeId}/category-performance${query}`),
           axios.get(`/api/admin/telecallers/${employeeId}/recent-calls`)
         ]);
-        
+
         if (sumRes.data.success) setSummary(sumRes.data.data);
         if (catRes.data.success) setCategory(catRes.data.data);
         if (recentRes.data.success) setRecentCalls(recentRes.data.data.calls);
@@ -135,11 +135,11 @@ const TelecallerDetails = () => {
             <p className="text-slate-500 text-sm">Role : {summary.role}</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {/* Custom Date Range Picker */}
           <div className="relative" ref={datePickerRef}>
-            <button 
+            <button
               onClick={() => {
                 setTempFromDate(fromDate);
                 setTempToDate(toDate);
@@ -159,12 +159,12 @@ const TelecallerDetails = () => {
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">From Date</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={tempFromDate}
                       onChange={(e) => setTempFromDate(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
@@ -172,8 +172,8 @@ const TelecallerDetails = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">To Date</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={tempToDate}
                       onChange={(e) => setTempToDate(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
@@ -182,13 +182,13 @@ const TelecallerDetails = () => {
                 </div>
 
                 <div className="flex gap-2 mt-6">
-                  <button 
+                  <button
                     onClick={clearDateRange}
                     className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors"
                   >
                     Clear
                   </button>
-                  <button 
+                  <button
                     onClick={applyDateRange}
                     disabled={!tempFromDate || !tempToDate || tempFromDate > tempToDate}
                     className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -199,7 +199,7 @@ const TelecallerDetails = () => {
               </div>
             )}
           </div>
-          
+
           <button onClick={handleExportCSV} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center shadow-sm transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Export CSV
@@ -300,7 +300,7 @@ const TelecallerDetails = () => {
             View All Calls
           </button>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 font-bold uppercase bg-slate-50/50">
