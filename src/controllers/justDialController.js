@@ -151,8 +151,7 @@ const handleJustDialLead = async (req, res) => {
         {
           $set: {
             leadtype: "justdial",
-            source: "justdialPush",
-            updatedAt
+            source: "justdialPush"
           }
         }
       );
