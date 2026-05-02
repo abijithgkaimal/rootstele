@@ -216,6 +216,7 @@ const Dashboard = () => {
                 <th className="py-4 px-2 text-center">Total Calls</th>
                 <th className="py-4 px-2 text-center">Feedback Calls</th>
                 <th className="py-4 px-2 text-center">Booking Confirmation Calls</th>
+                <th className="py-4 px-2 text-center">Enquiry Calls</th>
                 <th className="py-4 px-2 text-center">Follow-ups Done</th>
                 <th className="py-4 px-2 text-center">Loss of Sale</th>
                 <th className="py-4 px-2 text-center">Performance</th>
@@ -223,9 +224,9 @@ const Dashboard = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan="7" className="text-center py-8 text-slate-400">Loading...</td></tr>
+                <tr><td colSpan="8" className="text-center py-8 text-slate-400">Loading...</td></tr>
               ) : filteredLeaderboard.length === 0 ? (
-                <tr><td colSpan="7" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
+                <tr><td colSpan="8" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
               ) : filteredLeaderboard.map((row) => (
                 <tr 
                   key={row.employeeId} 
@@ -239,6 +240,7 @@ const Dashboard = () => {
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.enquiryCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followupsDone}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
