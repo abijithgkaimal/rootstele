@@ -35,7 +35,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
 const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
   const { fromDate, toDate, store, search } = req.query;
   
-  const matchObj = { leadStatus: 'completed', updatedBy: { $exists: true, $ne: null } };
+  const matchObj = { leadStatus: { $in: ['completed', 'followup', 'complaint'] }, updatedBy: { $exists: true, $ne: null } };
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));

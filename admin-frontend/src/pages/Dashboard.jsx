@@ -183,7 +183,7 @@ const Dashboard = () => {
           color={{ bg: 'bg-rose-100/60', text: 'text-rose-500' }}
         />
         <StatCard
-          title="Follow Ups Completed"
+          title="Follow Ups"
           value={loading ? '-' : summary.followupLeadsToBeCalled}
           subtitle="+8% from yesterday"
           trend="up"
