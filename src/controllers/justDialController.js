@@ -155,8 +155,18 @@ const handleJustDialLead = async (req, res) => {
       normalizedPhone
     };
 
-    // Check existing lead
-    const existingLead = await LeadMaster.findOne({ normalizedPhone });
+    // Check existing lead using robust matching criteria
+    const escaped = normalizedPhone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existingLead = await LeadMaster.findOne({
+      $or: [
+        { normalizedPhone },
+        { phone: normalizedPhone },
+        { phoneNo: normalizedPhone },
+        { phone: { $regex: new RegExp(escaped + '$') } },
+        { phoneNo: { $regex: new RegExp(escaped + '$') } }
+      ]
+    });
+
     if (existingLead) {
       await LeadMaster.updateOne(
         { _id: existingLead._id },
