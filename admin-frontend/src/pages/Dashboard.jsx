@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import axios from 'axios';
-import { Download, PhoneCall, Headphones, TrendingDown, Calendar, AlertCircle, Search } from 'lucide-react';
+import { Download, Phone, Headphones, TrendingDown, Calendar, AlertCircle } from 'lucide-react';
 
-const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => (
-  <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm flex flex-col relative overflow-hidden">
+const StatCard = ({ title, value, subtitle, icon: Icon, color, trend, cardBg }) => (
+  <div className={`${cardBg || 'bg-white'} rounded-2xl border border-slate-100 p-6 shadow-sm flex flex-col relative`}>
     <div className="flex justify-between items-start mb-4">
-      <h3 className="text-slate-600 font-medium text-sm w-32 leading-tight">{title}</h3>
-      <div className={`p-2 rounded-lg ${color.bg} ${color.text}`}>
+      <h3 className="text-slate-600 font-medium text-sm w-24 leading-snug">{title}</h3>
+      <div className={`p-2 rounded-xl ${color.bg} ${color.text}`}>
         <Icon className="w-5 h-5" />
       </div>
     </div>
-    <div className="mt-auto">
-      <span className="text-3xl font-bold text-slate-800">{value}</span>
-      <p className={`text-xs mt-2 font-medium ${trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-rose-500' : 'text-slate-500'}`}>
+    <div className="mt-2">
+      <span className={`text-[28px] leading-none font-bold ${cardBg ? 'text-rose-500' : 'text-slate-800'}`}>{value}</span>
+      <p className={`text-xs mt-3 font-medium ${trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-rose-500' : 'text-slate-500'}`}>
         {subtitle}
       </p>
     </div>
@@ -31,7 +31,7 @@ const Dashboard = () => {
   });
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dateFilter, setDateFilter] = useState('ALL');
+  const [dateFilter, setDateFilter] = useState('TODAY');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -126,67 +126,67 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-[1400px] mx-auto space-y-8">
       {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 text-sm mt-1">Overview of all telecalling activities</p>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex bg-slate-200/50 p-1 rounded-lg overflow-x-auto w-full sm:w-auto">
-            {['ALL', 'YESTERDAY', 'TODAY', 'THIS MONTH'].map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setDateFilter(filter)}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                  filter === dateFilter 
-                    ? 'bg-white text-slate-900 shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
+      <div className="flex flex-col space-y-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
+            <p className="text-slate-500 text-[15px] mt-1 font-medium">Overview of all telecalling activities</p>
           </div>
-          <button onClick={handleExportCSV} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-sm w-full sm:w-auto justify-center">
+          <button onClick={handleExportCSV} className="bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </button>
         </div>
+        
+        <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-max">
+          {['YESTERDAY', 'TODAY', 'THIS MONTH', 'CUSTOM'].map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setDateFilter(filter)}
+              className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${
+                filter === dateFilter 
+                  ? 'bg-white text-slate-900 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
         <StatCard
           title="Total Leads"
           value={loading ? '-' : summary.totalLeads}
-          subtitle=""
+          subtitle="+5% from yesterday"
           trend="up"
-          icon={PhoneCall}
-          color={{ bg: 'bg-emerald-100', text: 'text-emerald-600' }}
+          icon={Phone}
+          color={{ bg: 'bg-emerald-100/60', text: 'text-emerald-600' }}
         />
         <StatCard
           title="Completed Leads"
           value={loading ? '-' : summary.completedLeads}
-          subtitle=""
+          subtitle="+8% from yesterday"
           trend="up"
           icon={Headphones}
-          color={{ bg: 'bg-orange-100', text: 'text-orange-600' }}
+          color={{ bg: 'bg-orange-100/60', text: 'text-orange-500' }}
         />
         <StatCard
           title="Total Loss of Sale Leads"
           value={loading ? '-' : summary.totalLossOfSaleLeads}
-          subtitle=""
+          subtitle="+6% from yesterday"
           trend="down"
           icon={TrendingDown}
-          color={{ bg: 'bg-rose-100', text: 'text-rose-600' }}
+          color={{ bg: 'bg-rose-100/60', text: 'text-rose-500' }}
         />
         <StatCard
           title="Follow Ups Completed"
           value={loading ? '-' : summary.followupLeadsToBeCalled}
-          subtitle=""
+          subtitle="+8% from yesterday"
           trend="up"
           icon={Calendar}
           color={{ bg: 'bg-slate-100', text: 'text-slate-600' }}
@@ -194,30 +194,31 @@ const Dashboard = () => {
         <StatCard
           title="Total Complaints"
           value={loading ? '-' : summary.totalComplaints}
-          subtitle=""
+          subtitle="+1.2% from yesterday"
           trend="down"
           icon={AlertCircle}
-          color={{ bg: 'bg-rose-100', text: 'text-rose-600' }}
+          color={{ bg: 'bg-rose-100/80', text: 'text-rose-500' }}
+          cardBg="bg-rose-50/50"
         />
       </div>
 
       {/* Leaderboard */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900">Telecaller Leaderboard</h2>
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mt-4">
+        <div className="p-7 pb-5">
+          <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Telecaller Leaderboard</h2>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="text-xs text-slate-500 font-bold uppercase bg-slate-50/50">
-              <tr>
-                <th className="px-6 py-4">Employee</th>
-                <th className="px-6 py-4 text-center">Total Calls</th>
-                <th className="px-6 py-4 text-center">Connected</th>
-                <th className="px-6 py-4 text-center">Not Connected</th>
-                <th className="px-6 py-4 text-center">Follow-ups Done</th>
-                <th className="px-6 py-4 text-center">Loss of Sale</th>
-                <th className="px-6 py-4 text-center">Performance</th>
+        <div className="overflow-x-auto px-7 pb-4">
+          <table className="w-full text-sm text-left">
+            <thead>
+              <tr className="text-[11px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/60">
+                <th className="py-4 px-2 w-1/4">Employee</th>
+                <th className="py-4 px-2 text-center">Total Calls</th>
+                <th className="py-4 px-2 text-center">Connected</th>
+                <th className="py-4 px-2 text-center">Not Connected</th>
+                <th className="py-4 px-2 text-center">Follow-ups Done</th>
+                <th className="py-4 px-2 text-center">Loss of Sale</th>
+                <th className="py-4 px-2 text-center">Performance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -228,19 +229,19 @@ const Dashboard = () => {
               ) : filteredLeaderboard.map((row) => (
                 <tr 
                   key={row.employeeId} 
-                  className="hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="hover:bg-slate-50/50 cursor-pointer transition-colors"
                   onClick={() => navigate(`/admin/telecallers/${row.employeeId}`)}
                 >
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-slate-900">{row.name}</div>
-                    <div className="text-xs text-slate-500 uppercase">{row.employeeId}</div>
+                  <td className="py-4 px-2">
+                    <div className="font-semibold text-slate-800">{row.name}</div>
+                    <div className="text-[11px] font-bold tracking-wide text-slate-500 mt-1">{row.employeeId}</div>
                   </td>
-                  <td className="px-6 py-4 text-center font-medium">{row.totalCalls}</td>
-                  <td className="px-6 py-4 text-center font-medium">{row.connectedCalls}</td>
-                  <td className="px-6 py-4 text-center font-medium">{row.notConnectedCalls}</td>
-                  <td className="px-6 py-4 text-center font-medium">{row.followupsDone}</td>
-                  <td className="px-6 py-4 text-center font-medium">{row.lossOfSale}</td>
-                  <td className="px-6 py-4 text-center font-medium">{row.performance}%</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.connectedCalls}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.notConnectedCalls}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followupsDone}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
                 </tr>
               ))}
             </tbody>
