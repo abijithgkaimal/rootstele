@@ -109,6 +109,9 @@ High-level aggregations and pivot data for dashboards, empowering administrators
 The backend also serves a fully integrated Admin Dashboard (React SPA).
 
 - **URL:** `/` (Root URL of the backend deployment)
+- **Fallback/Test Credentials:** 
+  - **Username:** `admin`
+  - **Password:** `admin123`
 - **Pages:**
   - Dashboard (Overview stats & Leaderboard)
   - Telecallers (Call Category Report)

@@ -1,4 +1,39 @@
 paths:
+  /admin/login:
+    post:
+      tags:
+        - Admin Panel
+      summary: "Admin login"
+      description: "Admin panel login endpoint"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  example: admin123
+      responses:
+        '200':
+          description: "Login successful"
+        '401':
+          description: "Invalid admin credentials"
+
+  /admin/logout:
+    post:
+      tags:
+        - Admin Panel
+      summary: "Admin logout"
+      description: "Logs the admin user out of the dashboard"
+      responses:
+        '200':
+          description: "Logout successful"
+
   /admin/dashboard-summary:
     get:
       tags:
