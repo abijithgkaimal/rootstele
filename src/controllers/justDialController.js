@@ -136,15 +136,22 @@ const handleJustDialLead = async (req, res) => {
       return res.send("RECEIVED"); // silently ignore invalid
     }
 
-    // Prepare system fields
+    // Prepare system fields and fallback name
     const createdAt = date && time
       ? new Date(`${date} ${time}`)
       : new Date();
+    const updatedAt = date && time
+      ? new Date(`${date} ${time}`)
+      : new Date();
+
+    const customerName = name || company || "";
+    const fallbackName = name || company || "";
 
     const systemFields = {
       leadtype: "justdial",
-      source: "justDialSync",
-      updatedAt: new Date(),
+      source: "justdialPush",
+      createdAt,
+      updatedAt,
       normalizedPhone
     };
 
@@ -155,19 +162,38 @@ const handleJustDialLead = async (req, res) => {
         { _id: existingLead._id },
         {
           $set: {
-            ...systemFields,
+            leadtype: "justdial",
+            source: "justdialPush",
             lastJustDialHitAt: new Date()
           }
         }
       );
     } else {
+      // Find active telecallers for round robin assignment
+      const User = require("../models/User");
+      const activeUsers = await User.find({
+        role: { $ne: "admin" },
+        $or: [
+          { lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) } },
+          { createdAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) } }
+        ]
+      }).sort({ lastLoginAt: -1 });
+
+      let createdBy = "system";
+      if (activeUsers && activeUsers.length > 0) {
+        const totalJustDialLeads = await LeadMaster.countDocuments({ leadtype: "justdial", source: "justdialPush" });
+        const assignee = activeUsers[totalJustDialLeads % activeUsers.length];
+        createdBy = assignee.employeeId;
+      }
+
       const newLead = {
         ...data, // FLATTEN ALL JUSTDIAL FIELDS
         ...systemFields,
-        customerName: name || "",
+        customerName: customerName,
+        name: fallbackName,
         phone: rawPhone,
         leadStatus: "new",
-        createdAt
+        createdBy
       };
       await LeadMaster.create(newLead);
     }

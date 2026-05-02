@@ -22,7 +22,7 @@ const leadMasterSchema = new mongoose.Schema(
     name:            { type: String },           // for manual leads
     customerName:    { type: String },           // from API / manual
     store:           { type: String },
-    source:          { type: String, enum: ['manual', 'bookingSync', 'returnSync', 'justDialSync'] },
+    source:          { type: String, enum: ['manual', 'bookingSync', 'returnSync', 'justDialSync', 'justdialPush'] },
 
     // ── Manual-lead fields ─────────────────────────────────────────────────────
     callStatus:      { type: String, enum: callStatusEnum },
