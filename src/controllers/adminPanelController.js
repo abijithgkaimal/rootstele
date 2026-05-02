@@ -51,7 +51,7 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
         totalCalls: { $sum: 1 },
         connectedCalls: { $sum: { $cond: [{ $eq: ["$callStatus", "connected"] }, 1, 0] } },
         feedbackCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["return"]] }, 1, 0] } },
-        bookingConfirmationCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["bookingconfirmation", "booked"]] }, 1, 0] } },
+        bookingConfirmationCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["bookingconfirmation"]] }, 1, 0] } },
         enquiryCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["enquiry"]] }, 1, 0] } },
         followupsDone: { $sum: { $cond: [{ $ifNull: ["$followupDate", false] }, 1, 0] } },
         lossOfSale: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["lossofsale", "loss of sale"]] }, 1, 0] } }
@@ -141,7 +141,7 @@ const getTelecallerCategoryPerformance = asyncHandler(async (req, res) => {
   if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
 
   const [bookingCalls, lossOfSaleCalls, customerFeedbackCalls, followupCalls, enquiryCalls] = await Promise.all([
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /^(booked|bookingconfirmation)/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /bookingconfirmation/i }),
     LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /^(lossofsale|loss of sale)/i }),
     LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /return/i }),
     LeadMaster.countDocuments({ ...matchObj, leadStatus: 'followup' }),
