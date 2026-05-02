@@ -216,7 +216,7 @@ const Dashboard = () => {
                 <th className="py-4 px-2 text-center">Feedback</th>
                 <th className="py-4 px-2 text-center">Booking Confirmation</th>
                 <th className="py-4 px-2 text-center">Enquiry</th>
-                <th className="py-4 px-2 text-center">Follow-ups Done</th>
+                <th className="py-4 px-2 text-center">Follow-up</th>
                 <th className="py-4 px-2 text-center">Loss of Sale</th>
                 <th className="py-4 px-2 text-center">Performance</th>
               </tr>
@@ -240,7 +240,7 @@ const Dashboard = () => {
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.enquiryCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followupsDone}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followup ?? row.followupsDone}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
                 </tr>
