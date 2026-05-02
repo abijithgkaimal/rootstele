@@ -55,6 +55,7 @@ app.use("/api", authRoutes);
 app.use("/api/admin", adminPanelRoutes); // New admin APIs MUST be before leadRoutes to avoid JWT authMiddleware catch-all
 app.use("/api", adminRoutes); // Legacy admin MUST be before leadRoutes
 
+app.use("/api", justDialRoutes);
 app.use("/api", leadRoutes);
 app.use("/api", followupRoutes);
 app.use("/api", bookingConfirmationRoutes);
@@ -63,7 +64,6 @@ app.use("/api", syncRoutes);
 app.use("/api", storeRoutes);
 app.use("/api", customerRoutes);
 app.use("/api", healthRoutes);
-app.use("/api", justDialRoutes);
 
 // =====================
 // Swagger Docs

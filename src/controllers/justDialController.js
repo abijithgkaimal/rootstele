@@ -106,8 +106,86 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
   return success(res, lead, 'JustDial lead updated');
 });
 
+
+const handleJustDialLead = async (req, res) => {
+  try {
+    if (process.env.JUSTDIAL_SECRET && req.query.token !== process.env.JUSTDIAL_SECRET) {
+      return res.send("RECEIVED");
+    }
+
+    const data = req.method === "GET" ? req.query : req.body;
+    const {
+      leadid,
+      name,
+      mobile,
+      phone,
+      email,
+      category,
+      city,
+      area,
+      company,
+      date,
+      time
+    } = data;
+
+    // Normalize phone
+    const { normalize: normalizePhone } = require("../utils/phoneNormalizer");
+    const rawPhone = mobile || phone;
+    const normalizedPhone = normalizePhone(rawPhone);
+    if (!normalizedPhone) {
+      return res.send("RECEIVED"); // silently ignore invalid
+    }
+
+    // Prepare system fields
+    const createdAt = date && time
+      ? new Date(`${date} ${time}`)
+      : new Date();
+
+    const systemFields = {
+      leadtype: "justdial",
+      source: "justDialSync",
+      updatedAt: new Date(),
+      normalizedPhone
+    };
+
+    // Check existing lead
+    const existingLead = await LeadMaster.findOne({ normalizedPhone });
+    if (existingLead) {
+      await LeadMaster.updateOne(
+        { _id: existingLead._id },
+        {
+          $set: {
+            ...systemFields,
+            lastJustDialHitAt: new Date()
+          }
+        }
+      );
+    } else {
+      const newLead = {
+        ...data, // FLATTEN ALL JUSTDIAL FIELDS
+        ...systemFields,
+        customerName: name || "",
+        phone: rawPhone,
+        leadStatus: "new",
+        createdAt
+      };
+      await LeadMaster.create(newLead);
+    }
+
+    // Update customer state (for popup system)
+    await customerService.recomputeCustomerState(normalizedPhone).catch(() => {});
+
+    // MUST return exactly this
+    return res.send("RECEIVED");
+  } catch (error) {
+    console.error("JustDial Push Error:", error);
+    return res.send("RECEIVED"); // never fail response
+  }
+};
+
 module.exports = {
   getJustDialLeads,
   getJustDialLeadById,
-  updateJustDialLead
+  updateJustDialLead,
+  handleJustDialLead
 };
