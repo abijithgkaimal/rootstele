@@ -53,7 +53,8 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
         feedbackCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["return"]] }, 1, 0] } },
         bookingConfirmationCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["bookingconfirmation"]] }, 1, 0] } },
         enquiryCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["enquiry"]] }, 1, 0] } },
-        followupsDone: { $sum: { $cond: [{ $ifNull: ["$followupDate", false] }, 1, 0] } },
+        followupsDone: { $sum: { $cond: [{ $eq: [{ $toLower: "$leadStatus" }, "followup"] }, 1, 0] } },
+        followup: { $sum: { $cond: [{ $eq: [{ $toLower: "$leadStatus" }, "followup"] }, 1, 0] } },
         lossOfSale: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["lossofsale", "loss of sale"]] }, 1, 0] } }
       }
     }
@@ -87,6 +88,7 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
       bookingConfirmationCalls: r.bookingConfirmationCalls,
       enquiryCalls: r.enquiryCalls,
       followupsDone: r.followupsDone,
+      followup: r.followup,
       lossOfSale: r.lossOfSale,
       performance: parseFloat(performance)
     };
