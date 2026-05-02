@@ -11,13 +11,13 @@ paths:
           schema:
             type: string
             example: "2026-03-15"
-          description: Filter from date. Formats: YYYY-MM-DD or ISO.
+          description: "Filter from date. Formats: YYYY-MM-DD or ISO."
         - name: toDate
           in: query
           schema:
             type: string
             example: "2026-03-15"
-          description: Filter to date. Formats: YYYY-MM-DD or ISO.
+          description: "Filter to date. Formats: YYYY-MM-DD or ISO."
         - name: store
           in: query
           schema:
@@ -84,13 +84,13 @@ paths:
           schema:
             type: string
             example: "2026-03-15"
-          description: Filter from date. Formats: YYYY-MM-DD or ISO.
+          description: "Filter from date. Formats: YYYY-MM-DD or ISO."
         - name: toDate
           in: query
           schema:
             type: string
             example: "2026-03-15"
-          description: Filter to date. Formats: YYYY-MM-DD or ISO.
+          description: "Filter to date. Formats: YYYY-MM-DD or ISO."
         - name: store
           in: query
           schema:
@@ -140,13 +140,13 @@ paths:
           schema:
             type: string
             example: "2026-03-15"
-          description: Filter from date. Formats: YYYY-MM-DD or ISO.
+          description: "Filter from date. Formats: YYYY-MM-DD or ISO."
         - name: toDate
           in: query
           schema:
             type: string
             example: "2026-03-15"
-          description: Filter to date. Formats: YYYY-MM-DD or ISO.
+          description: "Filter to date. Formats: YYYY-MM-DD or ISO."
         - name: store
           in: query
           schema:
@@ -197,13 +197,13 @@ paths:
           schema:
             type: string
             example: "2026-03-15"
-          description: Filter from date. Formats: YYYY-MM-DD or ISO.
+          description: "Filter from date. Formats: YYYY-MM-DD or ISO."
         - name: toDate
           in: query
           schema:
             type: string
             example: "2026-03-15"
-          description: Filter to date. Formats: YYYY-MM-DD or ISO.
+          description: "Filter to date. Formats: YYYY-MM-DD or ISO."
         - name: store
           in: query
           schema:

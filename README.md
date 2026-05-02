@@ -104,3 +104,24 @@ High-level aggregations and pivot data for dashboards, empowering administrators
 <div align="center">
   <sub>Built with ❤️ for High-Velocity Telecalling Teams.</sub>
 </div>
+
+## Admin Panel (React SPA)
+The backend also serves a fully integrated Admin Dashboard (React SPA).
+
+- **URL:** `/` (Root URL of the backend deployment)
+- **Pages:**
+  - Dashboard (Overview stats & Leaderboard)
+  - Telecallers (Call Category Report)
+  - Telecaller Details (Summary & Recent Calls)
+
+### Backend APIs for Admin
+The following APIs reside under `/api/admin/` and require valid admin authentication.
+- `GET /api/admin/dashboard-summary`
+- `GET /api/admin/telecaller-leaderboard`
+- `GET /api/admin/telecallers/:employeeId/summary`
+- `GET /api/admin/telecallers/:employeeId/category-performance`
+- `GET /api/admin/telecallers/:employeeId/recent-calls`
+- `GET /api/admin/reports/completed-leads`
+- `GET /api/admin/reports/completed-leads/export`
+
+All APIs support optional date filtering (`fromDate`, `toDate`), which predominantly applies to the `updatedAt` field.
