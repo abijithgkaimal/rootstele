@@ -39,7 +39,8 @@ const renderLoginPage = (req, res) => {
 const handleAdminLogin = (req, res, next) => {
   try {
     const { username, password } = req.body || {};
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    const normalizedUser = typeof username === 'string' ? username.trim().toLowerCase() : '';
+    if (normalizedUser === ADMIN_USERNAME.toLowerCase() && password === ADMIN_PASSWORD) {
       res.cookie(ADMIN_COOKIE_NAME, ADMIN_SESSION_TOKEN, {
         httpOnly: true,
         sameSite: 'lax',

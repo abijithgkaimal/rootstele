@@ -17,7 +17,7 @@ const Login = () => {
 
     try {
       const res = await axios.post('/api/admin/login', {
-        username,
+        username: username.trim().toLowerCase(),
         password
       }, {
         headers: { 'Accept': 'application/json' }
