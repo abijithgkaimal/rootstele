@@ -145,10 +145,6 @@ const Layout = () => {
             {isSidebarOpen ? <CollapseIcon className="w-5 h-5" /> : <ExpandIcon className="w-5 h-5" />}
           </button>
           
-          <h1 className="text-lg font-bold text-slate-800 hidden sm:block tracking-tight">
-            {getPageTitle()}
-          </h1>
-          
           <div className="flex items-center space-x-4 ml-auto">
             <div className="relative hidden md:block group">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
