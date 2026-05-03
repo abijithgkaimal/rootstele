@@ -168,14 +168,21 @@ const getTelecallerCategoryPerformance = asyncHandler(async (req, res) => {
 
 const getTelecallerRecentCalls = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
-  const { limit = 10 } = req.query;
+  const { fromDate, toDate, type = 'assigned' } = req.query;
 
-  const callsQuery = LeadMaster.find({ updatedBy: employeeId });
-  if (limit !== 'all') {
-    callsQuery.limit(parseInt(limit));
+  const matchObj = { updatedBy: employeeId };
+
+  if (fromDate || toDate) {
+    matchObj.updatedAt = {};
+    if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+    if (toDate) matchObj.updatedAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
 
-  const calls = await callsQuery
+  if (type === 'completed') {
+    matchObj.leadStatus = /^completed$/i;
+  }
+
+  const calls = await LeadMaster.find(matchObj)
     .sort({ updatedAt: -1 })
     .select('customerName name phone leadtype callStatus callDuration remarks updatedAt store subCategory closingAction');
 
