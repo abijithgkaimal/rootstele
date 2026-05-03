@@ -50,12 +50,15 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
         _id: "$updatedBy",
         totalCalls: { $sum: 1 },
         connectedCalls: { $sum: { $cond: [{ $eq: ["$callStatus", "connected"] }, 1, 0] } },
-        feedbackCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["return"]] }, 1, 0] } },
-        bookingConfirmationCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["bookingconfirmation"]] }, 1, 0] } },
-        enquiryCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["enquiry"]] }, 1, 0] } },
+        feedbackCalls: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["return"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        bookingConfirmationCalls: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["bookingconfirmation"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        enquiryCalls: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["enquiry"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
         followupsDone: { $sum: { $cond: [{ $eq: [{ $toLower: "$leadStatus" }, "followup"] }, 1, 0] } },
         followup: { $sum: { $cond: [{ $eq: [{ $toLower: "$leadStatus" }, "followup"] }, 1, 0] } },
-        lossOfSale: { $sum: { $cond: [{ $in: [{ $toLower: "$leadtype" }, ["lossofsale", "loss of sale"]] }, 1, 0] } }
+        lossOfSale: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["lossofsale", "loss of sale"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        justDial: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["justdial"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        booked: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["booked"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        complaints: { $sum: { $cond: [{ $eq: [{ $toLower: "$leadStatus" }, "complaint"] }, 1, 0] } }
       }
     }
   ];
@@ -90,6 +93,9 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
       followupsDone: r.followupsDone,
       followup: r.followup,
       lossOfSale: r.lossOfSale,
+      justDial: r.justDial,
+      booked: r.booked,
+      complaints: r.complaints,
       performance: parseFloat(performance)
     };
   }).filter(Boolean);
