@@ -40,6 +40,8 @@ const Telecallers = () => {
       }
     };
     fetchLeaderboard();
+    const intervalId = setInterval(fetchLeaderboard, 5 * 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [fromDate, toDate]);
 
   // Handle click outside for dropdowns
