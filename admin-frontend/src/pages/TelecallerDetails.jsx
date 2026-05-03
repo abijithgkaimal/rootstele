@@ -43,6 +43,7 @@ const TelecallerDetails = () => {
   const [category, setCategory] = useState(null);
   const [recentCalls, setRecentCalls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('assigned');
 
   // Date range state
   const [fromDate, setFromDate] = useState('');
@@ -60,10 +61,12 @@ const TelecallerDetails = () => {
         if (fromDate && toDate) {
           query = `?fromDate=${fromDate}&toDate=${toDate}`;
         }
+        const recentQuery = query ? `${query}&type=${activeTab}` : `?type=${activeTab}`;
+
         const [sumRes, catRes, recentRes] = await Promise.all([
           axios.get(`/api/admin/telecallers/${employeeId}/summary${query}`),
           axios.get(`/api/admin/telecallers/${employeeId}/category-performance${query}`),
-          axios.get(`/api/admin/telecallers/${employeeId}/recent-calls`)
+          axios.get(`/api/admin/telecallers/${employeeId}/recent-calls${recentQuery}`)
         ]);
 
         if (sumRes.data.success) setSummary(sumRes.data.data);
@@ -78,18 +81,7 @@ const TelecallerDetails = () => {
     fetchData();
     const intervalId = setInterval(fetchData, 5 * 60 * 1000);
     return () => clearInterval(intervalId);
-  }, [employeeId, fromDate, toDate]);
-
-  const handleViewAllCalls = async () => {
-    try {
-      const res = await axios.get(`/api/admin/telecallers/${employeeId}/recent-calls?limit=all`);
-      if (res.data.success) {
-        setRecentCalls(res.data.data.calls);
-      }
-    } catch (error) {
-      console.error('Error fetching all calls:', error);
-    }
-  };
+  }, [employeeId, fromDate, toDate, activeTab]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -305,18 +297,39 @@ const TelecallerDetails = () => {
         </div>
       </div>
 
-      {/* Recent Calls */}
+      {/* Recent Calls / Assigned & Completed Tabs */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-slate-900">Recent Calls</h2>
-          <button onClick={handleViewAllCalls} className="px-4 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50">
-            View All Calls
-          </button>
+        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-slate-900">Calls List</h2>
+          </div>
+          <div className="flex bg-slate-100 p-1 rounded-lg">
+            <button
+              onClick={() => setActiveTab('assigned')}
+              className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                activeTab === 'assigned'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Today Assigned Calls
+            </button>
+            <button
+              onClick={() => setActiveTab('completed')}
+              className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                activeTab === 'completed'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Completed Calls
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 font-bold uppercase bg-slate-50/50">
+            <thead className="text-xs text-slate-500 font-bold uppercase bg-slate-50/50 sticky top-0 bg-white z-10 border-b border-slate-100">
               <tr>
                 <th className="px-6 py-4">Customer</th>
                 <th className="px-6 py-4">Lead Type</th>
@@ -329,7 +342,7 @@ const TelecallerDetails = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {recentCalls.length === 0 ? (
-                <tr><td colSpan="7" className="text-center py-8 text-slate-400">No recent calls found.</td></tr>
+                <tr><td colSpan="7" className="text-center py-8 text-slate-400">No calls found for this tab.</td></tr>
               ) : recentCalls.map((call) => (
                 <tr key={call.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
