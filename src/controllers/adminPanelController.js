@@ -17,10 +17,10 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
 
   const [totalLeads, completedLeads, totalLossOfSaleLeads, followupLeadsToBeCalled, totalComplaints] = await Promise.all([
     LeadMaster.countDocuments(matchObj),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed' }),
-    LeadMaster.countDocuments({ ...matchObj, leadtype: 'lossofsale' }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'followup' }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'complaint' })
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadtype: /lossofsale|loss of sale/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^followup$/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^complaint$/i })
   ]);
 
   return success(res, {
@@ -35,7 +35,10 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
 const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
   const { fromDate, toDate, store, search } = req.query;
   
-  const matchObj = { leadStatus: { $in: ['completed', 'followup', 'complaint'] }, updatedBy: { $exists: true, $ne: null } };
+  const matchObj = { 
+    leadStatus: { $in: ['completed', 'Completed', 'COMPLETED', 'followup', 'Followup', 'FOLLOWUP', 'complaint', 'Complaint', 'COMPLAINT'] }, 
+    updatedBy: { $exists: true, $ne: null } 
+  };
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
@@ -48,16 +51,16 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
     {
       $group: {
         _id: "$updatedBy",
-        totalCalls: { $sum: 1 },
+        totalCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadStatus" }, ["completed"]] }, 1, 0] } },
         connectedCalls: { $sum: { $cond: [{ $eq: ["$callStatus", "connected"] }, 1, 0] } },
-        feedbackCalls: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["return"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
-        bookingConfirmationCalls: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["bookingconfirmation"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
-        enquiryCalls: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["enquiry"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        feedbackCalls: { $sum: { $cond: [{ $and: [{ $regexMatch: { input: { $ifNull: ["$leadtype", ""] }, regex: "return|feedback", options: "i" } }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        bookingConfirmationCalls: { $sum: { $cond: [{ $and: [{ $regexMatch: { input: { $ifNull: ["$leadtype", ""] }, regex: "bookingconfirmation|booking confirmation", options: "i" } }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        enquiryCalls: { $sum: { $cond: [{ $and: [{ $regexMatch: { input: { $ifNull: ["$leadtype", ""] }, regex: "enquiry", options: "i" } }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
         followupsDone: { $sum: { $cond: [{ $eq: [{ $toLower: "$leadStatus" }, "followup"] }, 1, 0] } },
         followup: { $sum: { $cond: [{ $eq: [{ $toLower: "$leadStatus" }, "followup"] }, 1, 0] } },
-        lossOfSale: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["lossofsale", "loss of sale"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
-        justDial: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["justdial"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
-        booked: { $sum: { $cond: [{ $and: [{ $in: [{ $toLower: "$leadtype" }, ["booked"]] }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        lossOfSale: { $sum: { $cond: [{ $and: [{ $regexMatch: { input: { $ifNull: ["$leadtype", ""] }, regex: "lossofsale|loss of sale", options: "i" } }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        justDial: { $sum: { $cond: [{ $and: [{ $regexMatch: { input: { $ifNull: ["$leadtype", ""] }, regex: "justdial", options: "i" } }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
+        booked: { $sum: { $cond: [{ $and: [{ $regexMatch: { input: { $ifNull: ["$leadtype", ""] }, regex: "booked", options: "i" } }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
         complaints: { $sum: { $cond: [{ $eq: [{ $toLower: "$leadStatus" }, "complaint"] }, 1, 0] } }
       }
     }
@@ -65,7 +68,6 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
 
   const results = await LeadMaster.aggregate(aggregationPipeline);
 
-  // Fetch names for the employeeIds from active users or try to find them if possible.
   const activeUsers = await User.find({ role: { $ne: 'admin' } });
   const userMap = {};
   activeUsers.forEach(u => {
@@ -76,7 +78,6 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
     const employeeId = r._id;
     const name = userMap[employeeId] || employeeId;
     
-    // Apply search filter here if needed
     if (search && !name.toLowerCase().includes(search.toLowerCase()) && !employeeId.toLowerCase().includes(search.toLowerCase())) {
       return null;
     }
@@ -118,9 +119,9 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
   const user = await User.findOne({ employeeId });
   
   const [totalCalls, connectedCalls, totalLossOfSale] = await Promise.all([
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed' }),
-    LeadMaster.countDocuments({ ...matchObj, callStatus: 'connected' }),
-    LeadMaster.countDocuments({ ...matchObj, leadtype: 'lossofsale', leadStatus: 'completed' })
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i }),
+    LeadMaster.countDocuments({ ...matchObj, callStatus: /^connected$/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadtype: /lossofsale|loss of sale/i, leadStatus: /^completed$/i })
   ]);
 
   const overallConversionPercentage = totalCalls > 0 ? ((connectedCalls / totalCalls) * 100).toFixed(1) : 0;
@@ -149,11 +150,11 @@ const getTelecallerCategoryPerformance = asyncHandler(async (req, res) => {
   if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
 
   const [bookingCalls, lossOfSaleCalls, customerFeedbackCalls, followupCalls, enquiryCalls] = await Promise.all([
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /bookingconfirmation/i }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /^(lossofsale|loss of sale)/i }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /return/i }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'followup' }),
-    LeadMaster.countDocuments({ ...matchObj, leadStatus: 'completed', leadtype: /enquiry/i })
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i, leadtype: /bookingconfirmation|booking confirmation/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i, leadtype: /^(lossofsale|loss of sale)/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i, leadtype: /return|feedback/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^followup$/i }),
+    LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i, leadtype: /enquiry/i })
   ]);
 
   return success(res, {
@@ -197,7 +198,7 @@ const getTelecallerRecentCalls = asyncHandler(async (req, res) => {
 
 const getCompletedReports = asyncHandler(async (req, res) => {
   const { fromDate, toDate, telecallerId, leadtype, store, search } = req.query;
-  const matchObj = { leadStatus: 'completed' };
+  const matchObj = { leadStatus: /^completed$/i };
 
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
@@ -225,7 +226,7 @@ const getCompletedReports = asyncHandler(async (req, res) => {
 
 const exportCompletedReports = asyncHandler(async (req, res) => {
   const { fromDate, toDate, telecallerId, leadtype, store, search } = req.query;
-  const matchObj = { leadStatus: 'completed' };
+  const matchObj = { leadStatus: /^completed$/i };
 
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
