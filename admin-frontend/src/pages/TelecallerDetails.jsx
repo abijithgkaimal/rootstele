@@ -343,7 +343,11 @@ const TelecallerDetails = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-600">{call.callDuration || '0:00'}</td>
-                  <td className="px-6 py-4 text-slate-600 truncate max-w-xs">{call.remarks || '-'}</td>
+                  <td className="px-6 py-4 text-slate-600 max-w-[200px]">
+                    <div className="overflow-x-auto whitespace-nowrap">
+                      {call.remarks || '-'}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 text-slate-600">{call.closingAction || '-'}</td>
                   <td className="px-6 py-4 text-slate-600">
                     {new Date(call.updatedAt).toLocaleString('en-US', {
