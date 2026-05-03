@@ -76,7 +76,20 @@ const TelecallerDetails = () => {
       }
     };
     fetchData();
+    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [employeeId, fromDate, toDate]);
+
+  const handleViewAllCalls = async () => {
+    try {
+      const res = await axios.get(`/api/admin/telecallers/${employeeId}/recent-calls?limit=all`);
+      if (res.data.success) {
+        setRecentCalls(res.data.data.calls);
+      }
+    } catch (error) {
+      console.error('Error fetching all calls:', error);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -296,7 +309,7 @@ const TelecallerDetails = () => {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
           <h2 className="text-lg font-bold text-slate-900">Recent Calls</h2>
-          <button className="px-4 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50">
+          <button onClick={handleViewAllCalls} className="px-4 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50">
             View All Calls
           </button>
         </div>
@@ -310,12 +323,13 @@ const TelecallerDetails = () => {
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Duration</th>
                 <th className="px-6 py-4">Notes</th>
+                <th className="px-6 py-4">Closing Action</th>
                 <th className="px-6 py-4">Date & Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {recentCalls.length === 0 ? (
-                <tr><td colSpan="6" className="text-center py-8 text-slate-400">No recent calls found.</td></tr>
+                <tr><td colSpan="7" className="text-center py-8 text-slate-400">No recent calls found.</td></tr>
               ) : recentCalls.map((call) => (
                 <tr key={call.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
@@ -330,6 +344,7 @@ const TelecallerDetails = () => {
                   </td>
                   <td className="px-6 py-4 text-slate-600">{call.callDuration || '0:00'}</td>
                   <td className="px-6 py-4 text-slate-600 truncate max-w-xs">{call.remarks || '-'}</td>
+                  <td className="px-6 py-4 text-slate-600">{call.closingAction || '-'}</td>
                   <td className="px-6 py-4 text-slate-600">
                     {new Date(call.updatedAt).toLocaleString('en-US', {
                       day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true

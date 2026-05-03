@@ -169,10 +169,14 @@ const getTelecallerRecentCalls = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
   const { limit = 10 } = req.query;
 
-  const calls = await LeadMaster.find({ updatedBy: employeeId, leadStatus: 'completed' })
+  const callsQuery = LeadMaster.find({ updatedBy: employeeId });
+  if (limit !== 'all') {
+    callsQuery.limit(parseInt(limit));
+  }
+
+  const calls = await callsQuery
     .sort({ updatedAt: -1 })
-    .limit(parseInt(limit))
-    .select('customerName name phone leadtype callStatus callDuration remarks updatedAt store subCategory');
+    .select('customerName name phone leadtype callStatus callDuration remarks updatedAt store subCategory closingAction');
 
   const formattedCalls = calls.map(c => ({
     id: c._id,
@@ -184,7 +188,8 @@ const getTelecallerRecentCalls = asyncHandler(async (req, res) => {
     remarks: c.remarks,
     updatedAt: c.updatedAt,
     store: c.store,
-    subCategory: c.subCategory
+    subCategory: c.subCategory,
+    closingAction: c.closingAction
   }));
 
   return success(res, { calls: formattedCalls });
