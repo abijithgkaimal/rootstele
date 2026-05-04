@@ -45,11 +45,17 @@ const TelecallerDetails = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('assigned');
 
+  const todayStr = () => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
   // Date range state
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [tempFromDate, setTempFromDate] = useState('');
-  const [tempToDate, setTempToDate] = useState('');
+  const [fromDate, setFromDate] = useState(todayStr());
+  const [toDate, setToDate] = useState(todayStr());
+  const [tempFromDate, setTempFromDate] = useState(todayStr());
+  const [tempToDate, setTempToDate] = useState(todayStr());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const datePickerRef = useRef(null);
 
@@ -109,10 +115,13 @@ const TelecallerDetails = () => {
 
   const getDateRangeDisplay = () => {
     if (fromDate && toDate) {
+      if (fromDate === toDate) {
+        return new Date(fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      }
       const format = (d) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
       return `${format(fromDate)} - ${format(toDate)}`;
     }
-    return 'Date Range';
+    return 'All Time';
   };
 
   const handleExportCSV = () => {

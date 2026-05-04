@@ -7,16 +7,30 @@ const mongoose = require('mongoose');
 const getDashboardSummary = asyncHandler(async (req, res) => {
   const { fromDate, toDate, store } = req.query;
   const matchObj = {};
+  const totalLeadsMatchObj = {};
   
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
-    if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
-    if (toDate) matchObj.updatedAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+    totalLeadsMatchObj.createdAt = {};
+    if (fromDate) {
+      const start = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+      matchObj.updatedAt.$gte = start;
+      totalLeadsMatchObj.createdAt.$gte = start;
+    }
+    if (toDate) {
+      const end = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+      matchObj.updatedAt.$lte = end;
+      totalLeadsMatchObj.createdAt.$lte = end;
+    }
   }
-  if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
+  if (store && store !== 'All Stores') {
+    const storeRegex = new RegExp(store, 'i');
+    matchObj.store = storeRegex;
+    totalLeadsMatchObj.store = storeRegex;
+  }
 
   const [totalLeads, completedLeads, totalLossOfSaleLeads, followupLeadsToBeCalled, totalComplaints] = await Promise.all([
-    LeadMaster.countDocuments(matchObj),
+    LeadMaster.countDocuments(totalLeadsMatchObj),
     LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i }),
     LeadMaster.countDocuments({ ...matchObj, leadtype: /lossofsale|loss of sale/i }),
     LeadMaster.countDocuments({ ...matchObj, leadStatus: /^followup$/i }),
@@ -31,6 +45,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     totalComplaints
   });
 });
+
 
 const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
   const { fromDate, toDate, store, search } = req.query;
@@ -254,28 +269,52 @@ const exportCompletedReports = asyncHandler(async (req, res) => {
   const leads = await LeadMaster.find(matchObj).sort({ updatedAt: -1 });
 
   res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename=\"reports.csv\"');
+  res.setHeader('Content-Disposition', 'attachment; filename="reports.csv"');
 
-  const headers = ['ID', 'Customer Name', 'Phone', 'Store', 'Lead Type', 'Lead Status', 'Call Status', 'Call Duration', 'Telecaller', 'Updated At', 'Created At', 'Remarks', 'Sub Category'];
-  let csv = headers.join(',') + '\\n';
+  const headers = [
+    'ID', 'Customer Name', 'Phone', 'Store', 'Lead Type', 'Lead Status',
+    'Call Status', 'Call Duration', 'Telecaller', 'Updated At', 'Created At',
+    'Remarks', 'Sub Category', 'Booking Number', 'Booking Date', 'Return Date',
+    'Delivery Date', 'Category', 'Address', 'Advance Amount', 'Total Amount', 'Attended By'
+  ];
+
+  const escapeCSV = (val) => {
+    if (val === undefined || val === null) return '';
+    let str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  let csv = headers.map(escapeCSV).join(',') + '\r\n';
 
   leads.forEach(lead => {
     const row = [
       lead._id,
-      `"${lead.customerName || lead.name || ''}"`,
-      lead.phone,
-      `"${lead.store || ''}"`,
-      lead.leadtype,
-      lead.leadStatus,
-      lead.callStatus,
-      lead.callDuration,
-      lead.updatedBy,
+      lead.customerName || lead.name || '',
+      lead.phone || '',
+      lead.store || '',
+      lead.leadtype || '',
+      lead.leadStatus || '',
+      lead.callStatus || '',
+      lead.callDuration || '',
+      lead.updatedBy || '',
       lead.updatedAt ? lead.updatedAt.toISOString() : '',
       lead.createdAt ? lead.createdAt.toISOString() : '',
-      `"${(lead.remarks || '').replace(/"/g, '""')}"`,
-      `"${lead.subCategory || ''}"`
+      lead.remarks || '',
+      lead.subCategory || '',
+      lead.bookingNo || '',
+      lead.bookingDate ? new Date(lead.bookingDate).toISOString() : '',
+      lead.returnDate ? new Date(lead.returnDate).toISOString() : '',
+      lead.deliveryDate ? new Date(lead.deliveryDate).toISOString() : '',
+      lead.category || '',
+      lead.address || '',
+      lead.advanceAmount !== undefined ? lead.advanceAmount : '',
+      lead.totalAmount !== undefined ? lead.totalAmount : '',
+      lead.attendedBy || ''
     ];
-    csv += row.join(',') + '\\n';
+    csv += row.map(escapeCSV).join(',') + '\r\n';
   });
 
   res.send(csv);
