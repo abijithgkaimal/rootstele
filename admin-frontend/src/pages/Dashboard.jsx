@@ -33,6 +33,15 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState('TODAY');
 
+  const todayStr = () => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const [customFromDate, setCustomFromDate] = useState(todayStr());
+  const [customToDate, setCustomToDate] = useState(todayStr());
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -58,6 +67,11 @@ const Dashboard = () => {
           const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
           fromDate = toYMD(firstDay);
           toDate = toYMD(lastDay);
+        } else if (dateFilter === 'CUSTOM') {
+          if (customFromDate && customToDate) {
+            fromDate = customFromDate;
+            toDate = customToDate;
+          }
         }
 
         if (fromDate && toDate) {
@@ -80,7 +94,7 @@ const Dashboard = () => {
     fetchData();
     const intervalId = setInterval(fetchData, 5 * 60 * 1000);
     return () => clearInterval(intervalId);
-  }, [dateFilter]);
+  }, [dateFilter, customFromDate, customToDate]);
 
   const handleExportCSV = () => {
     let queryParams = '';
@@ -104,6 +118,11 @@ const Dashboard = () => {
       const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       fromDate = toYMD(firstDay);
       toDate = toYMD(lastDay);
+    } else if (dateFilter === 'CUSTOM') {
+      if (customFromDate && customToDate) {
+        fromDate = customFromDate;
+        toDate = customToDate;
+      }
     }
 
     if (fromDate && toDate) {
@@ -142,19 +161,44 @@ const Dashboard = () => {
           </button>
         </div>
 
-        <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-max">
-          {['YESTERDAY', 'TODAY', 'THIS MONTH', 'CUSTOM'].map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setDateFilter(filter)}
-              className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${filter === dateFilter
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-                }`}
-            >
-              {filter}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-max">
+            {['YESTERDAY', 'TODAY', 'THIS MONTH', 'CUSTOM'].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setDateFilter(filter)}
+                className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${filter === dateFilter
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+
+          {dateFilter === 'CUSTOM' && (
+            <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider pl-2">From:</span>
+                <input
+                  type="date"
+                  value={customFromDate}
+                  onChange={(e) => setCustomFromDate(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">To:</span>
+                <input
+                  type="date"
+                  value={customToDate}
+                  onChange={(e) => setCustomToDate(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
