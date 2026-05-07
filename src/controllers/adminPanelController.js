@@ -268,6 +268,29 @@ const exportCompletedReports = asyncHandler(async (req, res) => {
 
   const leads = await LeadMaster.find(matchObj).sort({ updatedAt: -1 });
 
+  // Custom sort to group by leadtype as requested
+  const getLeadTypeOrder = (type) => {
+    if (!type) return 99;
+    const t = type.toLowerCase();
+    if (t.includes('return') || t.includes('feedback')) return 1;
+    if (t.includes('booking confirmation') || t.includes('bookingconfirmation')) return 2;
+    if (t.includes('booked')) return 3;
+    if (t.includes('enquiry')) return 4;
+    if (t.includes('justdial')) return 5;
+    return 99;
+  };
+
+  leads.sort((a, b) => {
+    const orderA = getLeadTypeOrder(a.leadtype);
+    const orderB = getLeadTypeOrder(b.leadtype);
+    if (orderA !== orderB) return orderA - orderB;
+    
+    // Secondary sort by updatedAt descending
+    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return dateB - dateA;
+  });
+
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="reports.csv"');
 
