@@ -80,6 +80,7 @@ const getReturnLeadById = asyncHandler(async (req, res) => {
     subCategory: lead.subCategory || '',
     leadStatus: lead.leadStatus || '',
     bookingNo: lead.bookingNo || '',
+    remarks: lead.remarks || '',
   });
 });
 

@@ -85,11 +85,16 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
           };
 
           // Protect audit fields from being overwritten by external API
-          const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, createdAt: _ca, ...apiData } = rec;
+          const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, createdAt: _ca, remarks, Remarks, ...apiData } = rec;
 
           // Merge: Original API data + System fields
           // Note: systemFields will take priority if there's a key conflict
           const flatDoc = { ...apiData, ...systemFields };
+
+          const apiRemarks = remarks || Remarks;
+          if (apiRemarks) {
+            flatDoc.remarks = apiRemarks;
+          }
 
           operations.push({
             updateOne: {

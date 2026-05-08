@@ -86,8 +86,13 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
       // Flat merged document: API extras + system fields (system wins on conflicts)
       // Strip audit fields — these must NEVER be set by external sync.
       // createdBy / updatedBy / updatedAt belong to telecaller actions only.
-      const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, createdAt: _ca, ...safeApiRest } = apiRest;
+      const { createdBy: _cb, updatedBy: _ub, updatedAt: _ua, createdAt: _ca, remarks, Remarks, ...safeApiRest } = apiRest;
       const flatDoc = { ...safeApiRest, ...systemFields };
+
+      const apiRemarks = remarks || Remarks;
+      if (apiRemarks) {
+        flatDoc.remarks = apiRemarks;
+      }
 
       operations.push({
         updateOne: {

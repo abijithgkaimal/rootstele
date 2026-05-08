@@ -81,6 +81,7 @@ const getBookingLeadById = asyncHandler(async (req, res) => {
     bookingNo: lead.bookingNo || '',
     leadStatus: lead.leadStatus || '',
     items: lead.items || [],
+    remarks: lead.remarks || '',
   });
 });
 
