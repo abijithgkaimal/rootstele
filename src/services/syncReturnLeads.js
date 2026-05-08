@@ -90,9 +90,6 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
       const flatDoc = { ...safeApiRest, ...systemFields };
 
       const apiRemarks = remarks || Remarks;
-      if (apiRemarks) {
-        flatDoc.remarks = apiRemarks;
-      }
 
       operations.push({
         updateOne: {
@@ -100,6 +97,7 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
           update: {
             $set: flatDoc,
             $setOnInsert: {
+              remarks: apiRemarks || '',
               leadStatus: 'new',
               markasComplaint: false,
               markasFollowup: false,

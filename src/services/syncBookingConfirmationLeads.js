@@ -92,9 +92,6 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
           const flatDoc = { ...apiData, ...systemFields };
 
           const apiRemarks = remarks || Remarks;
-          if (apiRemarks) {
-            flatDoc.remarks = apiRemarks;
-          }
 
           operations.push({
             updateOne: {
@@ -102,6 +99,7 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
               update: {
                 $set: flatDoc,
                 $setOnInsert: {
+                  remarks: apiRemarks || '',
                   leadStatus: 'new',
                   markasComplaint: false,
                   markasFollowup: false,
