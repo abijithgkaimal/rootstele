@@ -56,10 +56,19 @@ const syncBookingConfirmationLeads = async ({ initial = false } = {}) => {
 
         allLeadsFetched += leadsData.length;
 
+        const bookingNos = leadsData.map(r => r.bookingNo || r.BookingNo || r.booking_no).filter(Boolean);
+        const completedLeads = await LeadMaster.find(
+          { bookingNo: { $in: bookingNos }, leadtype: 'bookingConfirmation', leadStatus: 'completed' },
+          { bookingNo: 1 }
+        ).lean();
+        const completedBookingNos = new Set(completedLeads.map(l => l.bookingNo));
+
         for (const rec of leadsData) {
           // Identify primary keys
           const bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
           if (!bookingNo) continue;
+
+          if (completedBookingNos.has(bookingNo)) continue;
 
           // Normalize phone as per requirements (like return leads)
           const rawPhone = rec.phoneNo || rec.PhoneNo || rec.mobile || rec.phone || '';
