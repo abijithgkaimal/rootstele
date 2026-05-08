@@ -37,20 +37,21 @@ const syncReturnLeads = async ({ initial = false } = {}) => {
 
     console.log(`[ReturnSync] Fetched ${leadsData.length} records. Processing...`);
 
-    const bookingNos = leadsData.map(r => r.bookingNo || r.BookingNo || r.booking_no).filter(Boolean);
+    const bookingNos = leadsData.map(r => String(r.bookingNo || r.BookingNo || r.booking_no)).filter(Boolean);
     const completedLeads = await LeadMaster.find(
       { bookingNo: { $in: bookingNos }, leadtype: 'return', leadStatus: 'completed' },
       { bookingNo: 1 }
     ).lean();
-    const completedBookingNos = new Set(completedLeads.map(l => l.bookingNo));
+    const completedBookingNos = new Set(completedLeads.map(l => String(l.bookingNo)));
 
     const operations = [];
     const phonesToSync = new Set();
 
     for (const rec of leadsData) {
       // Extract system-level fields with clear aliases
-      const bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
+      let bookingNo = rec.bookingNo || rec.BookingNo || rec.booking_no;
       if (!bookingNo) continue;
+      bookingNo = String(bookingNo);
 
       if (completedBookingNos.has(bookingNo)) continue;
 
