@@ -37,12 +37,14 @@ const verifyTelecaller = async (employeeId, password) => {
   try {
     const response = await axios.post(
       url,
-      { userId: employeeId, password },
+      { employeeId: String(employeeId).toUpperCase(), password },
       {
         timeout: 10000,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'User-Agent': 'PostmanRuntime/7.32.3',
+          'Accept': '*/*'
         },
       }
     );
