@@ -12,6 +12,7 @@ const verifyEmployee = async (userId, password) => {
       },
       {
         timeout: 10000,
+        httpsAgent: new (require('https').Agent)({ family: 4 }),
         headers: { 'Content-Type': 'application/json' },
       }
     );
@@ -40,6 +41,7 @@ const verifyTelecaller = async (employeeId, password) => {
       { employeeId: String(employeeId).toUpperCase(), password },
       {
         timeout: 10000,
+        httpsAgent: new (require('https').Agent)({ family: 4 }),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
