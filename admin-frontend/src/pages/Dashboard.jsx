@@ -261,6 +261,7 @@ const Dashboard = () => {
                 <th className="py-4 px-2 text-center">Total Calls</th>
                 <th className="py-4 px-2 text-center">Feedback</th>
                 <th className="py-4 px-2 text-center">Booking Confirmation</th>
+                <th className="py-4 px-2 text-center">Just Dial</th>
                 <th className="py-4 px-2 text-center">Enquiry</th>
                 <th className="py-4 px-2 text-center">Booked</th>
                 <th className="py-4 px-2 text-center">Follow-up</th>
@@ -270,9 +271,9 @@ const Dashboard = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan="9" className="text-center py-8 text-slate-400">Loading...</td></tr>
+                <tr><td colSpan="10" className="text-center py-8 text-slate-400">Loading...</td></tr>
               ) : filteredLeaderboard.length === 0 ? (
-                <tr><td colSpan="9" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
+                <tr><td colSpan="10" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
               ) : filteredLeaderboard.map((row) => (
                 <tr
                   key={row.employeeId}
@@ -286,6 +287,7 @@ const Dashboard = () => {
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
+                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.justDial}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.enquiryCalls}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.booked}</td>
                   <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followup ?? row.followupsDone}</td>
