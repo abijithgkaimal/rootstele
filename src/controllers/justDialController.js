@@ -46,6 +46,7 @@ const getJustDialLeadById = asyncHandler(async (req, res) => {
     id: lead._id,
     customerName: lead.customerName || lead.name || '',
     phone: lead.phone || '',
+    city: lead.city || '',
     createdAt: lead.createdAt, // Original JustDial API timestamp
     updatedAt: lead.updatedAt,
     leadStatus: lead.leadStatus,
