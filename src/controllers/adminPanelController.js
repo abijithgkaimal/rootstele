@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const mongoose = require('mongoose');
+const { buildStoreRegex } = require('../utils/storeNormalizer');
 
 const getDashboardSummary = asyncHandler(async (req, res) => {
   const { fromDate, toDate, store } = req.query;
@@ -24,7 +25,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     }
   }
   if (store && store !== 'All Stores') {
-    const storeRegex = new RegExp(store, 'i');
+    const storeRegex = buildStoreRegex(store);
     matchObj.store = storeRegex;
     totalLeadsMatchObj.store = storeRegex;
   }
@@ -59,7 +60,7 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
     if (toDate) matchObj.updatedAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
-  if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
+  if (store && store !== 'All Stores') matchObj.store = buildStoreRegex(store);
 
   const aggregationPipeline = [
     { $match: matchObj },
@@ -129,7 +130,7 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
     if (toDate) matchObj.updatedAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
-  if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
+  if (store && store !== 'All Stores') matchObj.store = buildStoreRegex(store);
 
   const user = await User.findOne({ employeeId });
   
@@ -162,7 +163,7 @@ const getTelecallerCategoryPerformance = asyncHandler(async (req, res) => {
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
     if (toDate) matchObj.updatedAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
-  if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
+  if (store && store !== 'All Stores') matchObj.store = buildStoreRegex(store);
 
   const [bookingCalls, lossOfSaleCalls, customerFeedbackCalls, followupCalls, enquiryCalls] = await Promise.all([
     LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i, leadtype: /bookingconfirmation|booking confirmation/i }),
@@ -229,7 +230,7 @@ const getCompletedReports = asyncHandler(async (req, res) => {
   }
   if (telecallerId) matchObj.updatedBy = telecallerId;
   if (leadtype) matchObj.leadtype = leadtype;
-  if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
+  if (store && store !== 'All Stores') matchObj.store = buildStoreRegex(store);
   if (search) {
     matchObj.$or = [
       { customerName: new RegExp(search, 'i') },
@@ -257,7 +258,7 @@ const exportCompletedReports = asyncHandler(async (req, res) => {
   }
   if (telecallerId) matchObj.updatedBy = telecallerId;
   if (leadtype) matchObj.leadtype = leadtype;
-  if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
+  if (store && store !== 'All Stores') matchObj.store = buildStoreRegex(store);
   if (search) {
     matchObj.$or = [
       { customerName: new RegExp(search, 'i') },
