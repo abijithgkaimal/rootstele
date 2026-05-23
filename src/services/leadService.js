@@ -198,7 +198,7 @@ const getPerformanceStats = async (filters = {}) => {
     {
       $group: {
         _id: employeeId ? { $toLower: employeeId } : { $toLower: "$updatedBy" },
-        totalCalls: { $sum: 1 },
+        totalCalls: { $sum: { $cond: [{ $eq: ["$leadStatus", "completed"] }, 1, 0] } },
         followup: { $sum: { $cond: [{ $eq: ["$leadStatus", "followup"] }, 1, 0] } },
         complaint: { $sum: { $cond: [{ $eq: ["$leadStatus", "complaint"] }, 1, 0] } },
         completed: { $sum: { $cond: [{ $eq: ["$leadStatus", "completed"] }, 1, 0] } }
