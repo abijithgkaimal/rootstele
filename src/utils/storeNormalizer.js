@@ -5,6 +5,14 @@
  * location -> Title Case
  * Format: BRAND-Location
  */
+/**
+ * Normalizes store names for consistency.
+ * sg/suitorguy -> SG
+ * z/zorucci -> Z
+ * ds/dappersquad -> Dapper Squad
+ * location -> Title Case
+ * Format: BRAND-Location
+ */
 const normalizeStore = (store) => {
   if (!store || typeof store !== 'string') return store;
 
@@ -24,13 +32,31 @@ const normalizeStore = (store) => {
   } else if (lowercase.startsWith('zorucci') || lowercase.startsWith('z')) {
     brand = 'Z';
     location = trimmed.slice(lowercase.startsWith('zorucci') ? 7 : 1);
+  } else if (lowercase.startsWith('dappersquad') || lowercase.startsWith('dapper squad') || lowercase.startsWith('ds')) {
+    brand = 'Dapper Squad';
+    let sliceLen = 2;
+    if (lowercase.startsWith('dappersquad')) sliceLen = 11;
+    else if (lowercase.startsWith('dapper squad')) sliceLen = 12;
+    location = trimmed.slice(sliceLen);
   } else {
-    // Doesn't match SG/Z pattern (e.g. Edappally Dapper Squad)
-    return trimmed;
+    // If it's something like "Edappally Dapper Squad" (stored in DB)
+    // normalize it to Dapper Squad-Edappally
+    if (lowercase.endsWith('dapper squad')) {
+      brand = 'Dapper Squad';
+      location = trimmed.slice(0, trimmed.length - 12);
+    } else if (lowercase.endsWith('dappersquad')) {
+      brand = 'Dapper Squad';
+      location = trimmed.slice(0, trimmed.length - 11);
+    } else if (lowercase.endsWith('ds')) {
+      brand = 'Dapper Squad';
+      location = trimmed.slice(0, trimmed.length - 2);
+    } else {
+      return trimmed;
+    }
   }
 
-  // Clean up location (remove leading separators like - . and spaces)
-  location = location.replace(/^[-. ]+/, '').trim();
+  // Clean up location (remove leading/trailing separators like - . and spaces)
+  location = location.replace(/^[-. ]+/, '').replace(/[-. ]+$/, '').trim();
   
   // Title Case location
   if (location) {
@@ -60,7 +86,16 @@ const buildStoreRegex = (store) => {
   
   // Create a regex that allows any separator between brand and location
   // Map brand back to alternatives
-  const brandPattern = brand === 'SG' ? '(SG|SuitorGuy)' : '(Z|Zorucci)';
+  let brandPattern = '';
+  if (brand === 'SG') {
+    brandPattern = '(SG|SuitorGuy|Suitor Guy)';
+  } else if (brand === 'Z') {
+    brandPattern = '(Z|Zorucci)';
+  } else if (brand === 'Dapper Squad') {
+    brandPattern = '(Dapper Squad|Dappersquad|DS)';
+  } else {
+    brandPattern = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
   
   // Escaped location and handle common typos (like Edapally/Edappally)
   let locationPattern = location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -70,6 +105,12 @@ const buildStoreRegex = (store) => {
     locationPattern = locationPattern.replace(/edappally/i, 'Edapp?ally');
   }
   
+  // For Dapper Squad, database is stored as "Edappally Dapper Squad" (Location Brand)
+  // We allow both formats: Location-Brand and Brand-Location
+  if (brand === 'Dapper Squad') {
+    return new RegExp(`^(${locationPattern}[-. ]*${brandPattern}|${brandPattern}[-. ]*${locationPattern})$`, 'i');
+  }
+
   // Allow dash, dot, space, or none as separator
   // Add $ to prevent partial matches like Edappal matching Edappally
   return new RegExp(`^${brandPattern}[-. ]*${locationPattern}$`, 'i');
