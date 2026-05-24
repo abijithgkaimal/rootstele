@@ -161,6 +161,7 @@ const handleJustDialLead = async (req, res) => {
     });
 
     if (existingLead) {
+      console.log(`[JustDialPush] Match found for incoming lead. Updating existing lead ID: ${existingLead._id}, Phone: ${normalizedPhone}, Old leadtype: "${existingLead.leadtype}" -> "justdial", Old source: "${existingLead.source}" -> "justdialPush"`);
       await LeadMaster.updateOne(
         { _id: existingLead._id },
         {
