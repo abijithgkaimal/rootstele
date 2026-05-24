@@ -6,6 +6,7 @@ const ApiError = require('../utils/ApiError');
 const mongoose = require('mongoose');
 const pick = require('../utils/pick');
 const leadService = require('../services/leadService');
+const { normalizeStore } = require('../utils/storeNormalizer');
 
 /**
  * GET /api/leads/justdial
@@ -47,6 +48,11 @@ const getJustDialLeadById = asyncHandler(async (req, res) => {
     customerName: lead.customerName || lead.name || '',
     phone: lead.phone || '',
     city: lead.city || '',
+    store: lead.store || null,
+    itemCategory: lead.itemCategory || null,
+    itemcategory: lead.itemCategory || null,
+    subCategory: lead.subCategory || null,
+    subcategory: lead.subCategory || null,
     createdAt: lead.createdAt, // Original JustDial API timestamp
     updatedAt: lead.updatedAt,
     leadStatus: lead.leadStatus,
@@ -86,6 +92,14 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
     'callDuration', 
     'service'
   ]);
+
+  const rawStore = payload.store !== undefined ? payload.store : null;
+  const rawItemCategory = payload.itemCategory !== undefined ? payload.itemCategory : (payload.itemcategory !== undefined ? payload.itemcategory : null);
+  const rawSubCategory = payload.subCategory !== undefined ? payload.subCategory : (payload.subcategory !== undefined ? payload.subcategory : null);
+
+  update.store = rawStore ? normalizeStore(rawStore) : null;
+  update.itemCategory = rawItemCategory || null;
+  update.subCategory = rawSubCategory || null;
   
   update.updatedAt = new Date();
   update.leadStatus = leadStatus;
