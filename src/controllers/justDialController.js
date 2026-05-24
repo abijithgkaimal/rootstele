@@ -42,6 +42,14 @@ const getJustDialLeadById = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'JustDial lead not found or already actioned');
   }
 
+  let brand = null;
+  let location = null;
+  if (lead.store) {
+    const parts = lead.store.split('-');
+    brand = parts[0] || null;
+    location = parts.slice(1).join('-') || null;
+  }
+
   // Consistent format with bookingConfirmationController
   return success(res, {
     id: lead._id,
@@ -49,10 +57,14 @@ const getJustDialLeadById = asyncHandler(async (req, res) => {
     phone: lead.phone || '',
     city: lead.city || '',
     store: lead.store || null,
+    brand,
+    location,
     itemCategory: lead.itemCategory || null,
     itemcategory: lead.itemCategory || null,
+    item_category: lead.itemCategory || null,
     subCategory: lead.subCategory || null,
     subcategory: lead.subCategory || null,
+    sub_category: lead.subCategory || null,
     createdAt: lead.createdAt, // Original JustDial API timestamp
     updatedAt: lead.updatedAt,
     leadStatus: lead.leadStatus,
@@ -93,9 +105,31 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
     'service'
   ]);
 
-  const rawStore = payload.store !== undefined ? payload.store : null;
-  const rawItemCategory = payload.itemCategory !== undefined ? payload.itemCategory : (payload.itemcategory !== undefined ? payload.itemcategory : null);
-  const rawSubCategory = payload.subCategory !== undefined ? payload.subCategory : (payload.subcategory !== undefined ? payload.subcategory : null);
+  let rawStore = null;
+  if (payload.store !== undefined) {
+    rawStore = payload.store;
+  } else if (payload.brand !== undefined || payload.location !== undefined) {
+    const parts = [];
+    if (payload.brand) parts.push(payload.brand);
+    if (payload.location) parts.push(payload.location);
+    rawStore = parts.join(' ');
+  }
+
+  const rawItemCategory = payload.itemCategory !== undefined 
+    ? payload.itemCategory 
+    : (payload.itemcategory !== undefined 
+      ? payload.itemcategory 
+      : (payload.item_category !== undefined 
+        ? payload.item_category 
+        : null));
+
+  const rawSubCategory = payload.subCategory !== undefined 
+    ? payload.subCategory 
+    : (payload.subcategory !== undefined 
+      ? payload.subcategory 
+      : (payload.sub_category !== undefined 
+        ? payload.sub_category 
+        : null));
 
   update.store = rawStore ? normalizeStore(rawStore) : null;
   update.itemCategory = rawItemCategory || null;
