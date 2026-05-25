@@ -11,7 +11,7 @@ const verifyEmployee = async (userId, password) => {
         password,
       },
       {
-        timeout: 40000,
+        timeout: 60000,
         httpsAgent: new (require('https').Agent)({ family: 4 }),
         headers: { 'Content-Type': 'application/json' },
       }
