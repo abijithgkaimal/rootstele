@@ -22,15 +22,15 @@ const resolveManualLeadStatus = (payload) => {
 
 const resolveBookingConfirmationStatus = (payload) => {
   // Priority 1: explicit telecaller flags (same logic as return leads)
-  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true';
-  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true';
+  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true' || payload.mark_as_complaint === true || payload.mark_as_complaint === 'true';
+  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true' || payload.mark_as_followup === true || payload.mark_as_followup === 'true';
 
   if (markasComplaint) return 'complaint';
   if (markasFollowup) return 'followup';
 
   // Priority 2: booking-specific business rules (billReceived / amountMismatch)
-  const billReceived = (payload.billReceived || payload.billrecieved || '').toString().toLowerCase();
-  const amountMismatch = payload.amountMismatch === true || payload.amountMismatch === 'true';
+  const billReceived = (payload.billReceived || payload.billrecieved || payload.bill_received || '').toString().toLowerCase();
+  const amountMismatch = payload.amountMismatch === true || payload.amountMismatch === 'true' || payload.amount_mismatch === true || payload.amount_mismatch === 'true';
 
   if (billReceived === 'no') return 'complaint';
   if (amountMismatch) return 'complaint';
@@ -40,8 +40,8 @@ const resolveBookingConfirmationStatus = (payload) => {
 };
 
 const resolveReturnLeadStatus = (payload) => {
-  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true';
-  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true';
+  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true' || payload.mark_as_complaint === true || payload.mark_as_complaint === 'true';
+  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true' || payload.mark_as_followup === true || payload.mark_as_followup === 'true';
 
   if (markasComplaint) return 'complaint';
   if (markasFollowup) return 'followup';

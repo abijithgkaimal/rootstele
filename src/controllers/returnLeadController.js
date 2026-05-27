@@ -29,19 +29,39 @@ const updateReturnLead = asyncHandler(async (req, res) => {
   }
 
   const payload = { ...req.body };
-  if (payload.noofFuctions !== undefined) {
-    payload.noofFunctions = payload.noofFuctions;
-    delete payload.noofFuctions;
+
+  // Normalize case-insensitivity and snake_case fields from mobile app/frontend
+  const callDuration = payload.callDuration !== undefined ? payload.callDuration : payload.call_duration;
+  const noofFunctions = payload.noofFunctions !== undefined ? payload.noofFunctions : (payload.noofFuctions !== undefined ? payload.noofFuctions : payload.noof_functions);
+  const noofAttires = payload.noofAttires !== undefined ? payload.noofAttires : payload.noof_attires;
+  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true' || payload.mark_as_complaint === true || payload.mark_as_complaint === 'true';
+  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true' || payload.mark_as_followup === true || payload.mark_as_followup === 'true';
+
+  let followupDate = null;
+  const rawFollowupDate = payload.followupDate || payload.follow_up_date;
+  if (rawFollowupDate) {
+    followupDate = new Date(rawFollowupDate);
   }
 
-  const leadStatus = statusResolver.resolveReturnLeadStatus(payload);
-  const update = pick(payload, [
-    'service', 'callDuration', 'noofFunctions', 'noofAttires', 'competitor', 'rating',
-    'remarks', 'markasComplaint', 'markasFollowup', 'followupDate',
-  ]);
+  const leadStatus = statusResolver.resolveReturnLeadStatus({
+    markasComplaint,
+    markasFollowup
+  });
 
-  if (update.callDuration !== undefined) {
-    const durationStr = (update.callDuration === 0 || update.callDuration === '0') ? '0' : String(update.callDuration);
+  const update = {
+    service: payload.service,
+    noofFunctions,
+    noofAttires,
+    competitor: payload.competitor,
+    rating: payload.rating,
+    remarks: payload.remarks,
+    markasComplaint,
+    markasFollowup,
+    followupDate,
+  };
+
+  if (callDuration !== undefined) {
+    const durationStr = (callDuration === 0 || callDuration === '0') ? '0' : String(callDuration);
     update.callDuration = durationStr;
     update.followupcallDuration = durationStr;
   }

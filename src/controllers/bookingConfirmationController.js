@@ -29,16 +29,39 @@ const updateBookingConfirmation = asyncHandler(async (req, res) => {
   }
 
   const payload = { ...req.body };
-  if (payload.billrecieved !== undefined) {
-    payload.billReceived = payload.billrecieved;
-    delete payload.billrecieved;
+
+  // Normalize case-insensitivity and snake_case fields from mobile app/frontend
+  const callDuration = payload.callDuration !== undefined ? payload.callDuration : payload.call_duration;
+  const billReceived = payload.billReceived !== undefined ? payload.billReceived : (payload.billrecieved !== undefined ? payload.billrecieved : payload.bill_received);
+  const amountMismatch = payload.amountMismatch === true || payload.amountMismatch === 'true' || payload.amount_mismatch === true || payload.amount_mismatch === 'true';
+  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true' || payload.mark_as_complaint === true || payload.mark_as_complaint === 'true';
+  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true' || payload.mark_as_followup === true || payload.mark_as_followup === 'true';
+
+  let followupDate = null;
+  const rawFollowupDate = payload.followupDate || payload.follow_up_date;
+  if (rawFollowupDate) {
+    followupDate = new Date(rawFollowupDate);
   }
 
-  const leadStatus = statusResolver.resolveBookingConfirmationStatus(payload);
-  const update = pick(payload, ['service', 'callDuration', 'billReceived', 'amountMismatch', 'remarks', 'markasComplaint', 'markasFollowup', 'followupDate']);
-  
-  if (update.callDuration !== undefined) {
-    const durationStr = (update.callDuration === 0 || update.callDuration === '0') ? '0' : String(update.callDuration);
+  const leadStatus = statusResolver.resolveBookingConfirmationStatus({
+    markasComplaint,
+    markasFollowup,
+    billReceived,
+    amountMismatch
+  });
+
+  const update = {
+    service: payload.service,
+    billReceived,
+    amountMismatch,
+    remarks: payload.remarks,
+    markasComplaint,
+    markasFollowup,
+    followupDate,
+  };
+
+  if (callDuration !== undefined) {
+    const durationStr = (callDuration === 0 || callDuration === '0') ? '0' : String(callDuration);
     update.callDuration = durationStr;
     update.followupcallDuration = durationStr;
   }

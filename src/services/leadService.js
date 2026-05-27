@@ -26,30 +26,51 @@ const createLead = async (payload) => {
     durationStr = (rawCallDuration === 0 || rawCallDuration === '0') ? '0' : String(rawCallDuration);
   }
 
-  const leadStatus = statusResolver.resolveManualLeadStatus(payload);
-  const closingAction = payload.closingAction ?? payload.closingReason;
+  // Normalize case-insensitivity and snake_case fields from mobile app/frontend
+  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true' || payload.mark_as_complaint === true || payload.mark_as_complaint === 'true';
+  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true' || payload.mark_as_followup === true || payload.mark_as_followup === 'true';
+  const callStatus = payload.callStatus || payload.call_status;
+  const customerName = payload.customerName || payload.name || payload.customer_name;
+  const name = payload.name || payload.customerName || payload.customer_name;
+
+  const leadStatus = statusResolver.resolveManualLeadStatus({
+    callStatus,
+    markasComplaint,
+    markasFollowup
+  });
+
+  const closingReason = payload.closingReason || payload.closing_reason || payload.close_reason;
+  const closingAction = payload.closingAction || payload.closing_action || closingReason;
+  const subCategory = payload.subCategory || payload.sub_category;
+  const itemCategory = payload.itemCategory || payload.item_category;
   const normalizedPhone = normalize(payload.phone || '');
+
+  const rawFunctionDate = payload.functionDate || payload.function_date;
+  const functionDate = rawFunctionDate ? new Date(rawFunctionDate) : null;
+
+  const rawFollowupDate = payload.followupDate || payload.follow_up_date;
+  const followupDate = rawFollowupDate ? new Date(rawFollowupDate) : null;
 
   const lead = new LeadMaster({
     leadtype: payload.leadtype,
     leadStatus,
     phone: payload.phone,
     normalizedPhone: normalizedPhone || undefined,
-    customerName: payload.customerName || payload.name,   // Keep in sync: prefer customerName, fallback to name
-    name: payload.name || payload.customerName,           // Keep in sync: prefer name, fallback to customerName
-    callStatus: payload.callStatus,
+    customerName,
+    name,
+    callStatus,
     store: normalizeStore(payload.store),
-    functionDate: payload.functionDate ? new Date(payload.functionDate) : null,
+    functionDate,
     callDuration: durationStr,
     followupcallDuration: durationStr,
-    subCategory: payload.subCategory,
-    closingReason: payload.closingReason,
+    subCategory,
+    closingReason,
     closingAction,
-    itemCategory: payload.itemCategory,
+    itemCategory,
     remarks: payload.remarks,
-    markasComplaint: !!payload.markasComplaint,
-    markasFollowup: !!payload.markasFollowup,
-    followupDate: payload.followupDate ? new Date(payload.followupDate) : null,
+    markasComplaint,
+    markasFollowup,
+    followupDate,
     createdBy: payload.createdBy,
     updatedBy: payload.createdBy,
     createdAt: payload.createdAt ? new Date(payload.createdAt) : new Date(),
@@ -183,10 +204,17 @@ const getNewLeads = async (filters = {}) => {
 
 
 const updateFollowupById = async (id, payload, updatedBy) => {
-  const update = pick(payload, ['followupclosingAction', 'followupremarks', 'followupcallDuration']);
+  const followupclosingAction = payload.followupclosingAction !== undefined ? payload.followupclosingAction : (payload.followup_closing_action !== undefined ? payload.followup_closing_action : payload.followupclosing_action);
+  const followupremarks = payload.followupremarks !== undefined ? payload.followupremarks : payload.followup_remarks;
+  const followupcallDuration = payload.followupcallDuration !== undefined ? payload.followupcallDuration : (payload.followup_call_duration !== undefined ? payload.followup_call_duration : payload.followupcall_duration);
 
-  if (update.followupcallDuration !== undefined) {
-    const durationStr = (update.followupcallDuration === 0 || update.followupcallDuration === '0') ? '0' : String(update.followupcallDuration);
+  const update = {
+    followupclosingAction,
+    followupremarks,
+  };
+
+  if (followupcallDuration !== undefined) {
+    const durationStr = (followupcallDuration === 0 || followupcallDuration === '0') ? '0' : String(followupcallDuration);
     update.followupcallDuration = durationStr;
     update.callDuration = durationStr;
   }
