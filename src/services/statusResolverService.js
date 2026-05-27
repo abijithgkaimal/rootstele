@@ -1,12 +1,13 @@
 const resolveManualLeadStatus = (payload) => {
-  const { callStatus, markasFollowup, markasComplaint } = payload;
-  const mc = markasComplaint === true || markasComplaint === 'true';
-  const mf = markasFollowup === true || markasFollowup === 'true';
+  const { callStatus, call_status, markasFollowup, mark_as_followup, markasComplaint, mark_as_complaint } = payload;
+  const mc = markasComplaint === true || markasComplaint === 'true' || mark_as_complaint === true || mark_as_complaint === 'true';
+  const mf = markasFollowup === true || markasFollowup === 'true' || mark_as_followup === true || mark_as_followup === 'true';
 
   if (mc) return 'complaint';
   if (mf) return 'followup';
 
-  switch (callStatus) {
+  const status = (callStatus || call_status || '').toLowerCase().trim();
+  switch (status) {
     case 'connected':
     case 'not interested':
     case 'forwarded':

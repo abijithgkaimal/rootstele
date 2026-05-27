@@ -88,17 +88,35 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
 
   const payload = { ...req.body };
 
-  // Determine new status using statusResolver (align with enquiry and booked leadtypes)
-  const leadStatus = statusResolver.resolveManualLeadStatus(payload);
+  // Normalize case-insensitivity and snake_case fields from mobile app/frontend
+  const callStatus = (payload.callStatus || payload.call_status || '').toLowerCase().trim() || undefined;
+  const remarks = payload.remarks;
+  const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true' || payload.mark_as_complaint === true || payload.mark_as_complaint === 'true';
+  const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true' || payload.mark_as_followup === true || payload.mark_as_followup === 'true';
+  
+  let followupDate = null;
+  const rawFollowupDate = payload.followupDate || payload.follow_up_date;
+  if (rawFollowupDate) {
+    followupDate = new Date(rawFollowupDate);
+  }
 
-  const update = pick(payload, [
-    'remarks', 
-    'markasComplaint', 
-    'markasFollowup', 
-    'followupDate', 
-    'service',
-    'callStatus'
-  ]);
+  const service = payload.service;
+
+  // Determine new status using statusResolver (align with enquiry and booked leadtypes)
+  const leadStatus = statusResolver.resolveManualLeadStatus({
+    callStatus,
+    markasComplaint,
+    markasFollowup
+  });
+
+  const update = {
+    remarks,
+    markasComplaint,
+    markasFollowup,
+    followupDate,
+    service,
+    callStatus
+  };
 
   let rawCallDuration = payload.callDuration !== undefined 
     ? payload.callDuration 
