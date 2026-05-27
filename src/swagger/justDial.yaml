@@ -117,11 +117,18 @@ paths:
             type: string
             example: "6452abc123"
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - callStatus
               properties:
+                callStatus:
+                  type: string
+                  enum: [connected, "not connected", interested, "not interested", forwarded]
+                  example: "connected"
                 remarks:
                   type: string
                   example: "Customer is interested."
@@ -133,6 +140,7 @@ paths:
                   example: true
                 followupDate:
                   type: string
+                  description: "Mandatory if callStatus is 'interested' or 'not connected'"
                   format: date-time
                   example: "2026-03-20T10:00:00Z"
                 callDuration:

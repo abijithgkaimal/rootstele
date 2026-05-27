@@ -11,6 +11,21 @@ const createLead = async (payload) => {
     payload.source = "manual";
   }
 
+  let rawCallDuration = payload.callDuration !== undefined 
+    ? payload.callDuration 
+    : (payload.call_duration !== undefined 
+      ? payload.call_duration 
+      : (payload.followupcallDuration !== undefined 
+        ? payload.followupcallDuration 
+        : (payload.followupcall_duration !== undefined 
+          ? payload.followupcall_duration 
+          : undefined)));
+
+  let durationStr = undefined;
+  if (rawCallDuration !== undefined) {
+    durationStr = (rawCallDuration === 0 || rawCallDuration === '0') ? '0' : String(rawCallDuration);
+  }
+
   const leadStatus = statusResolver.resolveManualLeadStatus(payload);
   const closingAction = payload.closingAction ?? payload.closingReason;
   const normalizedPhone = normalize(payload.phone || '');
@@ -25,7 +40,8 @@ const createLead = async (payload) => {
     callStatus: payload.callStatus,
     store: normalizeStore(payload.store),
     functionDate: payload.functionDate ? new Date(payload.functionDate) : null,
-    callDuration: payload.callDuration,
+    callDuration: durationStr,
+    followupcallDuration: durationStr,
     subCategory: payload.subCategory,
     closingReason: payload.closingReason,
     closingAction,
@@ -168,6 +184,13 @@ const getNewLeads = async (filters = {}) => {
 
 const updateFollowupById = async (id, payload, updatedBy) => {
   const update = pick(payload, ['followupclosingAction', 'followupremarks', 'followupcallDuration']);
+
+  if (update.followupcallDuration !== undefined) {
+    const durationStr = (update.followupcallDuration === 0 || update.followupcallDuration === '0') ? '0' : String(update.followupcallDuration);
+    update.followupcallDuration = durationStr;
+    update.callDuration = durationStr;
+  }
+
   update.updatedAt = new Date();
   update.updatedBy = updatedBy || 'unknown';
   update.leadStatus = 'completed';

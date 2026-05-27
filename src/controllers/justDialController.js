@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const pick = require('../utils/pick');
 const leadService = require('../services/leadService');
 const { normalizeStore } = require('../utils/storeNormalizer');
+const statusResolver = require('../services/statusResolverService');
 
 /**
  * GET /api/leads/justdial
@@ -87,23 +88,33 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
 
   const payload = { ...req.body };
 
-  // Determine new status based on telecaller flags
-  // Matches logic in resolveManualLeadStatus/resolveReturnLeadStatus
-  let leadStatus = 'completed';
-  if (payload.markasComplaint === true || payload.markasComplaint === 'true') {
-    leadStatus = 'complaint';
-  } else if (payload.markasFollowup === true || payload.markasFollowup === 'true') {
-    leadStatus = 'followup';
-  }
+  // Determine new status using statusResolver (align with enquiry and booked leadtypes)
+  const leadStatus = statusResolver.resolveManualLeadStatus(payload);
 
   const update = pick(payload, [
     'remarks', 
     'markasComplaint', 
     'markasFollowup', 
     'followupDate', 
-    'callDuration', 
-    'service'
+    'service',
+    'callStatus'
   ]);
+
+  let rawCallDuration = payload.callDuration !== undefined 
+    ? payload.callDuration 
+    : (payload.call_duration !== undefined 
+      ? payload.call_duration 
+      : (payload.followupcallDuration !== undefined 
+        ? payload.followupcallDuration 
+        : (payload.followupcall_duration !== undefined 
+          ? payload.followupcall_duration 
+          : undefined)));
+
+  if (rawCallDuration !== undefined) {
+    const durationStr = (rawCallDuration === 0 || rawCallDuration === '0') ? '0' : String(rawCallDuration);
+    update.callDuration = durationStr;
+    update.followupcallDuration = durationStr;
+  }
 
   let rawStore = null;
   if (payload.store !== undefined) {

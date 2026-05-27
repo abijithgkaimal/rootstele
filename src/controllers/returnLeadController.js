@@ -39,6 +39,13 @@ const updateReturnLead = asyncHandler(async (req, res) => {
     'service', 'callDuration', 'noofFunctions', 'noofAttires', 'competitor', 'rating',
     'remarks', 'markasComplaint', 'markasFollowup', 'followupDate',
   ]);
+
+  if (update.callDuration !== undefined) {
+    const durationStr = (update.callDuration === 0 || update.callDuration === '0') ? '0' : String(update.callDuration);
+    update.callDuration = durationStr;
+    update.followupcallDuration = durationStr;
+  }
+
   update.updatedAt = new Date();
   update.leadStatus = leadStatus;
   update.updatedBy = req.user?.employeeId || req.user?.userId || req.user?.name || 'unknown';

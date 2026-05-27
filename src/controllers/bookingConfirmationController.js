@@ -36,6 +36,13 @@ const updateBookingConfirmation = asyncHandler(async (req, res) => {
 
   const leadStatus = statusResolver.resolveBookingConfirmationStatus(payload);
   const update = pick(payload, ['service', 'callDuration', 'billReceived', 'amountMismatch', 'remarks', 'markasComplaint', 'markasFollowup', 'followupDate']);
+  
+  if (update.callDuration !== undefined) {
+    const durationStr = (update.callDuration === 0 || update.callDuration === '0') ? '0' : String(update.callDuration);
+    update.callDuration = durationStr;
+    update.followupcallDuration = durationStr;
+  }
+
   update.updatedAt = new Date();
   update.leadStatus = leadStatus;
   update.updatedBy = req.user?.employeeId || req.user?.userId || req.user?.name || 'unknown';
