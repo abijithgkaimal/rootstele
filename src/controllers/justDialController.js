@@ -110,12 +110,12 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
   });
 
   const update = {
-    remarks,
     markasComplaint,
     markasFollowup,
-    followupDate,
-    service,
-    callStatus
+    callStatus,
+    updatedAt: new Date(),
+    leadStatus,
+    updatedBy: req.user?.employeeId || req.user?.userId || 'unknown'
   };
 
   let rawCallDuration = payload.callDuration !== undefined 
@@ -134,7 +134,7 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
     update.followupcallDuration = durationStr;
   }
 
-  let rawStore = null;
+  let rawStore = undefined;
   if (payload.store !== undefined) {
     rawStore = payload.store;
   } else if (payload.brand !== undefined || payload.location !== undefined) {
@@ -150,7 +150,7 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
       ? payload.itemcategory 
       : (payload.item_category !== undefined 
         ? payload.item_category 
-        : null));
+        : undefined));
 
   const rawSubCategory = payload.subCategory !== undefined 
     ? payload.subCategory 
@@ -158,15 +158,32 @@ const updateJustDialLead = asyncHandler(async (req, res) => {
       ? payload.subcategory 
       : (payload.sub_category !== undefined 
         ? payload.sub_category 
-        : null));
+        : undefined));
 
-  update.store = rawStore ? normalizeStore(rawStore) : null;
-  update.itemCategory = rawItemCategory || null;
-  update.subCategory = rawSubCategory || null;
-  
-  update.updatedAt = new Date();
-  update.leadStatus = leadStatus;
-  update.updatedBy = req.user?.employeeId || req.user?.userId || 'unknown';
+  // If callStatus is "not connected", only require/save followupDate and preserve existing fields if they are not provided or are falsy.
+  if (callStatus === 'not connected') {
+    if (remarks !== undefined) update.remarks = remarks;
+    if (followupDate !== null) update.followupDate = followupDate;
+    if (service !== undefined && service !== '' && service !== null) update.service = service;
+
+    if (rawStore) {
+      update.store = normalizeStore(rawStore);
+    }
+    if (rawItemCategory) {
+      update.itemCategory = rawItemCategory;
+    }
+    if (rawSubCategory) {
+      update.subCategory = rawSubCategory;
+    }
+  } else {
+    // Default behavior for other statuses
+    update.remarks = remarks;
+    update.followupDate = followupDate;
+    update.service = service || null;
+    update.store = rawStore ? normalizeStore(rawStore) : null;
+    update.itemCategory = rawItemCategory || null;
+    update.subCategory = rawSubCategory || null;
+  }
 
   const lead = await LeadMaster.findOneAndUpdate(
     { _id: id, leadtype: 'justdial' },
