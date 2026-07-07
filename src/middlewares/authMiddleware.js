@@ -14,22 +14,23 @@ const authMiddleware = async (req, res, next) => {
     if (token) {
       try {
         const decoded = jwt.verify(token, env.jwtSecret);
+        const rawEmpId = decoded.employeeId || decoded.userId;
+        const normalizedEmpId = rawEmpId ? String(rawEmpId).replace(/\s+/g, '').toUpperCase() : '';
 
-        let user = await User.findOne({ employeeId: decoded.employeeId || decoded.userId });
-
+        let user = await User.findOne({ employeeId: { $regex: new RegExp('^' + normalizedEmpId + '$', 'i') } });
 
         if (!user) {
           console.warn("User not found in DB, but token is valid");
           
           // fallback user object from token
           user = {
-            employeeId: decoded.employeeId || decoded.userId,
-            userId: decoded.userId || decoded.employeeId,
+            employeeId: normalizedEmpId,
+            userId: normalizedEmpId,
             name: decoded.name,
             role: decoded.role
           };
         } else {
-          user = { ...user.toObject(), userId: user.employeeId, employeeId: user.employeeId };
+          user = { ...user.toObject(), userId: normalizedEmpId, employeeId: normalizedEmpId };
         }
 
         req.user = user;

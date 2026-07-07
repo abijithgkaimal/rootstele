@@ -154,7 +154,7 @@ const getReports = asyncHandler(async (req, res) => {
     filter.store = buildStoreRegex(store);
   }
   if (leadType) filter.leadtype = leadType;
-  if (telecaller) filter.updatedBy = telecaller;
+  if (telecaller) filter.updatedBy = { $regex: new RegExp('^' + telecaller + '$', 'i') };
 
   const dateFilter = buildDateFilter(fromDate, toDate, 'updatedAt');
   if (dateFilter) Object.assign(filter, dateFilter);

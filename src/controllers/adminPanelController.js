@@ -86,12 +86,14 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
   const activeUsers = await User.find({ role: { $ne: 'admin' } });
   const userMap = {};
   activeUsers.forEach(u => {
-    userMap[u.employeeId] = u.name;
+    if (u.employeeId) {
+      userMap[u.employeeId.toUpperCase()] = u.name;
+    }
   });
 
   let telecallers = results.map(r => {
     const employeeId = r._id;
-    const name = userMap[employeeId] || employeeId;
+    const name = employeeId ? (userMap[employeeId.toUpperCase()] || employeeId) : 'Unknown';
     
     if (search && !name.toLowerCase().includes(search.toLowerCase()) && !employeeId.toLowerCase().includes(search.toLowerCase())) {
       return null;
@@ -123,7 +125,7 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
   const { fromDate, toDate, store } = req.query;
 
-  const matchObj = { updatedBy: employeeId };
+  const matchObj = { updatedBy: { $regex: new RegExp('^' + employeeId + '$', 'i') } };
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
@@ -131,7 +133,7 @@ const getTelecallerSummary = asyncHandler(async (req, res) => {
   }
   if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
 
-  const user = await User.findOne({ employeeId });
+  const user = await User.findOne({ employeeId: { $regex: new RegExp('^' + employeeId + '$', 'i') } });
   
   const [totalCalls, connectedCalls, totalLossOfSale] = await Promise.all([
     LeadMaster.countDocuments({ ...matchObj, leadStatus: /^completed$/i }),
@@ -156,7 +158,7 @@ const getTelecallerCategoryPerformance = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
   const { fromDate, toDate, store } = req.query;
 
-  const matchObj = { updatedBy: employeeId };
+  const matchObj = { updatedBy: { $regex: new RegExp('^' + employeeId + '$', 'i') } };
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
@@ -185,7 +187,7 @@ const getTelecallerRecentCalls = asyncHandler(async (req, res) => {
   const { employeeId } = req.params;
   const { fromDate, toDate, type = 'assigned' } = req.query;
 
-  const matchObj = { updatedBy: employeeId };
+  const matchObj = { updatedBy: { $regex: new RegExp('^' + employeeId + '$', 'i') } };
 
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
@@ -227,7 +229,7 @@ const getCompletedReports = asyncHandler(async (req, res) => {
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
     if (toDate) matchObj.updatedAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
-  if (telecallerId) matchObj.updatedBy = telecallerId;
+  if (telecallerId) matchObj.updatedBy = { $regex: new RegExp('^' + telecallerId + '$', 'i') };
   if (leadtype) matchObj.leadtype = leadtype;
   if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
   if (search) {
@@ -255,7 +257,7 @@ const exportCompletedReports = asyncHandler(async (req, res) => {
     if (fromDate) matchObj.updatedAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
     if (toDate) matchObj.updatedAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
-  if (telecallerId) matchObj.updatedBy = telecallerId;
+  if (telecallerId) matchObj.updatedBy = { $regex: new RegExp('^' + telecallerId + '$', 'i') };
   if (leadtype) matchObj.leadtype = leadtype;
   if (store && store !== 'All Stores') matchObj.store = new RegExp(store, 'i');
   if (search) {

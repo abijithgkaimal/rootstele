@@ -18,6 +18,23 @@ const login = asyncHandler(async (req, res) => {
     user: result.data,
   };
 
+  // Upsert user into local users collection (to reflect in the admin panel)
+  const empId = result.data?.employeeId || result.data?.userId || userId;
+  if (empId) {
+    const formattedEmpId = String(empId).replace(/\s+/g, '').toUpperCase();
+    await User.findOneAndUpdate(
+      { employeeId: { $regex: new RegExp('^' + formattedEmpId + '$', 'i') } },
+      {
+        employeeId: formattedEmpId,
+        name: result.data?.name || formattedEmpId,
+        role: result.data?.role || 'Telecaller',
+        store: result.data?.Store || result.data?.store || null,
+        lastLoginAt: new Date(),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+
   return success(res, data, 'Login successful');
 });
 
@@ -56,9 +73,11 @@ const telecallerLogin = asyncHandler(async (req, res) => {
     };
 
     // Upsert telecaller into local users collection (no password stored)
+    const formattedEmpId = String(user.employeeId).replace(/\s+/g, '').toUpperCase();
     await User.findOneAndUpdate(
-      { employeeId: user.employeeId },
+      { employeeId: { $regex: new RegExp('^' + formattedEmpId + '$', 'i') } },
       {
+        employeeId: formattedEmpId,
         name: user.name,
         role: user.role,
         store: user.store,
