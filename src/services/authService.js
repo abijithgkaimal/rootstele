@@ -26,6 +26,14 @@ const callWithRetry = async (apiCallFn, retries = 2, delay = 1000) => {
   throw lastError;
 };
 
+// Fallback user credentials for emergency access when external API is down/times out
+const FALLBACK_USERS = [
+  { employeeId: 'EMP550', name: 'Athulya', password: '123456', role: 'Telecaller', store: null },
+  { employeeId: 'EMP436', name: 'Varsha', password: '123456', role: 'Telecaller', store: null },
+  { employeeId: 'EMP538', name: 'Athira', password: '123456', role: 'Telecaller', store: null },
+  { employeeId: 'EMP188', name: 'Shafna', password: '151298', role: 'Telecaller', store: null },
+];
+
 // Legacy user verification using ROOTMENTS_VERIFY_API (kept for compatibility)
 const verifyEmployee = async (userId, password) => {
   try {
@@ -45,7 +53,32 @@ const verifyEmployee = async (userId, password) => {
     );
     return { valid: true, data: response.data };
   } catch (err) {
-    if (err.response?.status === 401 || err.response?.status === 400) {
+    // Attempt fallback login if external API failed (excluding explicit 401/400 validation failures)
+    const isValidationFailure = err.response?.status === 401 || err.response?.status === 400;
+    if (!isValidationFailure) {
+      const inputEmpId = String(userId).replace(/\s+/g, '').toUpperCase();
+      const fallbackUser = FALLBACK_USERS.find(u => u.employeeId === inputEmpId);
+      if (fallbackUser) {
+        if (fallbackUser.password === password) {
+          console.log(`[AuthService] Fallback authenticated user ${inputEmpId} for verifyEmployee`);
+          return {
+            valid: true,
+            data: {
+              employeeId: fallbackUser.employeeId,
+              name: fallbackUser.name,
+              role: fallbackUser.role,
+              Store: fallbackUser.store,
+              store: fallbackUser.store,
+            }
+          };
+        } else {
+          console.log(`[AuthService] Fallback user match for ${inputEmpId} but incorrect password`);
+          return { valid: false };
+        }
+      }
+    }
+
+    if (isValidationFailure) {
       return { valid: false };
     }
     throw new Error(err.message || 'Authentication service unavailable');
@@ -57,12 +90,12 @@ const verifyTelecaller = async (employeeId, password) => {
   const url = env.verifyEmployeeUrl;
   const token = process.env.ROOTMENTS_API_TOKEN;
 
-  if (!token) {
-    console.error('[AuthService] ROOTMENTS_API_TOKEN environment variable is not set.');
-    throw new Error('Telecaller verification service is not configured');
-  }
-
   try {
+    if (!token) {
+      console.error('[AuthService] ROOTMENTS_API_TOKEN environment variable is not set.');
+      throw new Error('Telecaller verification service is not configured');
+    }
+
     const response = await callWithRetry(() =>
       axios.post(
         url,
@@ -91,7 +124,32 @@ const verifyTelecaller = async (employeeId, password) => {
     const externalError = err.response?.data || err.message;
     console.error('[AuthService] External verify API error:', JSON.stringify(externalError));
 
-    if (err.response?.status === 401 || err.response?.status === 400) {
+    // Attempt fallback login if external API failed (excluding explicit 401/400 validation failures)
+    const isValidationFailure = err.response?.status === 401 || err.response?.status === 400;
+    if (!isValidationFailure) {
+      const inputEmpId = String(employeeId).replace(/\s+/g, '').toUpperCase();
+      const fallbackUser = FALLBACK_USERS.find(u => u.employeeId === inputEmpId);
+      if (fallbackUser) {
+        if (fallbackUser.password === password) {
+          console.log(`[AuthService] Fallback authenticated user ${inputEmpId} for verifyTelecaller`);
+          return {
+            valid: true,
+            data: {
+              employeeId: fallbackUser.employeeId,
+              name: fallbackUser.name,
+              role: fallbackUser.role,
+              Store: fallbackUser.store,
+              store: fallbackUser.store,
+            }
+          };
+        } else {
+          console.log(`[AuthService] Fallback user match for ${inputEmpId} but incorrect password`);
+          return { valid: false, data: null };
+        }
+      }
+    }
+
+    if (isValidationFailure) {
       return { valid: false, data: null };
     }
     throw new Error('Telecaller verification service unavailable');
