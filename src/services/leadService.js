@@ -30,8 +30,18 @@ const createLead = async (payload) => {
   const markasComplaint = payload.markasComplaint === true || payload.markasComplaint === 'true' || payload.mark_as_complaint === true || payload.mark_as_complaint === 'true';
   const markasFollowup = payload.markasFollowup === true || payload.markasFollowup === 'true' || payload.mark_as_followup === true || payload.mark_as_followup === 'true';
   const callStatus = payload.callStatus || payload.call_status;
-  const customerName = payload.customerName || payload.name || payload.customer_name;
-  const name = payload.name || payload.customerName || payload.customer_name;
+  let customerName = payload.customerName || payload.name || payload.customer_name;
+  let name = payload.name || payload.customerName || payload.customer_name;
+  const normalizedPhone = normalize(payload.phone || '');
+
+  // Auto-inherit customer name from existing Customer profile if payload lacks a name
+  if ((!customerName || !String(customerName).trim()) && normalizedPhone) {
+    const existingCust = await customerService.getCustomerByPhone(normalizedPhone);
+    if (existingCust && existingCust.name && existingCust.name.trim()) {
+      customerName = existingCust.name.trim();
+      name = existingCust.name.trim();
+    }
+  }
 
   const leadStatus = statusResolver.resolveManualLeadStatus({
     callStatus,
@@ -43,7 +53,6 @@ const createLead = async (payload) => {
   const closingAction = payload.closingAction || payload.closing_action || closingReason;
   const subCategory = payload.subCategory || payload.sub_category;
   const itemCategory = payload.itemCategory || payload.item_category;
-  const normalizedPhone = normalize(payload.phone || '');
 
   const rawFunctionDate = payload.functionDate || payload.function_date;
   const functionDate = rawFunctionDate ? new Date(rawFunctionDate) : null;

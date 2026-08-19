@@ -80,7 +80,11 @@ const recomputeCustomerState = async (normalizedPhone) => {
 
   const latest = pickLatestLead(uniqueLeads);
   const { activeLeadIds, completedLeadIds, complaintLeadIds } = categorizeLeadIds(uniqueLeads);
-  const name = latest.customerName || latest.name || uniqueLeads[0].customerName || uniqueLeads[0].name;
+
+  // Find the first valid non-empty name across all leads for this customer to prevent overwriting with null
+  const leadWithName = uniqueLeads.find((l) => (l.customerName && l.customerName.trim()) || (l.name && l.name.trim()));
+  const name = (latest && ((latest.customerName && latest.customerName.trim()) || (latest.name && latest.name.trim())))
+    || (leadWithName ? (leadWithName.customerName || leadWithName.name) : null);
   const rawPhone = latest.phone || latest.phoneNo || normalizedPhone;
 
   const update = {

@@ -29,6 +29,9 @@ paths:
                 phone:
                   type: string
                   example: "9876543210"
+                customerName:
+                  type: string
+                  example: "Alice Smith"
                 name:
                   type: string
                   example: "Alice Smith"
@@ -456,6 +459,12 @@ paths:
             schema:
               type: object
               properties:
+                customerName:
+                  type: string
+                  example: "Alice Smith"
+                name:
+                  type: string
+                  example: "Alice Smith"
                 followupclosingAction:
                   type: string
                   example: "Purchased"
