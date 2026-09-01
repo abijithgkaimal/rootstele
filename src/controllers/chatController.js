@@ -189,6 +189,15 @@ const transferConversation = asyncHandler(async (req, res) => {
   return success(res, updatedConversation, `Conversation transferred to ${assignedTo} successfully`);
 });
 
+/**
+ * POST /api/chat/simulate-inbound
+ * Test endpoint to inject an incoming WhatsApp, Instagram, or Facebook message for testing before Meta credentials arrive.
+ */
+const simulateInbound = asyncHandler(async (req, res) => {
+  const result = await chatService.simulateInboundMessage(req.body || {});
+  return success(res, result, 'Inbound message simulated and delivered to telecaller socket successfully', 201);
+});
+
 module.exports = {
   getConversations,
   getMessages,
@@ -196,4 +205,5 @@ module.exports = {
   markAsRead,
   convertToLead,
   transferConversation,
+  simulateInbound,
 };

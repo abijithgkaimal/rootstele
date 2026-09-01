@@ -13,5 +13,6 @@ router.post('/conversations/:id/messages', chatController.sendMessage);
 router.post('/conversations/:id/read', chatController.markAsRead);
 router.post('/conversations/:id/convert-lead', chatController.convertToLead);
 router.post('/conversations/:id/transfer', chatController.transferConversation);
+router.post('/simulate-inbound', chatController.simulateInbound);
 
 module.exports = router;

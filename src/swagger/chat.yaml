@@ -349,3 +349,55 @@ paths:
           description: Missing assignedTo or invalid conversation ID
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+
+  /chat/simulate-inbound:
+    post:
+      tags:
+        - Multi-Channel Chat
+      summary: Simulate incoming customer message (Dev & Sandbox Test Helper)
+      description: Injects a simulated customer message from WhatsApp, Instagram, or Facebook to test Flutter real-time socket events and inbox without requiring live Meta API keys.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                channel:
+                  type: string
+                  enum: [whatsapp, instagram, facebook]
+                  default: whatsapp
+                brand:
+                  type: string
+                  enum: [suitor_guy, zorucci, dapper_squad]
+                  default: suitor_guy
+                phone:
+                  type: string
+                  example: "9876543210"
+                customerName:
+                  type: string
+                  example: "Rahul Krishna"
+                text:
+                  type: string
+                  example: "Hello! Looking for a tuxedo rental for wedding next Sunday."
+                socialUserId:
+                  type: string
+                  example: "ig_user_12345"
+      responses:
+        '201':
+          description: Inbound message simulated and emitted to telecaller socket
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Inbound message simulated and delivered to telecaller socket successfully
+                  data:
+                    type: object

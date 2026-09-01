@@ -617,6 +617,108 @@ const transferConversation = async (conversationId, newTelecallerId) => {
   return conversation;
 };
 
+/**
+ * Simulate an incoming customer message across WhatsApp, Instagram, or Facebook for testing without Meta credentials.
+ */
+const simulateInboundMessage = async ({
+  channel = 'whatsapp',
+  brand = 'suitor_guy',
+  phone = '9876543210',
+  customerName = 'Test Customer',
+  text = 'Hello! I need a suit rental for wedding next week',
+  socialUserId
+}) => {
+  const brandKey = (brand || 'suitor_guy').toLowerCase();
+  const brandName = brandKey === 'suitor_guy' ? 'Suitor Guy' : brandKey === 'zorucci' ? 'Zorucci' : 'Dapper Squad';
+  const normalizedPhone = normalize(phone);
+  const userId = socialUserId || `sim_${channel}_${Date.now().toString().slice(-6)}`;
+
+  let query = { channel, brand: brandKey };
+  if (channel === 'whatsapp') {
+    query['participant.normalizedPhone'] = normalizedPhone;
+  } else {
+    query['participant.socialUserId'] = userId;
+  }
+
+  let conversation = await Conversation.findOne(query);
+  if (!conversation) {
+    let customer = null;
+    if (normalizedPhone) {
+      customer = await Customer.findOne({ normalizedPhone });
+    }
+
+    const assignedTo = await findOrAssignTelecaller(normalizedPhone, customer?._id);
+    conversation = await Conversation.create({
+      channel,
+      brand: brandKey,
+      brandName,
+      channelId: `SIM_${channel.toUpperCase()}_ID`,
+      participant: {
+        phone: channel === 'whatsapp' ? `91${normalizedPhone}` : undefined,
+        normalizedPhone: channel === 'whatsapp' ? normalizedPhone : undefined,
+        socialUserId: channel !== 'whatsapp' ? userId : undefined,
+        name: customerName,
+      },
+      customerId: customer?._id || undefined,
+      assignedTo,
+      status: 'open',
+      unreadCount: 0,
+    });
+
+    socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
+      conversationId: conversation._id,
+      channel,
+      brand: brandKey,
+      brandName,
+      participant: conversation.participant,
+    });
+  }
+
+  const messageId = `sim_msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const savedMessage = await Message.create({
+    conversationId: conversation._id,
+    messageId,
+    channel,
+    brand: brandKey,
+    senderType: 'customer',
+    senderId: channel === 'whatsapp' ? normalizedPhone : userId,
+    messageType: 'text',
+    text,
+    status: 'delivered',
+    timestamp: new Date(),
+  });
+
+  await Conversation.findByIdAndUpdate(conversation._id, {
+    $set: {
+      lastMessage: {
+        text,
+        senderType: 'customer',
+        messageType: 'text',
+        timestamp: savedMessage.timestamp,
+      },
+      lastActivityAt: savedMessage.timestamp,
+      status: 'open',
+    },
+    $inc: { unreadCount: 1 },
+  });
+
+  if (conversation.assignedTo) {
+    socketService.emitToTelecaller(conversation.assignedTo, 'chat:message', {
+      conversationId: conversation._id,
+      channel,
+      brand: brandKey,
+      brandName,
+      message: savedMessage,
+      participant: conversation.participant,
+    });
+  }
+
+  return {
+    conversation,
+    message: savedMessage
+  };
+};
+
 module.exports = {
   processInboundWhatsApp,
   processInboundInstagram,
@@ -626,4 +728,5 @@ module.exports = {
   convertChatToLead,
   transferConversation,
   findOrAssignTelecaller,
+  simulateInboundMessage,
 };
