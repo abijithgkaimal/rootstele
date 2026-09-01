@@ -1,274 +1,281 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Search, Calendar, ChevronDown, Download, X } from 'lucide-react';
+import {
+  Users,
+  Search,
+  Building,
+  Phone,
+  Mail,
+  Shield,
+  Edit3,
+  ArrowRight,
+  Headphones,
+  MessageSquare,
+  TrendingUp,
+  CheckCircle2
+} from 'lucide-react';
+import EditTelecallerModal from '../components/EditTelecallerModal';
 
 const Telecallers = () => {
   const navigate = useNavigate();
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [telecallers, setTelecallers] = useState([]);
+  const [chatTelecallers, setChatTelecallers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [storeFilter, setStoreFilter] = useState('All Stores');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedForEdit, setSelectedForEdit] = useState(null);
 
-  // Date range state
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [tempFromDate, setTempFromDate] = useState('');
-  const [tempToDate, setTempToDate] = useState('');
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const datePickerRef = useRef(null);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [leadRes, chatRes] = await Promise.all([
+        axios.get('/api/admin/telecaller-leaderboard'),
+        axios.get('/api/admin/chat-reports/telecaller-performance')
+      ]);
 
-  const [selectedTelecaller, setSelectedTelecaller] = useState('All Telecallers');
-  const [isTelecallerOpen, setIsTelecallerOpen] = useState(false);
-  const dropdownRef = useRef(null);
+      if (leadRes.data.success) {
+        setTelecallers(leadRes.data.data.telecallers);
+      }
+      if (chatRes.data.success) {
+        setChatTelecallers(chatRes.data.data.telecallers);
+      }
+    } catch (error) {
+      console.error('Error fetching telecallers directory:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      setLoading(true);
-      try {
-        let query = '';
-        if (fromDate && toDate) {
-          query = `?fromDate=${fromDate}&toDate=${toDate}`;
-        }
-        const res = await axios.get(`/api/admin/telecaller-leaderboard${query}`);
-        if (res.data.success) {
-          setLeaderboard(res.data.data.telecallers);
-        }
-      } catch (error) {
-        console.error('Error fetching leaderboard:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLeaderboard();
-    const intervalId = setInterval(fetchLeaderboard, 5 * 60 * 1000);
-    return () => clearInterval(intervalId);
-  }, [fromDate, toDate]);
-
-  // Handle click outside for dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsTelecallerOpen(false);
-      }
-      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
-        setIsDatePickerOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    fetchData();
   }, []);
 
-  const telecallerNames = ['All Telecallers', ...Array.from(new Set(leaderboard.map(t => t.name)))];
-
-  const filteredLeaderboard = leaderboard.filter(row => {
-    if (selectedTelecaller !== 'All Telecallers' && row.name !== selectedTelecaller) return false;
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      if (!row.name.toLowerCase().includes(term) && !row.employeeId.toLowerCase().includes(term)) return false;
-    }
-    return true;
+  const chatMap = {};
+  chatTelecallers.forEach((c) => {
+    if (c.employeeId) chatMap[c.employeeId.toUpperCase()] = c;
   });
 
-  const handleExportCSV = () => {
-    let query = '';
-    if (fromDate && toDate) {
-      query = `?fromDate=${fromDate}&toDate=${toDate}`;
-    }
-    window.open(`/api/admin/reports/completed-leads/export${query}`, '_blank');
-  };
+  const allStores = ['All Stores', ...new Set(telecallers.map((t) => t.store).filter(Boolean))];
 
-  const applyDateRange = () => {
-    setFromDate(tempFromDate);
-    setToDate(tempToDate);
-    setIsDatePickerOpen(false);
-  };
+  const filteredTelecallers = telecallers.filter((t) => {
+    const matchesSearch =
+      !searchTerm ||
+      (t.name && t.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (t.employeeId && t.employeeId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (t.phone && t.phone.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (t.email && t.email.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const clearDateRange = () => {
-    setFromDate('');
-    setToDate('');
-    setTempFromDate('');
-    setTempToDate('');
-    setIsDatePickerOpen(false);
-  };
+    const isActive = t.lastLoginAt && new Date(t.lastLoginAt) > new Date(Date.now() - 12 * 60 * 60 * 1000);
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && isActive) ||
+      (statusFilter === 'offline' && !isActive);
 
-  const getDateRangeDisplay = () => {
-    if (fromDate && toDate) {
-      const format = (d) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-      return `${format(fromDate)} - ${format(toDate)}`;
-    }
-    return 'Date Range';
-  };
+    return matchesSearch && matchesStatus;
+  });
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="max-w-[1400px] mx-auto space-y-8">
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-[28px] font-bold text-slate-900 tracking-tight">Call Category Report</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Telecallers Directory</h1>
+          <p className="text-slate-500 text-[15px] mt-1 font-medium">
+            Central office telecaller team profiles, active status & individual call and chat tracking
+          </p>
+        </div>
 
+        {/* Search & Status Filter */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Telecaller Dropdown */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="flex bg-[#eef2f6] p-1 rounded-xl text-xs font-bold text-slate-600">
             <button
-              onClick={() => setIsTelecallerOpen(!isTelecallerOpen)}
-              className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center shadow-sm hover:bg-slate-50 transition-colors w-44 justify-between"
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+              }`}
             >
-              <span className="truncate">{selectedTelecaller}</span>
-              <ChevronDown className="w-4 h-4 ml-2 text-slate-400 shrink-0" />
+              All ({telecallers.length})
             </button>
-
-            {isTelecallerOpen && (
-              <div className="absolute z-10 top-full right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto py-1">
-                {telecallerNames.map(name => (
-                  <button
-                    key={name}
-                    onClick={() => {
-                      setSelectedTelecaller(name);
-                      setIsTelecallerOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${selectedTelecaller === name ? 'text-slate-900 font-semibold bg-slate-50' : 'text-slate-600'}`}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            )}
+            <button
+              onClick={() => setStatusFilter('active')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                statusFilter === 'active' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setStatusFilter('offline')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                statusFilter === 'offline' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Offline
+            </button>
           </div>
 
-          <button onClick={handleExportCSV} className="bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors">
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </button>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search telecaller..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-200 shadow-sm w-56 transition-all"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Leaderboard Table Container */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-visible mt-4">
-        <div className="p-7 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Telecaller Leaderboard</h2>
+      {/* Telecaller Profile Cards Grid */}
+      {loading ? (
+        <div className="py-16 text-center text-slate-400 font-medium">Loading telecallers directory...</div>
+      ) : filteredTelecallers.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center text-slate-400">
+          <Users className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+          <p className="font-semibold text-slate-600">No telecallers found</p>
+          <p className="text-xs text-slate-400 mt-1">Try adjusting your search.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredTelecallers.map((t) => {
+            const isActive = t.lastLoginAt && new Date(t.lastLoginAt) > new Date(Date.now() - 12 * 60 * 60 * 1000);
+            const chatData = chatMap[t.employeeId?.toUpperCase()] || {};
 
-          <div className="flex items-center gap-4">
-            <div className="relative group">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search Telecaller"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 rounded-full border border-slate-200 text-sm focus:ring-4 focus:ring-slate-100 outline-none w-64 transition-all"
-              />
-            </div>
-
-            {/* Custom Date Range Picker */}
-            <div className="relative" ref={datePickerRef}>
-              <button
-                onClick={() => {
-                  setTempFromDate(fromDate);
-                  setTempToDate(toDate);
-                  setIsDatePickerOpen(!isDatePickerOpen);
-                }}
-                className={`flex items-center gap-2 px-5 py-2.5 border rounded-full text-sm font-semibold transition-colors ${fromDate ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            return (
+              <div
+                key={t.employeeId}
+                className="bg-white rounded-3xl border border-slate-100 hover:border-slate-300 shadow-sm hover:shadow-md transition-all p-6 flex flex-col justify-between space-y-5 group relative"
               >
-                <Calendar className="w-4 h-4 text-slate-400" />
-                {getDateRangeDisplay()}
-              </button>
-
-              {isDatePickerOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 p-5 z-20">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-semibold text-slate-800">Select Date Range</h3>
-                    <button onClick={() => setIsDatePickerOpen(false)} className="text-slate-400 hover:text-slate-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">From Date</label>
-                      <input
-                        type="date"
-                        value={tempFromDate}
-                        onChange={(e) => setTempFromDate(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
-                      />
+                {/* Top Profile Header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-base shadow-sm">
+                      {t.name ? t.name.charAt(0).toUpperCase() : 'T'}
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">To Date</label>
-                      <input
-                        type="date"
-                        value={tempToDate}
-                        onChange={(e) => setTempToDate(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
-                      />
+                      <h3 className="font-bold text-slate-900 text-base group-hover:text-blue-600 transition-colors">
+                        {t.name}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                          {t.employeeId}
+                        </span>
+                        <span className="text-xs text-slate-500 font-medium">{t.role || 'Telecaller'}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-6">
-                    <button
-                      onClick={clearDateRange}
-                      className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      onClick={applyDateRange}
-                      disabled={!tempFromDate || !tempToDate || tempFromDate > tempToDate}
-                      className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Apply
-                    </button>
+                  {/* Edit Profile Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedForEdit(t);
+                    }}
+                    title="Edit Profile"
+                    className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Info Fields: Contact Details */}
+                <div className="space-y-2 py-3 border-y border-slate-100 text-xs text-slate-600 font-medium">
+                  {t.phone ? (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{t.phone}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Phone className="w-3.5 h-3.5 shrink-0" />
+                      <span>No phone added</span>
+                    </div>
+                  )}
+                  {t.email ? (
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{t.email}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Mail className="w-3.5 h-3.5 shrink-0" />
+                      <span>No email added</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Performance Summary Badges */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Calls</span>
+                    <div className="font-bold text-slate-800 text-sm mt-0.5">{t.totalCalls || 0}</div>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chats</span>
+                    <div className="font-bold text-slate-800 text-sm mt-0.5">{chatData.totalChats || 0}</div>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Success</span>
+                    <div className="font-bold text-emerald-600 text-sm mt-0.5">{t.performance || 0}%</div>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
 
-        <div className="overflow-x-auto px-7 pb-4">
-          <table className="w-full text-sm text-left">
-            <thead>
-              <tr className="text-[11px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/60">
-                <th className="py-4 px-2 w-1/4">Employee</th>
-                <th className="py-4 px-2 text-center">Total Calls</th>
-                <th className="py-4 px-2 text-center">Feedback </th>
-                <th className="py-4 px-2 text-center">Booking Confirmation </th>
-                <th className="py-4 px-2 text-center">Just Dial</th>
-                <th className="py-4 px-2 text-center">Enquiry</th>
-                <th className="py-4 px-2 text-center">Booked</th>
-                <th className="py-4 px-2 text-center">Follow-up</th>
-                <th className="py-4 px-2 text-center">Loss of Sale</th>
-                <th className="py-4 px-2 text-center">Performance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan="10" className="text-center py-8 text-slate-400">Loading...</td></tr>
-              ) : filteredLeaderboard.length === 0 ? (
-                <tr><td colSpan="10" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
-              ) : filteredLeaderboard.map((row) => (
-                <tr
-                  key={row.employeeId}
-                  className="hover:bg-slate-50/50 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/admin/telecallers/${row.employeeId}`)}
-                >
-                  <td className="py-4 px-2">
-                    <div className="font-semibold text-slate-800">{row.name}</div>
-                    <div className="text-[11px] font-bold tracking-wide text-slate-500 mt-1">{row.employeeId}</div>
-                  </td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.justDial}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.enquiryCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.booked}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followup ?? row.followupsDone}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                {/* Footer Action & Status */}
+                <div className="flex items-center justify-between pt-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                      isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                      }`}
+                    ></span>
+                    {isActive ? 'Active Today' : 'Offline'}
+                  </span>
+
+                  <button
+                    onClick={() => navigate(`/admin/telecallers/${t.employeeId}`)}
+                    className="text-xs font-bold text-slate-900 group-hover:text-blue-600 flex items-center gap-1 bg-slate-100 group-hover:bg-blue-50 px-3.5 py-1.5 rounded-xl transition-all"
+                  >
+                    View Tracking <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
+      )}
+
+      {/* Edit Telecaller Profile Modal */}
+      <EditTelecallerModal
+        isOpen={Boolean(selectedForEdit)}
+        onClose={() => setSelectedForEdit(null)}
+        telecaller={selectedForEdit}
+        onSaveSuccess={(updatedUser) => {
+          setTelecallers((prev) =>
+            prev.map((t) =>
+              t.employeeId === updatedUser.employeeId
+                ? {
+                    ...t,
+                    name: updatedUser.name || t.name,
+                    store: updatedUser.store !== undefined ? updatedUser.store : t.store,
+                    role: updatedUser.role || t.role,
+                    phone: updatedUser.phone !== undefined ? updatedUser.phone : t.phone,
+                    email: updatedUser.email !== undefined ? updatedUser.email : t.email,
+                    active: updatedUser.active !== undefined ? updatedUser.active : t.active,
+                  }
+                : t
+            )
+          );
+        }}
+      />
     </div>
   );
 };

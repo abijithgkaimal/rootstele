@@ -13,7 +13,13 @@ const isJsonRequest = (req) => {
 };
 
 const ensureAdminAuthenticated = (req, res, next) => {
-  const token = req.cookies && req.cookies[ADMIN_COOKIE_NAME];
+  const token =
+    (req.cookies && req.cookies[ADMIN_COOKIE_NAME]) ||
+    req.headers['x-admin-token'] ||
+    (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
+      ? req.headers.authorization.split(' ')[1]
+      : null);
+
   if (token === ADMIN_SESSION_TOKEN) {
     return next();
   }
@@ -26,7 +32,10 @@ const ensureAdminAuthenticated = (req, res, next) => {
 };
 
 const renderLoginPage = (req, res) => {
-  const token = req.cookies && req.cookies[ADMIN_COOKIE_NAME];
+  const token =
+    (req.cookies && req.cookies[ADMIN_COOKIE_NAME]) ||
+    req.headers['x-admin-token'];
+
   if (token === ADMIN_SESSION_TOKEN) {
     return res.redirect('/admin/dashboard');
   }
@@ -44,10 +53,11 @@ const handleAdminLogin = (req, res, next) => {
       res.cookie(ADMIN_COOKIE_NAME, ADMIN_SESSION_TOKEN, {
         httpOnly: true,
         sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       });
 
       if (isJsonRequest(req)) {
-        return res.json({ success: true });
+        return res.json({ success: true, token: ADMIN_SESSION_TOKEN });
       }
 
       return res.redirect('/admin/dashboard');

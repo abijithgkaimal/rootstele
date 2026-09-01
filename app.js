@@ -20,6 +20,8 @@ const adminRoutes = require("./src/routes/adminRoutes"); // Legacy admin
 const adminPanelRoutes = require("./src/routes/adminPanelRoutes"); // New admin panel
 const healthRoutes = require("./src/routes/healthRoutes");
 const justDialRoutes = require("./src/routes/justDialRoutes");
+const webhookRoutes = require("./src/routes/webhookRoutes");
+const chatRoutes = require("./src/routes/chatRoutes");
 
 const { handleAdminLogin, handleAdminLogout, renderLoginPage } = require("./src/middlewares/adminSession");
 const { setupSwagger } = require("./src/swagger/swagger");
@@ -30,7 +32,10 @@ const errorHandler = require("./src/middlewares/errorHandler");
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
@@ -51,6 +56,9 @@ app.use(express.static(path.join(__dirname, "public")));
 app.post("/api/admin/login", handleAdminLogin);
 app.post("/api/admin/logout", handleAdminLogout);
 
+// Webhook Routes (Public / Custom Auth / Meta Signature Verified)
+app.use("/api/webhooks", webhookRoutes);
+
 app.use("/api", authRoutes);
 app.use("/api/admin", adminPanelRoutes); // New admin APIs MUST be before leadRoutes to avoid JWT authMiddleware catch-all
 app.use("/api", adminRoutes); // Legacy admin MUST be before leadRoutes
@@ -63,6 +71,7 @@ app.use("/api", returnRoutes);
 app.use("/api", syncRoutes);
 app.use("/api", storeRoutes);
 app.use("/api", customerRoutes);
+app.use("/api/chat", chatRoutes);
 app.use("/api", healthRoutes);
 
 // =====================

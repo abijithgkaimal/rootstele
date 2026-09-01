@@ -22,7 +22,7 @@ const leadMasterSchema = new mongoose.Schema(
     name:            { type: String },           // for manual leads
     customerName:    { type: String },           // from API / manual
     store:           { type: String },
-    source:          { type: String, enum: ['manual', 'bookingSync', 'returnSync', 'justDialSync', 'justdialPush'] },
+    source:          { type: String, enum: ['manual', 'bookingSync', 'returnSync', 'justDialSync', 'justdialPush', 'webhook', 'chat'] },
 
     // ── Manual-lead fields ─────────────────────────────────────────────────────
     callStatus:      { type: String, enum: callStatusEnum },
@@ -37,6 +37,7 @@ const leadMasterSchema = new mongoose.Schema(
     // ── Status flags ───────────────────────────────────────────────────────────
     markasComplaint: { type: Boolean, default: false },
     markasFollowup:  { type: Boolean, default: false },
+    reminderSent:    { type: Boolean, default: false },
 
     // ── Followup tracking ──────────────────────────────────────────────────────
     followupDate:           { type: Date },
@@ -105,5 +106,8 @@ leadMasterSchema.index({ leadStatus: 1, updatedAt: -1 });
 
 // 5. Store + status filtering (dashboard, report filters)
 leadMasterSchema.index({ store: 1, leadStatus: 1 });
+
+// 6. Fast followup reminders cron sweep
+leadMasterSchema.index({ followupDate: 1, leadStatus: 1, reminderSent: 1 });
 
 module.exports = mongoose.model('LeadMaster', leadMasterSchema);

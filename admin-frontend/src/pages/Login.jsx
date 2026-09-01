@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Lock, User } from 'lucide-react';
+import { DialexIcon } from '../components/DialexLogo';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -24,6 +25,10 @@ const Login = () => {
       });
 
       if (res.data.success) {
+        const token = res.data.token || 'admin-session-token';
+        localStorage.setItem('admin_token', token);
+        axios.defaults.headers.common['x-admin-token'] = token;
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         navigate('/admin/dashboard');
       }
     } catch (err) {
@@ -41,11 +46,11 @@ const Login = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
-            <Lock className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md bg-slate-900">
+            <DialexIcon className="w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Admin Login</h1>
-          <p className="text-slate-500 mt-2 text-sm">Sign in to access the dashboard</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">DIALEX</h1>
+          <p className="text-slate-500 mt-1 text-sm font-medium">Telecaller CRM & Management</p>
         </div>
 
         {error && (

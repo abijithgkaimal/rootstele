@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, Settings, Search, X } from 'lucide-react';
+import { LayoutDashboard, Users, PhoneCall, MessageSquare, Settings, Search, X } from 'lucide-react';
 
 // Custom toggle icons matching the requested design
 const CollapseIcon = ({ className }) => (
@@ -19,6 +19,8 @@ const ExpandIcon = ({ className }) => (
   </svg>
 );
 
+import { DialexLogo } from './DialexLogo';
+
 const Layout = () => {
   const location = useLocation();
   // Sidebar closed by default as requested
@@ -27,10 +29,11 @@ const Layout = () => {
 
   const getPageTitle = () => {
     if (location.pathname.includes('/admin/dashboard')) return 'Dashboard';
+    if (location.pathname.includes('/admin/call-reports')) return 'Call Reports';
     if (location.pathname.includes('/admin/telecallers')) {
-      return location.pathname.split('/').length > 3 ? 'Telecaller Details' : 'Telecaller';
+      return location.pathname.split('/').length > 3 ? 'Telecaller Details' : 'Telecallers';
     }
-    if (location.pathname.includes('/admin/reports')) return 'Reports';
+    if (location.pathname.includes('/admin/reports') || location.pathname.includes('/admin/chat-reports')) return 'Chat Reports';
     return 'Admin Panel';
   };
 
@@ -53,10 +56,7 @@ const Layout = () => {
         }`}
       >
         <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">A</div>
-            <span className="font-semibold text-slate-800 tracking-tight">Admin</span>
-          </div>
+          <DialexLogo iconSize="w-8 h-8" textSize="text-xl" />
           <button className="md:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-50" onClick={toggleSidebar}>
             <X className="w-5 h-5" />
           </button>
@@ -75,7 +75,33 @@ const Layout = () => {
             <LayoutDashboard className="w-5 h-5 mr-3 opacity-80" />
             Dashboard
           </NavLink>
-          
+
+          <NavLink
+            to="/admin/call-reports"
+            onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                isActive ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`
+            }
+          >
+            <PhoneCall className="w-5 h-5 mr-3 opacity-80" />
+            Call Reports
+          </NavLink>
+
+          <NavLink
+            to="/admin/reports"
+            onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                isActive ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`
+            }
+          >
+            <MessageSquare className="w-5 h-5 mr-3 opacity-80" />
+            Chat Reports
+          </NavLink>
+
           <NavLink
             to="/admin/telecallers"
             onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
@@ -89,19 +115,6 @@ const Layout = () => {
             Telecallers
           </NavLink>
 
-          <NavLink
-            to="/admin/reports"
-            onClick={() => window.innerWidth < 768 && setIsSidebarOpen(false)}
-            className={({ isActive }) =>
-              `flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                isActive ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-              }`
-            }
-          >
-            <FileText className="w-5 h-5 mr-3 opacity-80" />
-            Reports
-          </NavLink>
-
           <div className="flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-400 cursor-not-allowed mt-4 border-t border-slate-100 pt-4">
             <Settings className="w-5 h-5 mr-3 opacity-50" />
             Settings
@@ -113,9 +126,13 @@ const Layout = () => {
           <button 
             onClick={async () => {
               try {
+                localStorage.removeItem('admin_token');
                 await fetch('/api/admin/logout', { method: 'POST' });
                 window.location.href = '/admin/login';
-              } catch (e) { console.error(e); }
+              } catch (e) {
+                localStorage.removeItem('admin_token');
+                window.location.href = '/admin/login';
+              }
             }}
             className="flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
           >

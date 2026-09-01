@@ -12,9 +12,12 @@ if (process.env.NODE_ENV !== "production") {
   require("dotenv").config();
 }
 
+const http = require("http");
 const app = require("./app");
 const connectDB = require("./src/config/database");
+const socketService = require("./src/services/socketService");
 const { initializeMasterSyncScheduler } = require("./src/schedulers/masterSyncScheduler");
+const { initializeFollowupScheduler } = require("./src/schedulers/followupReminderScheduler");
 
 const PORT = process.env.PORT || 3000;
 
@@ -26,16 +29,29 @@ async function startServer() {
 
     console.log("MongoDB Connected");
 
-    const server = app.listen(PORT, () => {
+    const server = http.createServer(app);
+
+    // Initialize Socket.IO with JWT Authentication
+    socketService.initSocket(server);
+    console.log("Socket.IO initialized");
+
+    server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
 
-    // Start background scheduler
+    // Start background schedulers
     try {
       await initializeMasterSyncScheduler();
       console.log("Master Sync Scheduler started");
     } catch (err) {
       console.error("Scheduler initialization failed:", err);
+    }
+
+    try {
+      initializeFollowupScheduler();
+      console.log("Followup Reminder Scheduler started");
+    } catch (err) {
+      console.error("Followup scheduler initialization failed:", err);
     }
 
     // Graceful shutdown

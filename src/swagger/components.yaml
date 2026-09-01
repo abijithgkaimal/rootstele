@@ -11,3 +11,200 @@ components:
       type: apiKey
       in: header
       name: x-user-id
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+
+  responses:
+    UnauthorizedError:
+      description: Access token is missing, expired, or invalid
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: Invalid or expired token
+              data:
+                type: 'null'
+                example: null
+
+  schemas:
+    Conversation:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: '64f8c2b5e1b2c3d4e5f6a7b8'
+        channel:
+          type: string
+          enum: [whatsapp, instagram, facebook]
+          example: instagram
+        brand:
+          type: string
+          enum: [zorucci, suitor_guy, dapper_squad, general]
+          example: suitor_guy
+        brandName:
+          type: string
+          example: Suitor Guy
+        channelId:
+          type: string
+          example: IG_ACCOUNT_ID_SUITOR_GUY
+        participant:
+          type: object
+          properties:
+            name:
+              type: string
+              example: Rahul Sharma
+            phone:
+              type: string
+              example: '9876543210'
+            socialUserId:
+              type: string
+              example: '17841400000000000'
+            username:
+              type: string
+              example: rahul_s
+        customerId:
+          type: string
+          example: '64f8c2b5e1b2c3d4e5f6a7b9'
+        assignedTo:
+          type: string
+          example: EMP102
+        lastMessage:
+          type: object
+          properties:
+            text:
+              type: string
+              example: Is the emerald suit available in Edappally?
+            messageType:
+              type: string
+              example: text
+            senderType:
+              type: string
+              enum: [customer, telecaller, system]
+              example: customer
+            timestamp:
+              type: string
+              format: date-time
+        unreadCount:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum: [open, pending, resolved]
+          example: open
+        leadId:
+          type: string
+          example: '64f8c2b5e1b2c3d4e5f6a7ba'
+        lastActivityAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: '64f8c2b5e1b2c3d4e5f6a7ba'
+        conversationId:
+          type: string
+          example: '64f8c2b5e1b2c3d4e5f6a7b8'
+        messageId:
+          type: string
+          example: wamid.HBgLMzkx...
+        channel:
+          type: string
+          enum: [whatsapp, instagram, facebook]
+          example: whatsapp
+        brand:
+          type: string
+          enum: [zorucci, suitor_guy, dapper_squad, general]
+          example: suitor_guy
+        senderType:
+          type: string
+          enum: [customer, telecaller, system]
+          example: telecaller
+        senderId:
+          type: string
+          example: EMP102
+        messageType:
+          type: string
+          enum: [text, image, video, audio, document, template, interactive]
+          example: text
+        text:
+          type: string
+          example: Yes, it is available in size 40.
+        media:
+          type: object
+          properties:
+            url:
+              type: string
+            mimeType:
+              type: string
+            fileName:
+              type: string
+        status:
+          type: string
+          enum: [sent, delivered, read, failed]
+          example: delivered
+        timestamp:
+          type: string
+          format: date-time
+
+    LeadMaster:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: '64f8c2b5e1b2c3d4e5f6a7bc'
+        leadtype:
+          type: string
+          enum: [booked, enquiry, bookingConfirmation, return, justdial, lossofsale]
+          example: enquiry
+        leadStatus:
+          type: string
+          enum: [new, followup, complaint, completed]
+          example: new
+        phone:
+          type: string
+          example: '9876543210'
+        normalizedPhone:
+          type: string
+          example: '9876543210'
+        customerName:
+          type: string
+          example: Rahul Sharma
+        store:
+          type: string
+          example: SG-Edappally
+        source:
+          type: string
+          enum: [manual, bookingSync, returnSync, justDialSync, justdialPush, webhook, chat]
+          example: chat
+        subCategory:
+          type: string
+          example: Tuxedo
+        remarks:
+          type: string
+          example: Customer interested in wedding package
+        followupDate:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          example: EMP102
+        updatedBy:
+          type: string
+          example: EMP102
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

@@ -83,7 +83,7 @@ const createLead = async (payload) => {
     createdBy: payload.createdBy,
     updatedBy: payload.createdBy,
     createdAt: payload.createdAt ? new Date(payload.createdAt) : new Date(),
-    source: 'manual',
+    source: payload.source || 'manual',
   });
 
   const saved = await lead.save();

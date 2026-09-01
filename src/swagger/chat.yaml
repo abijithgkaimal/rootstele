@@ -1,0 +1,351 @@
+paths:
+  /chat/conversations:
+    get:
+      tags:
+        - Multi-Channel Chat
+      summary: Fetch filtered conversation inbox for logged-in telecaller
+      description: Returns a paginated list of conversations assigned to the authenticated telecaller. Supports multi-level filtering by channel (whatsapp, instagram, facebook) and brand (zorucci, suitor_guy, dapper_squad).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: channel
+          in: query
+          schema:
+            type: string
+            enum: [all, whatsapp, instagram, facebook]
+            default: all
+          description: Filter by social channel platform
+        - name: brand
+          in: query
+          schema:
+            type: string
+            enum: [all, zorucci, suitor_guy, dapper_squad]
+            default: all
+          description: Filter by company brand
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, pending, resolved]
+          description: Filter by conversation status
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search participant name, phone, or username
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: List of assigned conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Success
+                  data:
+                    type: object
+                    properties:
+                      conversations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Conversation'
+                      total:
+                        type: integer
+                        example: 45
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 30
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /chat/conversations/{id}/messages:
+    get:
+      tags:
+        - Multi-Channel Chat
+      summary: Get message history for a conversation thread
+      description: Retrieves paginated messages for a conversation ordered chronologically.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Conversation ObjectId
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Fetch messages before this timestamp for backward infinite scroll
+      responses:
+        '200':
+          description: Message thread history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Success
+                  data:
+                    type: object
+                    properties:
+                      messages:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Message'
+                      total:
+                        type: integer
+                        example: 12
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 50
+        '400':
+          description: Invalid conversation ID
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Multi-Channel Chat
+      summary: Send outbound message (WhatsApp, Instagram, or Facebook)
+      description: Dispatches a text or media reply through the originating brand channel using Meta Graph APIs and updates the conversation timeline.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Conversation ObjectId
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  example: Hello, size 40 is available at our Edappally store.
+                messageType:
+                  type: string
+                  enum: [text, image, document, audio, video]
+                  default: text
+                media:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                      example: https://cdn.yourdomain.com/suits/blue-tuxedo.jpg
+                    fileName:
+                      type: string
+                      example: blue-tuxedo.jpg
+      responses:
+        '201':
+          description: Message sent and persisted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Message sent successfully
+                  data:
+                    $ref: '#/components/schemas/Message'
+        '400':
+          description: Invalid parameters or conversation ID
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /chat/conversations/{id}/read:
+    post:
+      tags:
+        - Multi-Channel Chat
+      summary: Mark conversation as read
+      description: Resets unread counter for conversation and dispatches a read receipt to WhatsApp if applicable.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Conversation ObjectId
+      responses:
+        '200':
+          description: Conversation marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Marked as read
+                  data:
+                    $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /chat/conversations/{id}/convert-lead:
+    post:
+      tags:
+        - Multi-Channel Chat
+      summary: Convert chat conversation into a CRM LeadMaster entry
+      description: Creates a new LeadMaster record from the conversation context, links customer history, and assigns the store prefix.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Conversation ObjectId
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - leadtype
+              properties:
+                store:
+                  type: string
+                  example: SG-Edappally
+                leadtype:
+                  type: string
+                  enum: [enquiry, booked, bookingConfirmation, return, lossofsale]
+                  default: enquiry
+                subCategory:
+                  type: string
+                  example: Wedding Tuxedo
+                remarks:
+                  type: string
+                  example: Customer interested in wedding suit trial on Sunday
+                followupDate:
+                  type: string
+                  format: date-time
+                callStatus:
+                  type: string
+                  enum: [connected, interested, not connected, not interested]
+                  default: interested
+      responses:
+        '201':
+          description: Lead created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Chat converted to CRM lead successfully
+                  data:
+                    $ref: '#/components/schemas/LeadMaster'
+        '400':
+          description: Invalid request parameters
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /chat/conversations/{id}/transfer:
+    post:
+      tags:
+        - Multi-Channel Chat
+      summary: Transfer conversation to another telecaller
+      description: Reassigns an active conversation to a new telecaller employee ID and sends real-time socket notification.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Conversation ObjectId
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assignedTo
+              properties:
+                assignedTo:
+                  type: string
+                  example: EMP105
+                  description: Target telecaller employeeId
+      responses:
+        '200':
+          description: Conversation reassigned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Conversation transferred to EMP105 successfully
+                  data:
+                    $ref: '#/components/schemas/Conversation'
+        '400':
+          description: Missing assignedTo or invalid conversation ID
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'

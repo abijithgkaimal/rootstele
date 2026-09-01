@@ -66,6 +66,49 @@ paths:
       responses:
         '200':
           description: "Success"
+
+  /admin/telecallers/{employeeId}:
+    put:
+      tags:
+        - Admin Panel
+      summary: "Update Telecaller Profile"
+      description: "Update a telecaller's name, store, role, phone, email, and active status."
+      parameters:
+        - name: "employeeId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Varsha N. C"
+                store:
+                  type: string
+                  example: "SG-Edappally"
+                role:
+                  type: string
+                  example: "Telecaller"
+                phone:
+                  type: string
+                  example: "9876543210"
+                email:
+                  type: string
+                  example: "varsha@rootments.in"
+                active:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: "Telecaller profile updated successfully"
+        '400':
+          description: "Invalid input"
   /admin/telecallers/{employeeId}/category-performance:
     get:
       tags:
@@ -110,3 +153,116 @@ paths:
       responses:
         '200':
           description: "Success"
+
+  /admin/chat-reports/summary:
+    get:
+      tags:
+        - Admin Panel
+        - Chat & Messaging
+      summary: "Get Chat Reports Summary"
+      description: "Aggregated overview of WhatsApp, Instagram, Facebook conversations, converted leads, and outbound messages."
+      parameters:
+        - name: "fromDate"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "toDate"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "channel"
+          in: "query"
+          schema:
+            type: "string"
+            enum: ["all", "whatsapp", "instagram", "facebook"]
+        - name: "brand"
+          in: "query"
+          schema:
+            type: "string"
+            enum: ["all", "suitor_guy", "zorucci", "dapper_squad"]
+      responses:
+        '200':
+          description: "Success"
+
+  /admin/chat-reports/telecaller-performance:
+    get:
+      tags:
+        - Admin Panel
+        - Chat & Messaging
+      summary: "Get Telecaller Chat Performance"
+      description: "Track each telecaller's conversations handled across channels, replies sent, resolution rates, and CRM leads converted."
+      parameters:
+        - name: "fromDate"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "toDate"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "channel"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "brand"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "search"
+          in: "query"
+          schema:
+            type: "string"
+      responses:
+        '200':
+          description: "Success"
+
+  /admin/chat-reports/conversations:
+    get:
+      tags:
+        - Admin Panel
+        - Chat & Messaging
+      summary: "Get Chat Conversations Log"
+      description: "Paginated list of multi-channel conversations with participant details and telecaller assignments."
+      parameters:
+        - name: "page"
+          in: "query"
+          schema:
+            type: "integer"
+        - name: "limit"
+          in: "query"
+          schema:
+            type: "integer"
+        - name: "channel"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "brand"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "status"
+          in: "query"
+          schema:
+            type: "string"
+        - name: "search"
+          in: "query"
+          schema:
+            type: "string"
+      responses:
+        '200':
+          description: "Success"
+
+  /admin/chat-reports/export:
+    get:
+      tags:
+        - Admin Panel
+        - Chat & Messaging
+      summary: "Export Chat Reports to CSV"
+      responses:
+        '200':
+          description: "CSV file download"
+          content:
+            text/csv:
+              schema:
+                type: "string"
+

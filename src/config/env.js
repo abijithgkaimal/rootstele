@@ -31,6 +31,28 @@ module.exports = {
   adminUsername: getEnv('ADMIN_USERNAME', 'admin'),
   adminPassword: getEnv('ADMIN_PASSWORD', 'admin123'),
   adminSessionToken: getEnv('ADMIN_SESSION_TOKEN', 'admin-session-token'),
+  // Webhooks & Multi-Chat
+  customWebhookApiKey: getEnv('CUSTOM_WEBHOOK_API_KEY', 'default-webhook-key'),
+  metaWebhookVerifyToken: getEnv('META_WEBHOOK_VERIFY_TOKEN', 'default-verify-token'),
+  metaAppSecret: getEnv('META_APP_SECRET', ''),
+  metaAccessToken: getEnv('META_ACCESS_TOKEN', ''),
+  whatsappPhoneNumberId: getEnv('WHATSAPP_PHONE_NUMBER_ID', ''),
+  instagramAccountId: getEnv('INSTAGRAM_ACCOUNT_ID', ''),
+
+  // Multi-Brand WhatsApp Phone IDs
+  waPhoneIdZorucci: getEnv('WA_PHONE_ID_ZORUCCI', ''),
+  waPhoneIdSuitorGuy: getEnv('WA_PHONE_ID_SUITOR_GUY', ''),
+  waPhoneIdDapperSquad: getEnv('WA_PHONE_ID_DAPPER_SQUAD', ''),
+
+  // Multi-Brand Instagram Account IDs
+  igAccountIdZorucci: getEnv('IG_ACCOUNT_ID_ZORUCCI', ''),
+  igAccountIdSuitorGuy: getEnv('IG_ACCOUNT_ID_SUITOR_GUY', ''),
+  igAccountIdDapperSquad: getEnv('IG_ACCOUNT_ID_DAPPER_SQUAD', ''),
+
+  // Multi-Brand Facebook Page IDs
+  fbPageIdZorucci: getEnv('FB_PAGE_ID_ZORUCCI', ''),
+  fbPageIdSuitorGuy: getEnv('FB_PAGE_ID_SUITOR_GUY', ''),
+  fbPageIdDapperSquad: getEnv('FB_PAGE_ID_DAPPER_SQUAD', ''),
 };
 
 // Backward compatibility

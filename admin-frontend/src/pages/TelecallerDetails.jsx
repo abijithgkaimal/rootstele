@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Download, PhoneCall, Headphones, TrendingDown, CheckSquare, MessageSquare, Briefcase, PhoneMissed, X } from 'lucide-react';
+import { Calendar, Download, PhoneCall, Headphones, TrendingDown, CheckSquare, MessageSquare, Briefcase, PhoneMissed, X, Edit3, Building, Mail, Phone as PhoneIcon } from 'lucide-react';
+import EditTelecallerModal from '../components/EditTelecallerModal';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => (
   <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm flex flex-col relative overflow-hidden">
@@ -44,6 +45,7 @@ const TelecallerDetails = () => {
   const [recentCalls, setRecentCalls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('assigned');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const todayStr = () => {
     const d = new Date();
@@ -141,12 +143,36 @@ const TelecallerDetails = () => {
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white shadow-sm">
-            <img src="https://i.pravatar.cc/150?img=47" alt={summary.name} className="w-full h-full object-cover" />
+          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white shadow-sm bg-slate-900 text-white flex items-center justify-center font-bold text-lg">
+            {summary.name ? summary.name.charAt(0).toUpperCase() : 'T'}
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">{summary.name}</h1>
-            <p className="text-slate-500 text-sm">Role : {summary.role}</p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-slate-900">{summary.name}</h1>
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                Edit Profile
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-500 text-xs font-medium mt-1">
+              <span>Employee ID: <strong className="text-slate-700">{summary.employeeId}</strong></span>
+              <span>Role: <strong className="text-slate-700">{summary.role || 'Telecaller'}</strong></span>
+              {summary.store && (
+                <span className="flex items-center gap-1">
+                  <Building className="w-3 h-3 text-slate-400" />
+                  <strong className="text-slate-700">{summary.store}</strong>
+                </span>
+              )}
+              {summary.phone && (
+                <span className="flex items-center gap-1">
+                  <PhoneIcon className="w-3 h-3 text-slate-400" />
+                  <strong className="text-slate-700">{summary.phone}</strong>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -382,6 +408,24 @@ const TelecallerDetails = () => {
           </table>
         </div>
       </div>
+
+      {/* Edit Telecaller Profile Modal */}
+      <EditTelecallerModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        telecaller={summary}
+        onSaveSuccess={(updatedUser) => {
+          setSummary((prev) => ({
+            ...prev,
+            name: updatedUser.name || prev.name,
+            store: updatedUser.store !== undefined ? updatedUser.store : prev.store,
+            role: updatedUser.role || prev.role,
+            phone: updatedUser.phone !== undefined ? updatedUser.phone : prev.phone,
+            email: updatedUser.email !== undefined ? updatedUser.email : prev.email,
+            active: updatedUser.active !== undefined ? updatedUser.active : prev.active,
+          }));
+        }}
+      />
     </div>
   );
 };

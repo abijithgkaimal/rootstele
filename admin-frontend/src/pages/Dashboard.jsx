@@ -1,24 +1,75 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Download, Phone, Headphones, TrendingDown, Calendar, AlertCircle } from 'lucide-react';
+import {
+  Phone,
+  Headphones,
+  Calendar,
+  AlertCircle,
+  TrendingDown,
+  TrendingUp,
+  Download,
+  MessageSquare,
+  MessageCircle,
+  Sparkles,
+  Send,
+  ArrowRight,
+  Shield,
+  Building,
+  CheckCircle2
+} from 'lucide-react';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color, trend, cardBg }) => (
   <div className={`${cardBg || 'bg-white'} rounded-2xl border border-slate-100 p-6 shadow-sm flex flex-col relative`}>
     <div className="flex justify-between items-start mb-4">
-      <h3 className="text-slate-600 font-medium text-sm w-24 leading-snug">{title}</h3>
-      <div className={`p-2 rounded-xl ${color.bg} ${color.text}`}>
+      <h3 className="text-slate-600 font-medium text-sm leading-snug">{title}</h3>
+      <div className={`p-2.5 rounded-xl ${color.bg} ${color.text}`}>
         <Icon className="w-5 h-5" />
       </div>
     </div>
     <div className="mt-2">
-      <span className={`text-[28px] leading-none font-bold ${cardBg ? 'text-rose-500' : 'text-slate-800'}`}>{value}</span>
+      <span className={`text-[28px] leading-none font-bold ${cardBg ? 'text-rose-500' : 'text-slate-800'}`}>
+        {value}
+      </span>
       <p className={`text-xs mt-3 font-medium ${trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-rose-500' : 'text-slate-500'}`}>
         {subtitle}
       </p>
     </div>
   </div>
 );
+
+const ChannelMiniBadge = ({ channel }) => {
+  const ch = (channel || '').toLowerCase();
+  if (ch === 'whatsapp') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        WhatsApp
+      </span>
+    );
+  }
+  if (ch === 'instagram') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-pink-50 text-pink-700">
+        <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+        Instagram
+      </span>
+    );
+  }
+  if (ch === 'facebook') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700">
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+        Facebook
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+      {channel}
+    </span>
+  );
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -27,9 +78,23 @@ const Dashboard = () => {
     completedLeads: 0,
     totalLossOfSaleLeads: 0,
     followupLeadsToBeCalled: 0,
-    totalComplaints: 0
+    totalComplaints: 0,
+    chats: {
+      totalChats: 0,
+      openChats: 0,
+      resolvedChats: 0,
+      whatsappChats: 0,
+      instagramChats: 0,
+      facebookChats: 0,
+      convertedLeadsFromChat: 0,
+      brands: {
+        suitor_guy: 0,
+        zorucci: 0,
+        dapper_squad: 0
+      },
+      recentConversations: []
+    }
   });
-  const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState('TODAY');
 
@@ -78,13 +143,10 @@ const Dashboard = () => {
           queryParams = `?fromDate=${fromDate}&toDate=${toDate}`;
         }
 
-        const [summaryRes, leaderRes] = await Promise.all([
-          axios.get(`/api/admin/dashboard-summary${queryParams}`),
-          axios.get(`/api/admin/telecaller-leaderboard${queryParams}`)
-        ]);
-
-        if (summaryRes.data.success) setSummary(summaryRes.data.data);
-        if (leaderRes.data.success) setLeaderboard(leaderRes.data.data.telecallers);
+        const res = await axios.get(`/api/admin/dashboard-summary${queryParams}`);
+        if (res.data.success) {
+          setSummary(res.data.data);
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -92,59 +154,35 @@ const Dashboard = () => {
       }
     };
     fetchData();
-    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
-    return () => clearInterval(intervalId);
   }, [dateFilter, customFromDate, customToDate]);
 
   const handleExportCSV = () => {
     let queryParams = '';
     const today = new Date();
-    let fromDate = null;
-    let toDate = null;
-
     const pad = (n) => String(n).padStart(2, '0');
     const toYMD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
     if (dateFilter === 'TODAY') {
-      fromDate = toYMD(today);
-      toDate = fromDate;
+      const d = toYMD(today);
+      queryParams = `?fromDate=${d}&toDate=${d}`;
     } else if (dateFilter === 'YESTERDAY') {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      fromDate = toYMD(yesterday);
-      toDate = fromDate;
+      const d = toYMD(yesterday);
+      queryParams = `?fromDate=${d}&toDate=${d}`;
     } else if (dateFilter === 'THIS MONTH') {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      fromDate = toYMD(firstDay);
-      toDate = toYMD(lastDay);
-    } else if (dateFilter === 'CUSTOM') {
-      if (customFromDate && customToDate) {
-        fromDate = customFromDate;
-        toDate = customToDate;
-      }
-    }
-
-    if (fromDate && toDate) {
-      queryParams = `?fromDate=${fromDate}&toDate=${toDate}`;
+      queryParams = `?fromDate=${toYMD(firstDay)}&toDate=${toYMD(lastDay)}`;
+    } else if (dateFilter === 'CUSTOM' && customFromDate && customToDate) {
+      queryParams = `?fromDate=${customFromDate}&toDate=${customToDate}`;
     }
 
     window.open(`/api/admin/reports/completed-leads/export${queryParams}`, '_blank');
   };
 
-  // Use Context for Search
-  const outletContext = useOutletContext();
-  const searchTerm = outletContext?.searchTerm || '';
-
-  // Filter the leaderboard based on the searchTerm
-  const filteredLeaderboard = leaderboard.filter(row => {
-    if (!searchTerm) return true;
-    const lowerTerm = searchTerm.toLowerCase();
-    return (
-      (row.name && row.name.toLowerCase().includes(lowerTerm)) ||
-      (row.employeeId && row.employeeId.toLowerCase().includes(lowerTerm))
-    );
-  });
+  const chats = summary.chats || {};
+  const totalCombinedInteractions = (summary.totalLeads || 0) + (chats.totalChats || 0);
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-8">
@@ -152,25 +190,32 @@ const Dashboard = () => {
       <div className="flex flex-col space-y-6">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
-            <p className="text-slate-500 text-[15px] mt-1 font-medium">Overview of all telecalling activities</p>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Executive Dashboard</h1>
+            <p className="text-slate-500 text-[15px] mt-1 font-medium">
+              Overall view of calling operations, multi-channel chats & store performance
+            </p>
           </div>
-          <button onClick={handleExportCSV} className="bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors">
+          <button
+            onClick={handleExportCSV}
+            className="bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors"
+          >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </button>
         </div>
 
+        {/* Date Filter Pills */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-max">
             {['YESTERDAY', 'TODAY', 'THIS MONTH', 'CUSTOM'].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setDateFilter(filter)}
-                className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${filter === dateFilter
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${
+                  filter === dateFilter
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
               >
                 {filter}
               </button>
@@ -202,102 +247,215 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+      {/* Primary Stats Grid (Calls + Chats Combined) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
         <StatCard
           title="Total Leads"
           value={loading ? '-' : summary.totalLeads}
-          subtitle="+5% from yesterday"
+          subtitle="Call inquiries & syncs"
           trend="up"
           icon={Phone}
+          color={{ bg: 'bg-slate-100', text: 'text-slate-800' }}
+        />
+        <StatCard
+          title="Completed Calls"
+          value={loading ? '-' : summary.completedLeads}
+          subtitle="Telecalling calls attended"
+          trend="up"
+          icon={Headphones}
           color={{ bg: 'bg-emerald-100/60', text: 'text-emerald-600' }}
         />
         <StatCard
-          title="Completed Leads"
-          value={loading ? '-' : summary.completedLeads}
-          subtitle="+8% from yesterday"
+          title="Total Chats"
+          value={loading ? '-' : (chats.totalChats || 0)}
+          subtitle="WhatsApp, Insta & FB"
           trend="up"
-          icon={Headphones}
-          color={{ bg: 'bg-orange-100/60', text: 'text-orange-500' }}
+          icon={MessageSquare}
+          color={{ bg: 'bg-indigo-100/60', text: 'text-indigo-600' }}
         />
         <StatCard
-          title="Total Loss of Sale Leads"
-          value={loading ? '-' : summary.totalLossOfSaleLeads}
-          subtitle="+6% from yesterday"
-          trend="down"
-          icon={TrendingDown}
-          color={{ bg: 'bg-rose-100/60', text: 'text-rose-500' }}
+          title="Converted to Leads"
+          value={loading ? '-' : (chats.convertedLeadsFromChat || 0)}
+          subtitle="Chat-to-CRM conversions"
+          trend="up"
+          icon={TrendingUp}
+          color={{ bg: 'bg-amber-100/60', text: 'text-amber-600' }}
         />
         <StatCard
-          title="Follow Ups"
+          title="Follow-ups Pending"
           value={loading ? '-' : summary.followupLeadsToBeCalled}
-          subtitle="+8% from yesterday"
-          trend="up"
+          subtitle="Scheduled callbacks"
           icon={Calendar}
-          color={{ bg: 'bg-slate-100', text: 'text-slate-600' }}
-        />
-        <StatCard
-          title="Total Complaints"
-          value={loading ? '-' : summary.totalComplaints}
-          subtitle="+1.2% from yesterday"
-          trend="down"
-          icon={AlertCircle}
-          color={{ bg: 'bg-rose-100/80', text: 'text-rose-500' }}
-          cardBg="bg-rose-50/50"
+          color={{ bg: 'bg-purple-100/60', text: 'text-purple-600' }}
         />
       </div>
 
-      {/* Leaderboard */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mt-4">
-        <div className="p-7 pb-5">
-          <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Telecaller Leaderboard</h2>
+      {/* Dual Deep-Dive Operational Containers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Calling & Lead Operations Overview */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-orange-50 text-orange-600">
+                <Headphones className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Call Operations Summary</h2>
+                <p className="text-xs text-slate-500 font-medium">Telecaller calling performance & lead categories</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/admin/call-reports')}
+              className="text-xs font-bold text-slate-900 hover:text-slate-700 flex items-center gap-1 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              View Call Reports <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Calls 4-grid breakdown */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed Calls</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1">{summary.completedLeads}</div>
+              <p className="text-[11px] text-emerald-600 font-medium mt-1">Processed successfully</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Follow-ups</span>
+              <div className="text-2xl font-bold text-slate-900 mt-1">{summary.followupLeadsToBeCalled}</div>
+              <p className="text-[11px] text-purple-600 font-medium mt-1">Awaiting callback</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Loss of Sale</span>
+              <div className="text-2xl font-bold text-rose-600 mt-1">{summary.totalLossOfSaleLeads}</div>
+              <p className="text-[11px] text-slate-500 font-medium mt-1">Unconverted opportunities</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Complaints</span>
+              <div className="text-2xl font-bold text-rose-500 mt-1">{summary.totalComplaints}</div>
+              <p className="text-[11px] text-slate-500 font-medium mt-1">Flagged for resolution</p>
+            </div>
+          </div>
         </div>
 
-        <div className="overflow-x-auto px-7 pb-4">
-          <table className="w-full text-sm text-left">
-            <thead>
-              <tr className="text-[11px] text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/60">
-                <th className="py-4 px-2 w-1/4">Employee</th>
-                <th className="py-4 px-2 text-center">Total Calls</th>
-                <th className="py-4 px-2 text-center">Feedback</th>
-                <th className="py-4 px-2 text-center">Booking Confirmation</th>
-                <th className="py-4 px-2 text-center">Just Dial</th>
-                <th className="py-4 px-2 text-center">Enquiry</th>
-                <th className="py-4 px-2 text-center">Booked</th>
-                <th className="py-4 px-2 text-center">Follow-up</th>
-                <th className="py-4 px-2 text-center">Loss of Sale</th>
-                <th className="py-4 px-2 text-center">Performance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan="10" className="text-center py-8 text-slate-400">Loading...</td></tr>
-              ) : filteredLeaderboard.length === 0 ? (
-                <tr><td colSpan="10" className="text-center py-8 text-slate-400">No telecallers active in selected range.</td></tr>
-              ) : filteredLeaderboard.map((row) => (
-                <tr
-                  key={row.employeeId}
-                  className="hover:bg-slate-50/50 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/admin/telecallers/${row.employeeId}`)}
-                >
-                  <td className="py-4 px-2">
-                    <div className="font-semibold text-slate-800">{row.name}</div>
-                    <div className="text-[11px] font-bold tracking-wide text-slate-500 mt-1">{row.employeeId}</div>
-                  </td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.justDial}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.enquiryCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.booked}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followup ?? row.followupsDone}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Right: Multi-Channel Chat Operations Overview */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Multi-Channel Chat Operations</h2>
+                <p className="text-xs text-slate-500 font-medium">WhatsApp, Instagram & Facebook live metrics</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/admin/reports')}
+              className="text-xs font-bold text-slate-900 hover:text-slate-700 flex items-center gap-1 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              View Chat Reports <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* 3 Channels Row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100/80 text-center">
+              <div className="flex items-center justify-center gap-1.5 text-emerald-700 font-bold text-xs uppercase mb-1">
+                <MessageCircle className="w-4 h-4" /> WhatsApp
+              </div>
+              <div className="text-2xl font-bold text-emerald-900">{chats.whatsappChats || 0}</div>
+              <p className="text-[11px] text-emerald-600 font-medium mt-1">Direct WA Chats</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-pink-50/50 border border-pink-100/80 text-center">
+              <div className="flex items-center justify-center gap-1.5 text-pink-700 font-bold text-xs uppercase mb-1">
+                <Sparkles className="w-4 h-4" /> Instagram
+              </div>
+              <div className="text-2xl font-bold text-pink-900">{chats.instagramChats || 0}</div>
+              <p className="text-[11px] text-pink-600 font-medium mt-1">Direct DMs</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100/80 text-center">
+              <div className="flex items-center justify-center gap-1.5 text-blue-700 font-bold text-xs uppercase mb-1">
+                <MessageSquare className="w-4 h-4" /> Facebook
+              </div>
+              <div className="text-2xl font-bold text-blue-900">{chats.facebookChats || 0}</div>
+              <p className="text-[11px] text-blue-600 font-medium mt-1">Messenger Chats</p>
+            </div>
+          </div>
+
+          {/* Brand breakdown pills */}
+          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Brand Activity:</span>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-lg bg-cyan-50 text-cyan-800 text-xs font-bold border border-cyan-100">
+                Suitor Guy: {chats.brands?.suitor_guy || 0}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-xs font-bold">
+                Zorucci: {chats.brands?.zorucci || 0}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-800 text-xs font-bold border border-purple-100">
+                Dapper Squad: {chats.brands?.dapper_squad || 0}
+              </span>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Live Omnichannel Recent Activity Feed */}
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Recent Customer Chat Interactions</h2>
+            <p className="text-xs text-slate-500 font-medium">Real-time incoming multi-channel messages across brands</p>
+          </div>
+          <button
+            onClick={() => navigate('/admin/reports')}
+            className="text-xs font-bold text-slate-900 hover:text-slate-700 flex items-center gap-1 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl transition-colors"
+          >
+            All Logs <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-8 text-slate-400 text-sm">Loading recent interactions...</div>
+        ) : !chats.recentConversations || chats.recentConversations.length === 0 ? (
+          <div className="text-center py-8 text-slate-400 text-sm">No recent conversations recorded.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {chats.recentConversations.map((c) => (
+              <div
+                key={c._id}
+                onClick={() => navigate('/admin/reports')}
+                className="p-4 rounded-2xl bg-slate-50/70 border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer flex flex-col justify-between space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <ChannelMiniBadge channel={c.channel} />
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-white text-slate-600 border border-slate-200">
+                    {c.brandName || c.brand}
+                  </span>
+                </div>
+
+                <div>
+                  <div className="font-bold text-slate-800 text-sm">{c.participant?.name || 'Customer'}</div>
+                  <div className="text-xs text-slate-500 mt-0.5 truncate">{c.lastMessage?.text || 'New message'}</div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-200/60 font-medium">
+                  <span>Assigned: <strong className="text-slate-700">{c.assignedTo || 'Unassigned'}</strong></span>
+                  <span>
+                    {c.lastActivityAt
+                      ? new Date(c.lastActivityAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : ''}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
