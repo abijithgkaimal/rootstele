@@ -563,6 +563,7 @@ const convertChatToLead = async ({ conversationId, leadData = {}, createdBy }) =
 
   const brandInfo = resolveBrandByChannelId(conversation.channelId, conversation.channel);
   const rawPhone = leadData.phone || conversation.participant.phone || conversation.participant.normalizedPhone || '';
+  const cleanPhone = normalize(rawPhone) || rawPhone;
   const customerName = leadData.customerName || leadData.name || conversation.participant.name || '';
   const telecallerId = createdBy || conversation.assignedTo || 'system';
 
@@ -576,6 +577,10 @@ const convertChatToLead = async ({ conversationId, leadData = {}, createdBy }) =
   if (conversation.leadId) {
     const existingLead = await LeadMaster.findById(conversation.leadId);
     if (existingLead) {
+      if (cleanPhone) {
+        existingLead.phone = cleanPhone;
+        existingLead.normalizedPhone = cleanPhone;
+      }
       if (leadData.leadtype) existingLead.leadtype = leadData.leadtype;
       if (customerName) {
         existingLead.customerName = customerName;
@@ -592,7 +597,8 @@ const convertChatToLead = async ({ conversationId, leadData = {}, createdBy }) =
 
   const leadPayload = {
     ...leadData,
-    phone: rawPhone,
+    phone: cleanPhone,
+    normalizedPhone: cleanPhone,
     customerName,
     name: customerName,
     store,
