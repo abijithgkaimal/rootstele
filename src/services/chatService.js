@@ -572,6 +572,24 @@ const convertChatToLead = async ({ conversationId, leadData = {}, createdBy }) =
     store = `${brandInfo.storePrefix}General`;
   }
 
+  // Prevent duplicates: If conversation was already converted, update the existing LeadMaster entry
+  if (conversation.leadId) {
+    const existingLead = await LeadMaster.findById(conversation.leadId);
+    if (existingLead) {
+      if (leadData.leadtype) existingLead.leadtype = leadData.leadtype;
+      if (customerName) {
+        existingLead.customerName = customerName;
+        existingLead.name = customerName;
+      }
+      if (store) existingLead.store = store;
+      if (leadData.remarks) existingLead.remarks = leadData.remarks;
+      if (leadData.functionDate) existingLead.functionDate = new Date(leadData.functionDate);
+      existingLead.updatedBy = telecallerId;
+      await existingLead.save();
+      return existingLead;
+    }
+  }
+
   const leadPayload = {
     ...leadData,
     phone: rawPhone,
