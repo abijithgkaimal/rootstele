@@ -578,6 +578,8 @@ const convertChatToLead = async ({ conversationId, leadData = {}, createdBy }) =
     customerName,
     name: customerName,
     store,
+    brand: conversation.brand || brandInfo.key || 'general',
+    channel: conversation.channel || 'whatsapp',
     leadtype: leadData.leadtype || 'enquiry',
     source: 'chat',
     remarks: leadData.remarks || `Converted from ${conversation.brandName} (${conversation.channel}) chat`,

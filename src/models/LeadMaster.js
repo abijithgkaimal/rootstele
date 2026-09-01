@@ -21,6 +21,8 @@ const leadMasterSchema = new mongoose.Schema(
     normalizedPhone: { type: String },           // last 10 digits
     name:            { type: String },           // for manual leads
     customerName:    { type: String },           // from API / manual
+    brand:           { type: String },           // suitor_guy | zorucci | dapper_squad
+    channel:         { type: String },           // whatsapp | instagram | facebook
     store:           { type: String },
     source:          { type: String, enum: ['manual', 'bookingSync', 'returnSync', 'justDialSync', 'justdialPush', 'webhook', 'chat'] },
 

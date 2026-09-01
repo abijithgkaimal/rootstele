@@ -80,6 +80,8 @@ const createLead = async (payload) => {
     markasComplaint,
     markasFollowup,
     followupDate,
+    brand: payload.brand,
+    channel: payload.channel,
     createdBy: payload.createdBy,
     updatedBy: payload.createdBy,
     createdAt: payload.createdAt ? new Date(payload.createdAt) : new Date(),
