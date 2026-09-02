@@ -118,7 +118,7 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
     { $match: matchObj },
     {
       $group: {
-        _id: "$updatedBy",
+        _id: { $toUpper: "$updatedBy" },
         totalCalls: { $sum: { $cond: [{ $in: [{ $toLower: "$leadStatus" }, ["completed"]] }, 1, 0] } },
         connectedCalls: { $sum: { $cond: [{ $eq: ["$callStatus", "connected"] }, 1, 0] } },
         feedbackCalls: { $sum: { $cond: [{ $and: [{ $regexMatch: { input: { $ifNull: ["$leadtype", ""] }, regex: "return|feedback", options: "i" } }, { $eq: [{ $toLower: "$leadStatus" }, "completed"] }] }, 1, 0] } },
@@ -588,7 +588,7 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
     { $match: matchObj },
     {
       $group: {
-        _id: "$assignedTo",
+        _id: { $toUpper: "$assignedTo" },
         totalChats: { $sum: 1 },
         openChats: { $sum: { $cond: [{ $eq: ["$status", "open"] }, 1, 0] } },
         resolvedChats: { $sum: { $cond: [{ $eq: ["$status", "resolved"] }, 1, 0] } },
@@ -614,7 +614,7 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
     { $match: msgMatch },
     {
       $group: {
-        _id: "$senderId",
+        _id: { $toUpper: "$senderId" },
         outboundMessages: { $sum: 1 }
       }
     }

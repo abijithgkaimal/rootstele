@@ -1,21 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Search, Calendar, ChevronDown, Download, X, Edit3, Building, PhoneCall } from 'lucide-react';
-import EditTelecallerModal from '../components/EditTelecallerModal';
+import { Search, Calendar, ChevronDown, Download, X } from 'lucide-react';
 
 const CallReports = () => {
   const navigate = useNavigate();
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedForEdit, setSelectedForEdit] = useState(null);
 
-  // Date range state
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [tempFromDate, setTempFromDate] = useState('');
-  const [tempToDate, setTempToDate] = useState('');
+  const todayStr = () => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  // Date range state (default to today)
+  const [fromDate, setFromDate] = useState(todayStr());
+  const [toDate, setToDate] = useState(todayStr());
+  const [tempFromDate, setTempFromDate] = useState(todayStr());
+  const [tempToDate, setTempToDate] = useState(todayStr());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const datePickerRef = useRef(null);
 
@@ -92,10 +96,17 @@ const CallReports = () => {
 
   const getDateRangeDisplay = () => {
     if (fromDate && toDate) {
-      const format = (d) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-      return `${format(fromDate)} - ${format(toDate)}`;
+      const formatDate = (dateStr) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        if (!y || !m || !d) return dateStr;
+        return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      };
+      if (fromDate === toDate) {
+        return formatDate(fromDate);
+      }
+      return `${formatDate(fromDate)} - ${formatDate(toDate)}`;
     }
-    return 'Date Range';
+    return 'All Time';
   };
 
   return (
@@ -212,8 +223,9 @@ const CallReports = () => {
                       Clear
                     </button>
                     <button
+                      disabled={!tempFromDate || !tempToDate || tempFromDate > tempToDate}
                       onClick={applyDateRange}
-                      className="flex-1 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors"
+                      className="flex-1 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
                     >
                       Apply
                     </button>
@@ -238,7 +250,7 @@ const CallReports = () => {
                 <th className="py-4 px-2 text-center">Follow-up</th>
                 <th className="py-4 px-2 text-center">Loss of Sale</th>
                 <th className="py-4 px-2 text-center">Performance</th>
-                <th className="py-4 px-2 text-right">Actions</th>
+                <th className="py-4 px-2 text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -246,64 +258,48 @@ const CallReports = () => {
                 <tr><td colSpan="11" className="text-center py-8 text-slate-400">Loading...</td></tr>
               ) : filteredLeaderboard.length === 0 ? (
                 <tr><td colSpan="11" className="text-center py-8 text-slate-400">No telecallers found.</td></tr>
-              ) : filteredLeaderboard.map((row) => (
-                <tr
-                  key={row.employeeId}
-                  className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
-                  onClick={() => navigate(`/admin/telecallers/${row.employeeId}`)}
-                >
-                  <td className="py-4 px-2">
-                    <div className="font-semibold text-slate-800">{row.name}</div>
-                    <div className="text-[11px] font-bold tracking-wide text-slate-500 mt-0.5">{row.employeeId}</div>
-                  </td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.justDial}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.enquiryCalls}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.booked}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followup ?? row.followupsDone}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
-                  <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
-                  <td className="py-4 px-2 text-right" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => setSelectedForEdit(row)}
-                      title="Edit Profile"
-                      className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              ) : filteredLeaderboard.map((row) => {
+                const isOnline = Boolean(row.lastLoginAt && new Date(row.lastLoginAt) > new Date(Date.now() - 12 * 60 * 60 * 1000));
+                return (
+                  <tr
+                    key={row.employeeId}
+                    className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
+                    onClick={() => navigate(`/admin/telecallers/${row.employeeId}`)}
+                  >
+                    <td className="py-4 px-2">
+                      <div className="font-semibold text-slate-800">{row.name}</div>
+                      <div className="text-[11px] font-bold tracking-wide text-slate-500 mt-0.5">{row.employeeId}</div>
+                    </td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.totalCalls}</td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.feedbackCalls}</td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.bookingConfirmationCalls}</td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.justDial}</td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.enquiryCalls}</td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.booked}</td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.followup ?? row.followupsDone}</td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.lossOfSale}</td>
+                    <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.performance}%</td>
+                    <td className="py-4 px-2 text-right" onClick={(e) => e.stopPropagation()}>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          isOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                          }`}
+                        ></span>
+                        {isOnline ? 'Online' : 'Offline'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Edit Telecaller Profile Modal */}
-      <EditTelecallerModal
-        isOpen={Boolean(selectedForEdit)}
-        onClose={() => setSelectedForEdit(null)}
-        telecaller={selectedForEdit}
-        onSaveSuccess={(updatedUser) => {
-          setLeaderboard((prev) =>
-            prev.map((t) =>
-              t.employeeId === updatedUser.employeeId
-                ? {
-                    ...t,
-                    name: updatedUser.name || t.name,
-                    store: updatedUser.store !== undefined ? updatedUser.store : t.store,
-                    role: updatedUser.role || t.role,
-                    phone: updatedUser.phone !== undefined ? updatedUser.phone : t.phone,
-                    email: updatedUser.email !== undefined ? updatedUser.email : t.email,
-                    active: updatedUser.active !== undefined ? updatedUser.active : t.active,
-                  }
-                : t
-            )
-          );
-        }}
-      />
     </div>
   );
 };
