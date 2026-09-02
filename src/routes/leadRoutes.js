@@ -40,26 +40,26 @@ router.get('/leads/performance', leadController.getMyPerformance);
 // ── Enquiry Leads ──────────────────────────────────────────────────────
 router.get('/leads/enquiries', leadController.getEnquiryLeads);
 router.get('/leads/enquiry', leadController.getEnquiryLeads);
-router.get('/leads/enquiries/:id', leadController.getEnquiryLeadById);
-router.get('/leads/enquiry/:id', leadController.getEnquiryLeadById);
-router.post('/leads/enquiries/:id', leadController.updateEnquiryLead);
-router.post('/leads/enquiry/:id', leadController.updateEnquiryLead);
+router.get('/leads/enquiries/:id([0-9a-fA-F]{24})', leadController.getEnquiryLeadById);
+router.get('/leads/enquiry/:id([0-9a-fA-F]{24})', leadController.getEnquiryLeadById);
+router.post('/leads/enquiries/:id([0-9a-fA-F]{24})', leadController.updateEnquiryLead);
+router.post('/leads/enquiry/:id([0-9a-fA-F]{24})', leadController.updateEnquiryLead);
 
 // ── Loss of Sale Leads ────────────────────────────────────────────────
 router.get('/leads/lossofsale', leadController.getLossOfSaleLeads);
 router.get('/leads/loss-of-sale', leadController.getLossOfSaleLeads);
-router.get('/leads/lossofsale/:id', leadController.getLossOfSaleLeadById);
-router.get('/leads/loss-of-sale/:id', leadController.getLossOfSaleLeadById);
-router.post('/leads/lossofsale/:id', leadController.updateLossOfSaleLead);
-router.post('/leads/loss-of-sale/:id', leadController.updateLossOfSaleLead);
+router.get('/leads/lossofsale/:id([0-9a-fA-F]{24})', leadController.getLossOfSaleLeadById);
+router.get('/leads/loss-of-sale/:id([0-9a-fA-F]{24})', leadController.getLossOfSaleLeadById);
+router.post('/leads/lossofsale/:id([0-9a-fA-F]{24})', leadController.updateLossOfSaleLead);
+router.post('/leads/loss-of-sale/:id([0-9a-fA-F]{24})', leadController.updateLossOfSaleLead);
 
 // ── Booked Leads ──────────────────────────────────────────────────────
 router.get('/leads/booked', leadController.getBookedLeads);
-router.get('/leads/booked/:id', leadController.getBookedLeadById);
-router.post('/leads/booked/:id', leadController.updateBookedLead);
+router.get('/leads/booked/:id([0-9a-fA-F]{24})', leadController.getBookedLeadById);
+router.post('/leads/booked/:id([0-9a-fA-F]{24})', leadController.updateBookedLead);
 
 // ── Generic Lead Detail & Update by ID ─────────────────────────────────
-router.get('/leads/:id', leadController.getLeadById);
-router.post('/leads/:id', leadController.updateLeadById);
+router.get('/leads/:id([0-9a-fA-F]{24})', leadController.getLeadById);
+router.post('/leads/:id([0-9a-fA-F]{24})', leadController.updateLeadById);
 
 module.exports = router;
