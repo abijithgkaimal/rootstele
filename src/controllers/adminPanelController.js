@@ -15,18 +15,18 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   if (fromDate || toDate) {
     matchObj.updatedAt = {};
     totalLeadsMatchObj.createdAt = {};
-    chatMatchObj.createdAt = {};
+    chatMatchObj.lastActivityAt = {};
     if (fromDate) {
       const start = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
       matchObj.updatedAt.$gte = start;
       totalLeadsMatchObj.createdAt.$gte = start;
-      chatMatchObj.createdAt.$gte = start;
+      chatMatchObj.lastActivityAt.$gte = start;
     }
     if (toDate) {
       const end = new Date(new Date(toDate).setHours(23, 59, 59, 999));
       matchObj.updatedAt.$lte = end;
       totalLeadsMatchObj.createdAt.$lte = end;
-      chatMatchObj.createdAt.$lte = end;
+      chatMatchObj.lastActivityAt.$lte = end;
     }
   }
   if (store && store !== 'All Stores') {
@@ -502,9 +502,9 @@ const getChatReportsSummary = asyncHandler(async (req, res) => {
 
   const matchObj = {};
   if (fromDate || toDate) {
-    matchObj.createdAt = {};
-    if (fromDate) matchObj.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
-    if (toDate) matchObj.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+    matchObj.lastActivityAt = {};
+    if (fromDate) matchObj.lastActivityAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+    if (toDate) matchObj.lastActivityAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
   if (brand && brand !== 'all') matchObj.brand = brand.toLowerCase();
   if (channel && channel !== 'all') matchObj.channel = channel.toLowerCase();
@@ -577,9 +577,9 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
 
   const matchObj = {};
   if (fromDate || toDate) {
-    matchObj.createdAt = {};
-    if (fromDate) matchObj.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
-    if (toDate) matchObj.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+    matchObj.lastActivityAt = {};
+    if (fromDate) matchObj.lastActivityAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+    if (toDate) matchObj.lastActivityAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
   if (brand && brand !== 'all') matchObj.brand = brand.toLowerCase();
   if (channel && channel !== 'all') matchObj.channel = channel.toLowerCase();
@@ -736,9 +736,9 @@ const getChatConversationsReport = asyncHandler(async (req, res) => {
 
   const matchObj = {};
   if (fromDate || toDate) {
-    matchObj.createdAt = {};
-    if (fromDate) matchObj.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
-    if (toDate) matchObj.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+    matchObj.lastActivityAt = {};
+    if (fromDate) matchObj.lastActivityAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+    if (toDate) matchObj.lastActivityAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
   if (brand && brand !== 'all') matchObj.brand = brand.toLowerCase();
   if (channel && channel !== 'all') matchObj.channel = channel.toLowerCase();
@@ -787,9 +787,9 @@ const exportChatReports = asyncHandler(async (req, res) => {
 
   const matchObj = {};
   if (fromDate || toDate) {
-    matchObj.createdAt = {};
-    if (fromDate) matchObj.createdAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
-    if (toDate) matchObj.createdAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
+    matchObj.lastActivityAt = {};
+    if (fromDate) matchObj.lastActivityAt.$gte = new Date(new Date(fromDate).setHours(0, 0, 0, 0));
+    if (toDate) matchObj.lastActivityAt.$lte = new Date(new Date(toDate).setHours(23, 59, 59, 999));
   }
   if (brand && brand !== 'all') matchObj.brand = brand.toLowerCase();
   if (channel && channel !== 'all') matchObj.channel = channel.toLowerCase();
