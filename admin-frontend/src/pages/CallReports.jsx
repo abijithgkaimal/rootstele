@@ -114,23 +114,23 @@ const CallReports = () => {
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Call Reports</h1>
-          <p className="text-slate-500 text-[15px] mt-1 font-medium">Telecaller performance reports, call categories breakdown & exports</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Call Reports</h1>
+          <p className="text-slate-500 text-xs sm:text-[15px] mt-1 font-medium">Telecaller performance reports, call categories breakdown & exports</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           {/* Telecaller Dropdown */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative w-full sm:w-auto flex-1 sm:flex-none" ref={dropdownRef}>
             <button
               onClick={() => setIsTelecallerOpen(!isTelecallerOpen)}
-              className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center shadow-sm hover:bg-slate-50 transition-colors w-44 justify-between"
+              className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center shadow-sm hover:bg-slate-50 transition-colors w-full sm:w-44 justify-between"
             >
               <span className="truncate">{selectedTelecaller}</span>
               <ChevronDown className="w-4 h-4 ml-2 text-slate-400 shrink-0" />
             </button>
 
             {isTelecallerOpen && (
-              <div className="absolute z-10 top-full right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto py-1">
+              <div className="absolute z-10 top-full left-0 sm:left-auto sm:right-0 mt-1 w-full sm:w-44 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto py-1">
                 {telecallerNames.map(name => (
                   <button
                     key={name}
@@ -147,7 +147,7 @@ const CallReports = () => {
             )}
           </div>
 
-          <button onClick={handleExportCSV} className="bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors">
+          <button onClick={handleExportCSV} className="w-full sm:w-auto justify-center bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </button>
@@ -156,30 +156,30 @@ const CallReports = () => {
 
       {/* Leaderboard Table Container */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-visible mt-4">
-        <div className="p-7 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Call Performance Leaderboard</h2>
+        <div className="p-4 sm:p-7 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-lg sm:text-[22px] font-bold text-slate-900 tracking-tight">Call Performance Leaderboard</h2>
 
-          <div className="flex items-center gap-4">
-            <div className="relative group">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            <div className="relative group w-full sm:w-auto">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
               <input
                 type="text"
                 placeholder="Search Telecaller"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 rounded-full border border-slate-200 text-sm focus:ring-4 focus:ring-slate-100 outline-none w-64 transition-all"
+                className="pl-10 pr-4 py-2.5 rounded-full border border-slate-200 text-sm focus:ring-4 focus:ring-slate-100 outline-none w-full sm:w-64 transition-all"
               />
             </div>
 
             {/* Custom Date Range Picker */}
-            <div className="relative" ref={datePickerRef}>
+            <div className="relative w-full sm:w-auto" ref={datePickerRef}>
               <button
                 onClick={() => {
                   setTempFromDate(fromDate);
                   setTempToDate(toDate);
                   setIsDatePickerOpen(!isDatePickerOpen);
                 }}
-                className={`flex items-center gap-2 px-5 py-2.5 border rounded-full text-sm font-semibold transition-colors ${fromDate ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                className={`w-full sm:w-auto justify-center flex items-center gap-2 px-5 py-2.5 border rounded-full text-sm font-semibold transition-colors ${fromDate ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
               >
                 <Calendar className="w-4 h-4 text-slate-400" />
                 {getDateRangeDisplay()}

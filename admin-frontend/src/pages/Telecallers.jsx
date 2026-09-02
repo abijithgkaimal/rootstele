@@ -77,22 +77,22 @@ const Telecallers = () => {
   });
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-8">
+    <div className="max-w-[1400px] mx-auto space-y-6 sm:space-y-8">
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Telecallers Directory</h1>
-          <p className="text-slate-500 text-[15px] mt-1 font-medium">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Telecallers Directory</h1>
+          <p className="text-slate-500 text-xs sm:text-[15px] mt-1 font-medium">
             Central office telecaller team profiles, active status & individual call and chat tracking
           </p>
         </div>
 
         {/* Search & Status Filter */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-[#eef2f6] p-1 rounded-xl text-xs font-bold text-slate-600">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="flex bg-[#eef2f6] p-1 rounded-xl text-xs font-bold text-slate-600 w-full sm:w-auto justify-between sm:justify-start">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg transition-all text-center ${
                 statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
               }`}
             >
@@ -100,7 +100,7 @@ const Telecallers = () => {
             </button>
             <button
               onClick={() => setStatusFilter('active')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg transition-all text-center ${
                 statusFilter === 'active' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'
               }`}
             >
@@ -108,7 +108,7 @@ const Telecallers = () => {
             </button>
             <button
               onClick={() => setStatusFilter('offline')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg transition-all text-center ${
                 statusFilter === 'offline' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
               }`}
             >
@@ -116,14 +116,14 @@ const Telecallers = () => {
             </button>
           </div>
 
-          <div className="relative">
+          <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Search telecaller..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-200 shadow-sm w-56 transition-all"
+              className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-slate-200 shadow-sm w-full sm:w-56 transition-all"
             />
           </div>
         </div>

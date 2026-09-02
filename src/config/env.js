@@ -28,8 +28,8 @@ module.exports = {
     getEnv('JUSTDIAL_API_URL') ||
     'https://api.justdial.com/v1/leads', // Placeholder as per requirement
   // Admin
-  adminUsername: getEnv('ADMIN_USERNAME', 'admin'),
-  adminPassword: getEnv('ADMIN_PASSWORD', 'admin123'),
+  adminUsername: getEnv('ADMIN_USERNAME', 'Admin'),
+  adminPassword: getEnv('ADMIN_PASSWORD', 'Brynex@26'),
   adminSessionToken: getEnv('ADMIN_SESSION_TOKEN', 'admin-session-token'),
   // Webhooks & Multi-Chat
   customWebhookApiKey: getEnv('CUSTOM_WEBHOOK_API_KEY', 'default-webhook-key'),

@@ -27,6 +27,7 @@ const Login = () => {
       if (res.data.success) {
         const token = res.data.token || 'admin-session-token';
         localStorage.setItem('admin_token', token);
+        localStorage.setItem('admin_username', username.trim() || 'Admin');
         axios.defaults.headers.common['x-admin-token'] = token;
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         navigate('/admin/dashboard');

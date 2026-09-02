@@ -185,19 +185,19 @@ const Dashboard = () => {
   const totalCombinedInteractions = (summary.totalLeads || 0) + (chats.totalChats || 0);
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-8">
+    <div className="max-w-[1400px] mx-auto space-y-6 sm:space-y-8">
       {/* Header section */}
-      <div className="flex flex-col space-y-6">
-        <div className="flex justify-between items-start">
+      <div className="flex flex-col space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Executive Dashboard</h1>
-            <p className="text-slate-500 text-[15px] mt-1 font-medium">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Executive Dashboard</h1>
+            <p className="text-slate-500 text-xs sm:text-[15px] mt-1 font-medium">
               Overall view of calling operations, multi-channel chats & store performance
             </p>
           </div>
           <button
             onClick={handleExportCSV}
-            className="bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors"
+            className="w-full sm:w-auto justify-center bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors shrink-0"
           >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
@@ -205,13 +205,13 @@ const Dashboard = () => {
         </div>
 
         {/* Date Filter Pills */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-max">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-full sm:w-max overflow-x-auto max-w-full">
             {['YESTERDAY', 'TODAY', 'THIS MONTH', 'CUSTOM'].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setDateFilter(filter)}
-                className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${
+                className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all whitespace-nowrap ${
                   filter === dateFilter
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
@@ -223,23 +223,23 @@ const Dashboard = () => {
           </div>
 
           {dateFilter === 'CUSTOM' && (
-            <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm w-full sm:w-auto">
+              <div className="flex items-center justify-between sm:justify-start gap-2">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider pl-2">From:</span>
                 <input
                   type="date"
                   value={customFromDate}
                   onChange={(e) => setCustomFromDate(e.target.value)}
-                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 flex-1 sm:flex-none"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">To:</span>
+              <div className="flex items-center justify-between sm:justify-start gap-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider pl-2 sm:pl-0">To:</span>
                 <input
                   type="date"
                   value={customToDate}
                   onChange={(e) => setCustomToDate(e.target.value)}
-                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200"
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 flex-1 sm:flex-none"
                 />
               </div>
             </div>

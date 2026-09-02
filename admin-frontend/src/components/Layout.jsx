@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, PhoneCall, MessageSquare, Settings, Search, X } from 'lucide-react';
+import { LayoutDashboard, Users, PhoneCall, MessageSquare, Search } from 'lucide-react';
 
 // Custom toggle icons matching the requested design
 const CollapseIcon = ({ className }) => (
@@ -23,9 +23,11 @@ import { DialexLogo } from './DialexLogo';
 
 const Layout = () => {
   const location = useLocation();
-  // Sidebar closed by default as requested
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const isSidebarOpen = isPinned || isHovered;
 
   const getPageTitle = () => {
     if (location.pathname.includes('/admin/dashboard')) return 'Dashboard';
@@ -37,29 +39,70 @@ const Layout = () => {
     return 'Admin Panel';
   };
 
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const adminUsername = localStorage.getItem('admin_username') || 'Admin';
+
+  const handleConfirmLogout = async () => {
+    try {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_username');
+      await fetch('/api/admin/logout', { method: 'POST' });
+      window.location.href = '/admin/login';
+    } catch (e) {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_username');
+      window.location.href = '/admin/login';
+    }
+  };
+
+  const toggleSidebar = () => {
+    setIsPinned((prev) => !prev);
+    setIsHovered(false);
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
+      {/* Invisible hover trigger on the left edge when sidebar is collapsed */}
+      {!isSidebarOpen && (
+        <div
+          className="hidden md:block fixed left-0 top-0 bottom-0 w-4 z-40 cursor-pointer"
+          onMouseEnter={() => setIsHovered(true)}
+          title="Hover to open navigation"
+        />
+      )}
+
       {/* Mobile/Desktop Sidebar Overlay - only visible on small screens when open */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-800/20 z-20 md:hidden backdrop-blur-sm transition-opacity" 
-          onClick={toggleSidebar}
+          onClick={() => {
+            setIsPinned(false);
+            setIsHovered(false);
+          }}
         ></div>
       )}
 
       {/* Sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-in-out shadow-lg md:shadow-none ${
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 flex flex-col transform transition-transform duration-300 ease-in-out shadow-xl md:shadow-md ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 shrink-0">
-          <DialexLogo iconSize="w-8 h-8" textSize="text-xl" />
-          <button className="md:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-50" onClick={toggleSidebar}>
-            <X className="w-5 h-5" />
-          </button>
+        <div className="h-16 flex items-center px-5 border-b border-slate-200 shrink-0 gap-3 bg-slate-50/50">
+          <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-slate-200 shrink-0">
+            {adminUsername.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-bold text-slate-800 truncate leading-tight">
+              {adminUsername}
+            </span>
+            <span className="text-[11px] font-medium text-emerald-600 flex items-center gap-1 leading-tight mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Admin
+            </span>
+          </div>
         </div>
         
         <nav className="flex-1 py-5 px-3 space-y-1.5 overflow-y-auto">
@@ -114,26 +157,12 @@ const Layout = () => {
             <Users className="w-5 h-5 mr-3 opacity-80" />
             Telecallers
           </NavLink>
-
-          <div className="flex items-center px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-400 cursor-not-allowed mt-4 border-t border-slate-100 pt-4">
-            <Settings className="w-5 h-5 mr-3 opacity-50" />
-            Settings
-          </div>
         </nav>
 
         {/* Logout Button */}
         <div className="p-4 border-t border-slate-200 shrink-0">
           <button 
-            onClick={async () => {
-              try {
-                localStorage.removeItem('admin_token');
-                await fetch('/api/admin/logout', { method: 'POST' });
-                window.location.href = '/admin/login';
-              } catch (e) {
-                localStorage.removeItem('admin_token');
-                window.location.href = '/admin/login';
-              }
-            }}
+            onClick={() => setShowLogoutConfirm(true)}
             className="flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
           >
             <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -153,16 +182,21 @@ const Layout = () => {
         }`}
       >
         {/* Topbar */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 lg:px-6 shrink-0 sticky top-0 z-10">
-          <button 
-            className="p-2 mr-4 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center focus:outline-none" 
-            onClick={toggleSidebar}
-            aria-label="Toggle Sidebar"
-          >
-            {isSidebarOpen ? <CollapseIcon className="w-5 h-5" /> : <ExpandIcon className="w-5 h-5" />}
-          </button>
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6 shrink-0 sticky top-0 z-10">
+          <div className="flex items-center space-x-3">
+            <button 
+              className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors flex items-center justify-center focus:outline-none" 
+              onClick={toggleSidebar}
+              onMouseEnter={() => setIsHovered(true)}
+              aria-label="Toggle Sidebar"
+              title={isPinned ? 'Click to collapse navigation' : 'Click to pin navigation'}
+            >
+              {isSidebarOpen ? <CollapseIcon className="w-5 h-5" /> : <ExpandIcon className="w-5 h-5" />}
+            </button>
+            <DialexLogo iconSize="w-8 h-8" textSize="text-xl" />
+          </div>
           
-          <div className="flex items-center space-x-4 ml-auto">
+          <div className="flex items-center space-x-4">
             <div className="relative hidden md:block group">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
               <input
@@ -181,6 +215,43 @@ const Layout = () => {
           <Outlet context={{ searchTerm }} />
         </div>
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 transform animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-rose-50 text-rose-500 mx-auto mb-4">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </div>
+            
+            <h3 className="text-lg font-bold text-center text-slate-800 mb-1">Confirm Logout</h3>
+            <p className="text-sm text-center text-slate-500 mb-6">
+              Are you sure you want to log out of the admin panel?
+            </p>
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLogout}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-sm font-semibold text-white shadow-md shadow-rose-200 transition-colors"
+              >
+                Yes, Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

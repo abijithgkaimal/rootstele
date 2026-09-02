@@ -229,19 +229,19 @@ const ChatReports = () => {
   });
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-8">
+    <div className="max-w-[1400px] mx-auto space-y-6 sm:space-y-8">
       {/* Header section */}
-      <div className="flex flex-col space-y-6">
-        <div className="flex justify-between items-start">
+      <div className="flex flex-col space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Chat Reports</h1>
-            <p className="text-slate-500 text-[15px] mt-1 font-medium">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Chat Reports</h1>
+            <p className="text-slate-500 text-xs sm:text-[15px] mt-1 font-medium">
               Overview of all WhatsApp, Instagram & Facebook activities
             </p>
           </div>
           <button
             onClick={handleExportCSV}
-            className="bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors"
+            className="w-full sm:w-auto justify-center bg-[#1e293b] hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center shadow-sm transition-colors shrink-0"
           >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
@@ -249,13 +249,13 @@ const ChatReports = () => {
         </div>
 
         {/* Date Filter Pills */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-max">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="flex bg-[#eef2f6] p-1.5 rounded-full w-full sm:w-max overflow-x-auto max-w-full">
             {['YESTERDAY', 'TODAY', 'THIS MONTH', 'ALL TIME', 'CUSTOM'].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setDateFilter(filter)}
-                className={`px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all ${
+                className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 text-xs font-bold tracking-wide rounded-full transition-all whitespace-nowrap ${
                   filter === dateFilter
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
@@ -339,14 +339,14 @@ const ChatReports = () => {
       </div>
 
       {/* Main Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Controls Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-100">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-100">
           {/* Tab Switcher */}
-          <div className="flex bg-[#eef2f6] p-1 rounded-full w-max">
+          <div className="flex bg-[#eef2f6] p-1 rounded-full w-full sm:w-max overflow-x-auto">
             <button
               onClick={() => setActiveTab('telecallers')}
-              className={`px-5 py-1.5 text-xs font-bold tracking-wide rounded-full transition-all flex items-center gap-1.5 ${
+              className={`flex-1 sm:flex-none px-4 sm:px-5 py-1.5 text-xs font-bold tracking-wide rounded-full transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'telecallers'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
@@ -357,7 +357,7 @@ const ChatReports = () => {
             </button>
             <button
               onClick={() => setActiveTab('conversations')}
-              className={`px-5 py-1.5 text-xs font-bold tracking-wide rounded-full transition-all flex items-center gap-1.5 ${
+              className={`flex-1 sm:flex-none px-4 sm:px-5 py-1.5 text-xs font-bold tracking-wide rounded-full transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'conversations'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
@@ -369,11 +369,11 @@ const ChatReports = () => {
           </div>
 
           {/* Filter Selectors & Search */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value)}
-              className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-200"
+              className="flex-1 sm:flex-none px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-200"
             >
               <option value="all">All Channels</option>
               <option value="whatsapp">WhatsApp</option>
@@ -384,7 +384,7 @@ const ChatReports = () => {
             <select
               value={brandFilter}
               onChange={(e) => setBrandFilter(e.target.value)}
-              className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-200"
+              className="flex-1 sm:flex-none px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-200"
             >
               <option value="all">All Brands</option>
               <option value="suitor_guy">Suitor Guy</option>
@@ -392,14 +392,14 @@ const ChatReports = () => {
               <option value="dapper_squad">Dapper Squad</option>
             </select>
 
-            <div className="relative">
+            <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search..."
                 value={localSearch}
                 onChange={(e) => setLocalSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-slate-200 outline-none w-44 transition-all"
+                className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-slate-200 outline-none w-full sm:w-44 transition-all"
               />
             </div>
           </div>

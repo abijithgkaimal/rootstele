@@ -32,22 +32,34 @@ export const DialexIcon = ({ className = "w-8 h-8" }) => (
       fill="#0D1E36" 
     />
 
-    {/* White Sound Waveforms */}
-    <rect x="206" y="246" width="16" height="40" rx="8" fill="#FFFFFF" />
-    <rect x="238" y="226" width="16" height="80" rx="8" fill="#FFFFFF" />
-    <rect x="270" y="246" width="16" height="40" rx="8" fill="#FFFFFF" />
+    {/* Live Calling Sound Waveforms */}
+    <rect x="206" y="246" width="16" height="40" rx="8" fill="#FFFFFF" className="animate-wave-1" />
+    <rect x="238" y="226" width="16" height="80" rx="8" fill="#FFFFFF" className="animate-wave-2" />
+    <rect x="270" y="246" width="16" height="40" rx="8" fill="#FFFFFF" className="animate-wave-3" />
   </svg>
 );
 
 export const DialexLogo = ({ showText = true, className = "", iconSize = "w-8 h-8", textSize = "text-xl" }) => (
   <div className={`flex items-center gap-2.5 ${className}`}>
     <div className="relative flex items-center justify-center">
-      <DialexIcon className={iconSize} />
+      {/* Ringing Headset Icon */}
+      <div className="relative z-10 animate-call-ring">
+        <DialexIcon className={iconSize} />
+      </div>
     </div>
+    
     {showText && (
-      <span className={`font-bold tracking-wider text-slate-900 ${textSize}`}>
-        DIALEX
-      </span>
+      <div className="flex items-center gap-1.5">
+        <span className={`font-extrabold tracking-wider text-slate-900 ${textSize} select-none`}>
+          DIALEX
+        </span>
+        {/* Animated mini call audio visualizer bars */}
+        <div className="flex items-end gap-[2px] h-3.5 px-1 py-0.5" title="Live Call CRM">
+          <span className="w-[3px] bg-blue-500 rounded-full animate-pulse h-full" style={{ animationDuration: '0.8s' }} />
+          <span className="w-[3px] bg-blue-500 rounded-full animate-pulse h-2.5" style={{ animationDuration: '0.5s' }} />
+          <span className="w-[3px] bg-blue-500 rounded-full animate-pulse h-3.5" style={{ animationDuration: '1.1s' }} />
+        </div>
+      </div>
     )}
   </div>
 );
