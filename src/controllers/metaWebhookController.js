@@ -6,16 +6,23 @@ const chatService = require('../services/chatService');
  * Verify Meta Webhook subscription (GET /api/webhooks/meta).
  */
 const verifyWebhook = (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
+  const mode = req.query['hub.mode'] || req.query.hub_mode;
+  const token = req.query['hub.verify_token'] || req.query.hub_verify_token;
+  const challenge = req.query['hub.challenge'] || req.query.hub_challenge;
 
-  if (mode === 'subscribe' && token === env.metaWebhookVerifyToken) {
+  const expectedToken =
+    env.metaWebhookVerifyToken ||
+    process.env.META_VERIFY_TOKEN ||
+    process.env.META_WEBHOOK_VERIFY_TOKEN ||
+    'telecaller_meta_verify_token_2026';
+
+  if (mode === 'subscribe' && token === expectedToken) {
     console.log('[MetaWebhook] Webhook subscription verified successfully.');
-    return res.status(200).send(challenge);
+    // Send challenge back as a plain text string with HTTP 200
+    return res.status(200).send(challenge !== undefined ? String(challenge) : '');
   }
 
-  console.warn('[MetaWebhook] Verification failed. Token mismatch.');
+  console.warn(`[MetaWebhook] Verification failed. Mode: ${mode}, Token provided: ${token ? 'present' : 'missing'}`);
   return res.status(403).send('Forbidden');
 };
 

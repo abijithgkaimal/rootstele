@@ -33,7 +33,10 @@ module.exports = {
   adminSessionToken: getEnv('ADMIN_SESSION_TOKEN', 'admin-session-token'),
   // Webhooks & Multi-Chat
   customWebhookApiKey: getEnv('CUSTOM_WEBHOOK_API_KEY', 'default-webhook-key'),
-  metaWebhookVerifyToken: getEnv('META_WEBHOOK_VERIFY_TOKEN', 'default-verify-token'),
+  metaWebhookVerifyToken:
+    getEnv('META_VERIFY_TOKEN') ||
+    getEnv('META_WEBHOOK_VERIFY_TOKEN') ||
+    'telecaller_meta_verify_token_2026',
   metaAppSecret: getEnv('META_APP_SECRET', ''),
   metaAccessToken: getEnv('META_ACCESS_TOKEN', ''),
   whatsappPhoneNumberId: getEnv('WHATSAPP_PHONE_NUMBER_ID', ''),
