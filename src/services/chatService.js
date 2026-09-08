@@ -451,42 +451,21 @@ const processInboundFacebook = async (body) => {
 
 /**
  * Send an outbound message in a conversation.
+ * Saves immediately to DB and returns/emits in < 50ms, then dispatches Meta Graph API in the background.
  */
-const sendOutboundMessage = async ({ conversationId, senderId, text, media, messageType = 'text' }) => {
+const sendOutboundMessage = async ({ conversationId, senderId, text, media, messageType = 'text', tempId }) => {
   const conversation = await Conversation.findById(conversationId);
   if (!conversation) {
     throw new Error('Conversation not found');
   }
 
-  let result = null;
-  if (conversation.channel === 'whatsapp') {
-    const toPhone = conversation.participant.phone || conversation.participant.normalizedPhone;
-    result = await metaSendService.sendWhatsAppMessage({
-      to: toPhone,
-      text,
-      type: messageType,
-      media,
-      phoneNumberId: conversation.channelId,
-    });
-  } else if (conversation.channel === 'instagram') {
-    result = await metaSendService.sendInstagramMessage({
-      recipientId: conversation.participant.socialUserId || conversation.participant.igUserId,
-      text,
-      media,
-      accountId: conversation.channelId,
-    });
-  } else if (conversation.channel === 'facebook') {
-    result = await metaSendService.sendFacebookMessage({
-      recipientId: conversation.participant.socialUserId,
-      text,
-      media,
-      pageId: conversation.channelId,
-    });
-  }
+  const initialMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
+  // 1. Immediately create message in MongoDB
   const savedMessage = await Message.create({
     conversationId: conversation._id,
-    messageId: result?.messageId || `msg_${Date.now()}`,
+    messageId: initialMessageId,
+    tempId: tempId || undefined,
     channel: conversation.channel,
     brand: conversation.brand,
     senderType: 'telecaller',
@@ -498,6 +477,7 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
     timestamp: new Date(),
   });
 
+  // 2. Update conversation activity immediately
   await Conversation.findByIdAndUpdate(conversation._id, {
     $set: {
       lastMessage: {
@@ -510,7 +490,7 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
     },
   });
 
-  // Emit event to telecaller's sockets
+  // 3. Emit event to telecaller's sockets immediately
   if (conversation.assignedTo) {
     socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
       conversationId: conversation._id,
@@ -521,6 +501,76 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
       participant: conversation.participant,
     });
   }
+
+  // 4. Asynchronously dispatch message to Meta in background without blocking response
+  (async () => {
+    try {
+      let result = null;
+      if (conversation.channel === 'whatsapp') {
+        const toPhone = conversation.participant.phone || conversation.participant.normalizedPhone;
+        result = await metaSendService.sendWhatsAppMessage({
+          to: toPhone,
+          text,
+          type: messageType,
+          media,
+          phoneNumberId: conversation.channelId,
+        });
+      } else if (conversation.channel === 'instagram') {
+        result = await metaSendService.sendInstagramMessage({
+          recipientId: conversation.participant.socialUserId || conversation.participant.igUserId,
+          text,
+          media,
+          accountId: conversation.channelId,
+        });
+      } else if (conversation.channel === 'facebook') {
+        result = await metaSendService.sendFacebookMessage({
+          recipientId: conversation.participant.socialUserId,
+          text,
+          media,
+          pageId: conversation.channelId,
+        });
+      }
+
+      if (result?.messageId && result.messageId !== initialMessageId) {
+        await Message.findByIdAndUpdate(savedMessage._id, {
+          $set: { messageId: result.messageId, status: 'sent' },
+        });
+
+        // Notify socket of the confirmed Meta messageId
+        if (conversation.assignedTo) {
+          socketService.emitToTelecaller(conversation.assignedTo, 'chat:status_update', {
+            localId: savedMessage._id,
+            tempId: tempId || undefined,
+            messageId: result.messageId,
+            conversationId: conversation._id,
+            status: 'sent',
+            channel: conversation.channel,
+            brand: conversation.brand,
+          });
+        }
+      }
+    } catch (err) {
+      console.error(`[ChatService] Background send error for msg ${savedMessage._id}:`, err.message);
+      await Message.findByIdAndUpdate(savedMessage._id, {
+        $set: { status: 'failed', errorMessage: err.message },
+      });
+
+      if (conversation.assignedTo) {
+        socketService.emitToTelecaller(conversation.assignedTo, 'chat:status_update', {
+          localId: savedMessage._id,
+          tempId: tempId || undefined,
+          messageId: savedMessage.messageId,
+          conversationId: conversation._id,
+          status: 'failed',
+          errorMessage: err.message,
+          channel: conversation.channel,
+          brand: conversation.brand,
+        });
+      }
+    }
+  })().catch((bgErr) => {
+    console.error('[ChatService] Unhandled error in background Meta dispatch:', bgErr);
+  });
 
   return savedMessage;
 };

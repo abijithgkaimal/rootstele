@@ -113,7 +113,7 @@ const getMessages = asyncHandler(async (req, res) => {
  */
 const sendMessage = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { text, media, messageType } = req.body;
+  const { text, media, messageType, tempId } = req.body;
   const senderId = req.user?.employeeId || req.user?.userId || 'unknown';
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -130,6 +130,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     text,
     media,
     messageType,
+    tempId,
   });
 
   return success(res, message, 'Message sent successfully', 201);

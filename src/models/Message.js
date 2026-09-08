@@ -31,7 +31,9 @@ const messageSchema = new mongoose.Schema(
     },
     text: { type: String, trim: true },
     media: { type: mediaSchema },
-    status: { type: String, enum: ['sent', 'delivered', 'read', 'failed'], default: 'sent' },
+    status: { type: String, enum: ['sending', 'sent', 'delivered', 'read', 'failed'], default: 'sent' },
+    tempId: { type: String }, // Optional client temporary ID for optimistic UI matching
+    errorMessage: { type: String },
     rawPayload: { type: mongoose.Schema.Types.Mixed },
     timestamp: { type: Date, default: Date.now, index: true },
   },
