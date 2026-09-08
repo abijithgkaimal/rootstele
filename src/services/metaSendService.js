@@ -130,20 +130,85 @@ const sendInstagramMessage = async ({ recipientId, text, media, accountId }) => 
 };
 
 /**
+ * Helper to dynamically resolve Facebook Page Access Token and Page ID.
+ * @param {object} params
+ * @param {string} [params.brand] - 'suitor_guy' | 'zorucci' | 'dapper_squad' | 'general'
+ * @param {string} [params.pageId] - Facebook Page ID
+ * @param {string} [params.pageAccessToken] - Explicit token override
+ * @returns {{ token: string, pageId: string }}
+ */
+const resolveFacebookCredentials = ({ brand, pageId, pageAccessToken } = {}) => {
+  if (pageAccessToken) {
+    return { token: pageAccessToken, pageId: pageId || 'me' };
+  }
+
+  const normalizedBrand = (brand || '').toLowerCase();
+
+  if (normalizedBrand === 'suitor_guy' || pageId === env.fbPageIdSuitorGuy) {
+    return {
+      token: env.fbPageAccessTokenSuitorGuy || env.fbPageAccessToken || env.metaAccessToken,
+      pageId: pageId || env.fbPageIdSuitorGuy || 'me',
+    };
+  }
+
+  if (normalizedBrand === 'zorucci' || pageId === env.fbPageIdZorucci) {
+    return {
+      token: env.fbPageAccessTokenZorucci || env.fbPageAccessToken || env.metaAccessToken,
+      pageId: pageId || env.fbPageIdZorucci || 'me',
+    };
+  }
+
+  if (normalizedBrand === 'dapper_squad' || pageId === env.fbPageIdDapperSquad) {
+    return {
+      token: env.fbPageAccessTokenDapperSquad || env.fbPageAccessToken || env.metaAccessToken,
+      pageId: pageId || env.fbPageIdDapperSquad || 'me',
+    };
+  }
+
+  return {
+    token: env.fbPageAccessToken || env.metaAccessToken,
+    pageId: pageId || 'me',
+  };
+};
+
+/**
  * Send an outbound message to a Facebook Messenger user via Meta Graph API.
  * @param {object} params
- * @param {string} params.recipientId - Facebook Page-Scoped User ID (PSID)
+ * @param {string} params.recipientId - Customer's Facebook Page-Scoped User ID (PSID)
  * @param {string} params.text - Message content
  * @param {object} [params.media] - { url, type }
  * @param {string} [params.pageId] - Brand-specific Facebook Page ID
+ * @param {string} [params.brand] - Brand identifier (e.g. 'suitor_guy', 'zorucci', 'dapper_squad')
+ * @param {string} [params.pageAccessToken] - Optional explicit Page Access Token
  */
-const sendFacebookMessage = async ({ recipientId, text, media, pageId }) => {
-  const token = env.metaAccessToken;
-  const targetId = pageId || 'me';
+const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pageAccessToken }) => {
+  const psid = recipientId ? String(recipientId).trim() : '';
+
+  // 1. Recipient ID Validation: ensure it's a customer PSID and not a telecaller/agent ID (e.g. EMP538)
+  if (!psid) {
+    throw new Error('[MetaSendService] Recipient PSID is required for Facebook Messenger outbound message.');
+  }
+
+  if (/^EMP/i.test(psid) || psid.toLowerCase().includes('agent') || psid.toLowerCase().includes('telecaller')) {
+    throw new Error(`[MetaSendService] Invalid recipient PSID "${psid}". Cannot send Facebook Messenger message to an employee/agent ID.`);
+  }
+
+  // 2. Brand & Access Token Resolution: dynamically select brand Page Access Token
+  const { token, pageId: resolvedPageId } = resolveFacebookCredentials({ brand, pageId, pageAccessToken });
+  const targetId = resolvedPageId || 'me';
   const url = `${GRAPH_API_BASE}/${targetId}/messages`;
 
   if (!token) {
-    console.warn('[MetaSendService] Meta access token not configured. Simulating Facebook send.');
+    console.warn(`[MetaSendService] Facebook Page access token not configured for brand "${brand || 'default'}". Simulating Facebook send.`);
+    return {
+      messageId: `m_mid.SIMULATED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      simulated: true,
+    };
+  }
+
+  // Gracefully simulate if recipient or target is simulated
+  if (psid.startsWith('sim_') || targetId.startsWith('SIM_')) {
+    console.info(`[MetaSendService] Simulating Facebook send for test recipient ${psid}`);
     return {
       messageId: `m_mid.SIMULATED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       simulated: true,
@@ -163,7 +228,7 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId }) => {
   }
 
   const payload = {
-    recipient: { id: recipientId },
+    recipient: { id: psid },
     message: messagePayload,
     messaging_type: 'RESPONSE',
   };

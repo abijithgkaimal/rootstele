@@ -56,6 +56,24 @@ module.exports = {
   fbPageIdZorucci: getEnv('FB_PAGE_ID_ZORUCCI', ''),
   fbPageIdSuitorGuy: getEnv('FB_PAGE_ID_SUITOR_GUY', ''),
   fbPageIdDapperSquad: getEnv('FB_PAGE_ID_DAPPER_SQUAD', ''),
+
+  // Multi-Brand Facebook Page Access Tokens
+  fbPageAccessTokenZorucci:
+    getEnv('FB_PAGE_ACCESS_TOKEN_ZORUCCI') ||
+    getEnv('FB_PAGE_TOKEN_ZORUCCI') ||
+    getEnv('PAGE_ACCESS_TOKEN_ZORUCCI', ''),
+  fbPageAccessTokenSuitorGuy:
+    getEnv('FB_PAGE_ACCESS_TOKEN_SUITOR_GUY') ||
+    getEnv('FB_PAGE_TOKEN_SUITOR_GUY') ||
+    getEnv('PAGE_ACCESS_TOKEN_SUITOR_GUY', ''),
+  fbPageAccessTokenDapperSquad:
+    getEnv('FB_PAGE_ACCESS_TOKEN_DAPPER_SQUAD') ||
+    getEnv('FB_PAGE_TOKEN_DAPPER_SQUAD') ||
+    getEnv('PAGE_ACCESS_TOKEN_DAPPER_SQUAD', ''),
+  fbPageAccessToken:
+    getEnv('FB_PAGE_ACCESS_TOKEN') ||
+    getEnv('PAGE_ACCESS_TOKEN') ||
+    getEnv('META_PAGE_ACCESS_TOKEN', ''),
 };
 
 // Backward compatibility

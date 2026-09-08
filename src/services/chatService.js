@@ -523,10 +523,15 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
           accountId: conversation.channelId,
         });
       } else if (conversation.channel === 'facebook') {
+        const customerPsid = conversation.participant?.socialUserId || conversation.participant?.psid;
+        if (!customerPsid) {
+          throw new Error(`Customer Facebook PSID not found in conversation participant for conversation ${conversation._id}`);
+        }
         result = await metaSendService.sendFacebookMessage({
-          recipientId: conversation.participant.socialUserId,
+          recipientId: customerPsid,
           text,
           media,
+          brand: conversation.brand,
           pageId: conversation.channelId,
         });
       }
