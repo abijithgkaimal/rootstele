@@ -259,6 +259,7 @@ const processInboundInstagram = async (body) => {
 
         if (!conversation) {
           const assignedTo = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+          const userIdStr = igUserId ? String(igUserId) : 'User';
           conversation = await Conversation.create({
             channel: 'instagram',
             brand: brandInfo.brand,
@@ -267,7 +268,7 @@ const processInboundInstagram = async (body) => {
             participant: {
               socialUserId: igUserId,
               igUserId,
-              name: `Instagram User (${igUserId.slice(-4)})`,
+              name: `Instagram User (${userIdStr.slice(-4)})`,
             },
             assignedTo,
             status: 'open',
@@ -290,6 +291,11 @@ const processInboundInstagram = async (body) => {
           if (!text) text = `[Instagram ${messageType}]`;
         }
 
+        const rawTs = Number(event.timestamp);
+        const msgDate = !isNaN(rawTs) && rawTs > 0
+          ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs)
+          : new Date();
+
         const savedMessage = await Message.create({
           conversationId: conversation._id,
           messageId,
@@ -302,7 +308,7 @@ const processInboundInstagram = async (body) => {
           media: media || undefined,
           status: 'delivered',
           rawPayload: event,
-          timestamp: new Date(event.timestamp || Date.now()),
+          timestamp: msgDate,
         });
 
         await Conversation.findByIdAndUpdate(conversation._id, {
@@ -332,7 +338,10 @@ const processInboundInstagram = async (body) => {
       }
 
       if (event.read) {
-        const watermark = new Date(event.read.watermark || Date.now());
+        const watermarkTs = Number(event.read.watermark);
+        const watermark = !isNaN(watermarkTs) && watermarkTs > 0
+          ? new Date(watermarkTs < 1e11 ? watermarkTs * 1000 : watermarkTs)
+          : new Date();
         await Message.updateMany(
           {
             senderId: recipientId,
@@ -375,6 +384,7 @@ const processInboundFacebook = async (body) => {
 
         if (!conversation) {
           const assignedTo = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+          const psidStr = psid ? String(psid) : 'User';
           conversation = await Conversation.create({
             channel: 'facebook',
             brand: brandInfo.brand,
@@ -382,7 +392,7 @@ const processInboundFacebook = async (body) => {
             channelId: recipientId,
             participant: {
               socialUserId: psid,
-              name: `Facebook User (${psid.slice(-4)})`,
+              name: `Facebook User (${psidStr.slice(-4)})`,
             },
             assignedTo,
             status: 'open',
@@ -405,6 +415,11 @@ const processInboundFacebook = async (body) => {
           if (!text) text = `[Facebook ${messageType}]`;
         }
 
+        const rawTs = Number(event.timestamp);
+        const msgDate = !isNaN(rawTs) && rawTs > 0
+          ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs)
+          : new Date();
+
         const savedMessage = await Message.create({
           conversationId: conversation._id,
           messageId,
@@ -417,7 +432,7 @@ const processInboundFacebook = async (body) => {
           media: media || undefined,
           status: 'delivered',
           rawPayload: event,
-          timestamp: new Date(event.timestamp || Date.now()),
+          timestamp: msgDate,
         });
 
         await Conversation.findByIdAndUpdate(conversation._id, {
