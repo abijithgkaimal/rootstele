@@ -24,6 +24,7 @@ const messageSchema = new mongoose.Schema(
     },
     senderType: { type: String, enum: ['customer', 'telecaller', 'system'], required: true },
     senderId: { type: String, required: true }, // Telecaller employeeId or customer identifier
+    senderExternalId: { type: String }, // Meta Page ID / Business Account ID / Phone ID
     messageType: {
       type: String,
       enum: ['text', 'image', 'video', 'audio', 'document', 'template', 'interactive'],

@@ -75,22 +75,78 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
 };
 
 /**
+ * Helper to retrieve Page ID and Page Access Token for a given brand.
+ * @param {string} brand - 'suitor_guy' | 'zorucci' | 'dapper_squad' | 'general'
+ * @returns {{ pageId: string, accessToken: string, igAccountId?: string }}
+ */
+const getBrandCredentials = (brand) => {
+  const normalized = (brand || '').toLowerCase().replace(/[\s_-]+/g, '_');
+
+  if (normalized === 'zorucci') {
+    return {
+      pageId: env.fbPageIdZorucci || process.env.FB_PAGE_ID_ZORUCCI || '100490815752591',
+      accessToken: env.fbPageAccessTokenZorucci || process.env.FB_PAGE_ACCESS_TOKEN_ZORUCCI || env.metaAccessToken,
+      igAccountId: env.igAccountIdZorucci || process.env.IG_ACCOUNT_ID_ZORUCCI || '17841450188321270',
+    };
+  }
+
+  if (normalized === 'dapper_squad' || normalized === 'dappersquad') {
+    return {
+      pageId: env.fbPageIdDapperSquad || process.env.FB_PAGE_ID_DAPPER_SQUAD,
+      accessToken: env.fbPageAccessTokenDapperSquad || process.env.FB_PAGE_ACCESS_TOKEN_DAPPER_SQUAD || env.metaAccessToken,
+      igAccountId: env.igAccountIdDapperSquad || process.env.IG_ACCOUNT_ID_DAPPER_SQUAD,
+    };
+  }
+
+  // Default / Suitor Guy
+  return {
+    pageId: env.fbPageIdSuitorGuy || process.env.FB_PAGE_ID_SUITOR_GUY || '319976018496565',
+    accessToken: env.fbPageAccessTokenSuitorGuy || process.env.FB_PAGE_ACCESS_TOKEN_SUITOR_GUY || env.metaAccessToken,
+    igAccountId: env.igAccountIdSuitorGuy || process.env.IG_ACCOUNT_ID_SUITOR_GUY || '17841406791487873',
+  };
+};
+
+/**
  * Send an outbound message to an Instagram user via Meta Graph API.
  * @param {object} params
  * @param {string} params.recipientId - Instagram Scoped User ID (IGSID)
  * @param {string} params.text - Message content
  * @param {object} [params.media] - { url, type }
- * @param {string} [params.accountId] - Brand-specific Instagram account ID
+ * @param {string} [params.brand] - Brand identifier (e.g. 'suitor_guy', 'zorucci', 'dapper_squad')
+ * @param {string} [params.accountId] - Brand-specific Instagram account ID or Page ID
+ * @param {string} [params.pageAccessToken] - Explicit token override
  */
-const sendInstagramMessage = async ({ recipientId, text, media, accountId }) => {
-  const token = env.metaAccessToken;
-  const url = `${GRAPH_API_BASE}/me/messages`;
+const sendInstagramMessage = async ({ recipientId, text, media, brand, accountId, pageAccessToken }) => {
+  const igUserId = recipientId ? String(recipientId).trim() : '';
+
+  if (!igUserId) {
+    throw new Error('[MetaSendService] Recipient ID (IGSID) is required for Instagram outbound message.');
+  }
+
+  if (/^EMP/i.test(igUserId) || igUserId.toLowerCase().includes('agent') || igUserId.toLowerCase().includes('telecaller')) {
+    throw new Error(`[MetaSendService] Invalid recipient ID "${igUserId}". Cannot send Instagram message to an employee/agent ID.`);
+  }
+
+  const creds = getBrandCredentials(brand);
+  const token = pageAccessToken || creds.accessToken || env.metaAccessToken;
+  const targetPageId = creds.pageId || accountId || 'me';
 
   if (!token) {
-    console.warn('[MetaSendService] Meta access token not configured. Simulating Instagram send.');
+    console.warn(`[MetaSendService] Instagram Page Access Token not configured for brand "${brand || 'default'}". Simulating Instagram send.`);
     return {
       messageId: `mid.SIMULATED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       simulated: true,
+      pageId: targetPageId,
+    };
+  }
+
+  // Gracefully simulate if recipient or target is simulated
+  if (igUserId.startsWith('sim_') || String(targetPageId).startsWith('SIM_')) {
+    console.info(`[MetaSendService] Simulating Instagram send for test recipient ${igUserId}`);
+    return {
+      messageId: `mid.SIMULATED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      simulated: true,
+      pageId: targetPageId,
     };
   }
 
@@ -107,9 +163,11 @@ const sendInstagramMessage = async ({ recipientId, text, media, accountId }) => 
   }
 
   const payload = {
-    recipient: { id: recipientId },
+    recipient: { id: igUserId },
     message: messagePayload,
   };
+
+  const url = `${GRAPH_API_BASE}/${targetPageId}/messages`;
 
   try {
     const response = await axios.post(url, payload, {
@@ -120,8 +178,8 @@ const sendInstagramMessage = async ({ recipientId, text, media, accountId }) => 
       timeout: 15000,
     });
 
-    const msgId = response.data?.message_id || `mid.${Date.now()}`;
-    return { messageId: msgId, data: response.data };
+    const msgId = response.data?.message_id || response.data?.messages?.[0]?.id || `mid.${Date.now()}`;
+    return { messageId: msgId, data: response.data, pageId: targetPageId };
   } catch (err) {
     const errData = err.response?.data || err.message;
     console.error('[MetaSendService] Instagram API send error:', JSON.stringify(errData));
@@ -142,32 +200,11 @@ const resolveFacebookCredentials = ({ brand, pageId, pageAccessToken } = {}) => 
     return { token: pageAccessToken, pageId: pageId || 'me' };
   }
 
-  const normalizedBrand = (brand || '').toLowerCase();
-
-  if (normalizedBrand === 'suitor_guy' || pageId === env.fbPageIdSuitorGuy) {
-    return {
-      token: env.fbPageAccessTokenSuitorGuy || env.fbPageAccessToken || env.metaAccessToken,
-      pageId: pageId || env.fbPageIdSuitorGuy || 'me',
-    };
-  }
-
-  if (normalizedBrand === 'zorucci' || pageId === env.fbPageIdZorucci) {
-    return {
-      token: env.fbPageAccessTokenZorucci || env.fbPageAccessToken || env.metaAccessToken,
-      pageId: pageId || env.fbPageIdZorucci || 'me',
-    };
-  }
-
-  if (normalizedBrand === 'dapper_squad' || pageId === env.fbPageIdDapperSquad) {
-    return {
-      token: env.fbPageAccessTokenDapperSquad || env.fbPageAccessToken || env.metaAccessToken,
-      pageId: pageId || env.fbPageIdDapperSquad || 'me',
-    };
-  }
+  const creds = getBrandCredentials(brand);
 
   return {
-    token: env.fbPageAccessToken || env.metaAccessToken,
-    pageId: pageId || 'me',
+    token: creds.accessToken || env.fbPageAccessToken || env.metaAccessToken,
+    pageId: pageId || creds.pageId || 'me',
   };
 };
 
@@ -203,6 +240,7 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pa
     return {
       messageId: `m_mid.SIMULATED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       simulated: true,
+      pageId: targetId,
     };
   }
 
@@ -212,6 +250,7 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pa
     return {
       messageId: `m_mid.SIMULATED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       simulated: true,
+      pageId: targetId,
     };
   }
 
@@ -243,7 +282,7 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pa
     });
 
     const msgId = response.data?.message_id || `m_mid.${Date.now()}`;
-    return { messageId: msgId, data: response.data };
+    return { messageId: msgId, data: response.data, pageId: targetId };
   } catch (err) {
     const errData = err.response?.data || err.message;
     console.error('[MetaSendService] Facebook Messenger API send error:', JSON.stringify(errData));
@@ -284,6 +323,8 @@ const markWhatsAppAsRead = async ({ messageId, phoneNumberId }) => {
 };
 
 module.exports = {
+  getBrandCredentials,
+  resolveFacebookCredentials,
   sendWhatsAppMessage,
   sendInstagramMessage,
   sendFacebookMessage,

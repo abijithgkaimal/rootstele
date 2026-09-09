@@ -48,6 +48,8 @@ const conversationSchema = new mongoose.Schema(
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
     assignedTo: { type: String, index: true }, // Telecaller employeeId
     lastMessage: { type: lastMessageSchema },
+    lastMessageText: { type: String },
+    lastMessageAt: { type: Date },
     unreadCount: { type: Number, default: 0 },
     status: { type: String, enum: ['open', 'pending', 'resolved'], default: 'open', index: true },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'LeadMaster' },

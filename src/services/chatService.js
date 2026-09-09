@@ -535,6 +535,7 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
           recipientId: conversation.participant.socialUserId || conversation.participant.igUserId,
           text,
           media,
+          brand: conversation.brand,
           accountId: conversation.channelId,
         });
       } else if (conversation.channel === 'facebook') {
@@ -552,8 +553,25 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
       }
 
       if (result?.messageId && result.messageId !== initialMessageId) {
+        const updateFields = {
+          messageId: result.messageId,
+          status: 'sent',
+        };
+        if (result.pageId) {
+          updateFields.senderExternalId = result.pageId;
+        }
+
         await Message.findByIdAndUpdate(savedMessage._id, {
-          $set: { messageId: result.messageId, status: 'sent' },
+          $set: updateFields,
+        });
+
+        // Update conversation document
+        await Conversation.findByIdAndUpdate(conversation._id, {
+          $set: {
+            lastMessageText: text,
+            lastMessageAt: savedMessage.timestamp,
+            lastActivityAt: savedMessage.timestamp,
+          },
         });
 
         // Notify socket of the confirmed Meta messageId
