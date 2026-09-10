@@ -32,6 +32,7 @@ const messageSchema = new mongoose.Schema(
     },
     text: { type: String, trim: true },
     media: { type: mediaSchema },
+    responseTimeSeconds: { type: Number }, // Time taken (in seconds) to reply to the latest customer message
     status: { type: String, enum: ['sending', 'sent', 'delivered', 'read', 'failed'], default: 'sent' },
     tempId: { type: String }, // Optional client temporary ID for optimistic UI matching
     errorMessage: { type: String },

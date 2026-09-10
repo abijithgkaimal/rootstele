@@ -10,7 +10,8 @@ import {
   Download,
   Search,
   CheckCircle,
-  Users
+  Users,
+  Clock
 } from 'lucide-react';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => (
@@ -292,7 +293,7 @@ const ChatReports = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-5">
         <StatCard
           title="Total Chats"
           value={loading ? '-' : (summary.totalConversations ?? 0)}
@@ -335,6 +336,13 @@ const ChatReports = () => {
           subtitle="Telecaller replies"
           icon={Send}
           color={{ bg: 'bg-indigo-100/60', text: 'text-indigo-600' }}
+        />
+        <StatCard
+          title="Avg Reply Time"
+          value={loading ? '-' : (summary.avgReplyTime || 'N/A')}
+          subtitle="Across all agents"
+          icon={Clock}
+          color={{ bg: 'bg-teal-100/60', text: 'text-teal-600' }}
         />
       </div>
 
@@ -417,6 +425,7 @@ const ChatReports = () => {
                   <th className="py-4 px-2 text-center">Instagram</th>
                   <th className="py-4 px-2 text-center">Facebook</th>
                   <th className="py-4 px-2 text-center">Replies Sent</th>
+                  <th className="py-4 px-2 text-center">Avg Reply Time</th>
                   <th className="py-4 px-2 text-center">Converted Leads</th>
                   <th className="py-4 px-2 text-center">Resolution Rate</th>
                   <th className="py-4 px-2 text-right">Status</th>
@@ -425,13 +434,13 @@ const ChatReports = () => {
               <tbody className="divide-y divide-slate-100 text-sm">
                 {loading ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-8 text-slate-400 font-medium">
+                    <td colSpan="10" className="text-center py-8 text-slate-400 font-medium">
                       Loading telecaller analytics...
                     </td>
                   </tr>
                 ) : filteredTelecallers.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-8 text-slate-400 font-medium">
+                    <td colSpan="10" className="text-center py-8 text-slate-400 font-medium">
                       No telecallers found for the selected filter.
                     </td>
                   </tr>
@@ -456,6 +465,9 @@ const ChatReports = () => {
                       <td className="py-4 px-2 text-center font-semibold text-pink-700">{row.instagramChats}</td>
                       <td className="py-4 px-2 text-center font-semibold text-blue-700">{row.facebookChats}</td>
                       <td className="py-4 px-2 text-center font-semibold text-slate-700">{row.outboundMessages}</td>
+                      <td className="py-4 px-2 text-center font-semibold text-teal-700">
+                        {row.avgReplyTime || 'N/A'}
+                      </td>
                       <td className="py-4 px-2 text-center">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold text-xs ${

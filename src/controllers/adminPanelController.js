@@ -497,6 +497,22 @@ const exportCompletedReports = asyncHandler(async (req, res) => {
 /**
  * GET /api/admin/chat-reports/summary
  */
+const formatDuration = (seconds) => {
+  if (seconds === null || seconds === undefined || isNaN(seconds) || seconds <= 0) {
+    return 'N/A';
+  }
+  const s = Math.round(seconds);
+  if (s < 60) return `${s}s`;
+  const mins = Math.floor(s / 60);
+  const remSec = s % 60;
+  if (mins < 60) {
+    return remSec > 0 ? `${mins}m ${remSec}s` : `${mins}m`;
+  }
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
+};
+
 const getChatReportsSummary = asyncHandler(async (req, res) => {
   const { fromDate, toDate, brand, channel, employeeId } = req.query;
 
@@ -545,10 +561,29 @@ const getChatReportsSummary = asyncHandler(async (req, res) => {
   if (brand && brand !== 'all') msgMatch.brand = brand.toLowerCase();
   if (channel && channel !== 'all') msgMatch.channel = channel.toLowerCase();
 
-  const [totalOutbound, totalInbound] = await Promise.all([
+  const [totalOutbound, totalInbound, replyTimeStats] = await Promise.all([
     Message.countDocuments({ ...msgMatch, senderType: 'telecaller' }),
-    Message.countDocuments({ ...msgMatch, senderType: 'customer' })
+    Message.countDocuments({ ...msgMatch, senderType: 'customer' }),
+    Message.aggregate([
+      {
+        $match: {
+          ...msgMatch,
+          senderType: 'telecaller',
+          responseTimeSeconds: { $exists: true, $ne: null, $gt: 0 },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          avgReplyTimeSeconds: { $avg: '$responseTimeSeconds' },
+        },
+      },
+    ])
   ]);
+
+  const overallAvgReplyTimeSeconds = replyTimeStats[0]?.avgReplyTimeSeconds
+    ? Math.round(replyTimeStats[0].avgReplyTimeSeconds)
+    : 0;
 
   return success(res, {
     totalConversations,
@@ -561,6 +596,8 @@ const getChatReportsSummary = asyncHandler(async (req, res) => {
     convertedLeadsCount,
     totalOutboundMessages: totalOutbound,
     totalInboundMessages: totalInbound,
+    avgReplyTime: formatDuration(overallAvgReplyTimeSeconds),
+    avgReplyTimeSeconds: overallAvgReplyTimeSeconds,
     brandBreakdown: {
       zorucci: zorucciCount,
       suitor_guy: suitorGuyCount,
@@ -615,7 +652,16 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
     {
       $group: {
         _id: { $toUpper: "$senderId" },
-        outboundMessages: { $sum: 1 }
+        outboundMessages: { $sum: 1 },
+        avgResponseTimeSeconds: {
+          $avg: {
+            $cond: [
+              { $and: [{ $ne: ["$responseTimeSeconds", null] }, { $gt: ["$responseTimeSeconds", 0] }] },
+              "$responseTimeSeconds",
+              null
+            ]
+          }
+        }
       }
     }
   ];
@@ -633,7 +679,13 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
 
   const msgMap = {};
   msgResults.forEach(m => {
-    if (m._id) msgMap[String(m._id).toUpperCase()] = m.outboundMessages;
+    if (m._id) {
+      msgMap[String(m._id).toUpperCase()] = {
+        outboundMessages: m.outboundMessages || 0,
+        avgResponseTimeSeconds: m.avgResponseTimeSeconds ? Math.round(m.avgResponseTimeSeconds) : 0,
+        avgReplyTime: formatDuration(m.avgResponseTimeSeconds),
+      };
+    }
   });
 
   const processedIds = new Set();
@@ -654,7 +706,7 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
       convertedLeads: 0
     };
 
-    const outboundCount = msgMap[empId] || 0;
+    const msgStats = msgMap[empId] || { outboundMessages: 0, avgResponseTimeSeconds: 0, avgReplyTime: 'N/A' };
     const resolutionRate = c.totalChats > 0 ? ((c.resolvedChats / c.totalChats) * 100).toFixed(1) : 0;
     const leadConversionRate = c.totalChats > 0 ? ((c.convertedLeads / c.totalChats) * 100).toFixed(1) : 0;
 
@@ -681,7 +733,9 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
       whatsappChats: c.whatsappChats,
       instagramChats: c.instagramChats,
       facebookChats: c.facebookChats,
-      outboundMessages: outboundCount,
+      outboundMessages: msgStats.outboundMessages,
+      avgReplyTime: msgStats.avgReplyTime,
+      avgReplyTimeSeconds: msgStats.avgResponseTimeSeconds,
       convertedLeads: c.convertedLeads,
       resolutionRate: parseFloat(resolutionRate),
       leadConversionRate: parseFloat(leadConversionRate),
@@ -695,7 +749,7 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
     const empId = String(rawId).toUpperCase();
     if (!processedIds.has(empId)) {
       processedIds.add(empId);
-      const outboundCount = msgMap[empId] || 0;
+      const msgStats = msgMap[empId] || { outboundMessages: 0, avgResponseTimeSeconds: 0, avgReplyTime: 'N/A' };
       const resolutionRate = c.totalChats > 0 ? ((c.resolvedChats / c.totalChats) * 100).toFixed(1) : 0;
       const leadConversionRate = c.totalChats > 0 ? ((c.convertedLeads / c.totalChats) * 100).toFixed(1) : 0;
 
@@ -716,7 +770,9 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
         whatsappChats: c.whatsappChats,
         instagramChats: c.instagramChats,
         facebookChats: c.facebookChats,
-        outboundMessages: outboundCount,
+        outboundMessages: msgStats.outboundMessages,
+        avgReplyTime: msgStats.avgReplyTime,
+        avgReplyTimeSeconds: msgStats.avgResponseTimeSeconds,
         convertedLeads: c.convertedLeads,
         resolutionRate: parseFloat(resolutionRate),
         leadConversionRate: parseFloat(leadConversionRate),

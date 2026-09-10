@@ -155,6 +155,29 @@ const processInboundWhatsApp = async (body) => {
               status: 'open',
               unreadCount: 0,
             });
+
+            if (assignedTo && assignedTo !== 'system') {
+              socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
+                conversationId: conversation._id,
+                channel: 'whatsapp',
+                brand: conversation.brand,
+                brandName: conversation.brandName,
+                participant: conversation.participant,
+              });
+            }
+          } else if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+            const newAssignee = await findOrAssignTelecaller(rawPhone, customer?._id, brandInfo.storePrefix);
+            if (newAssignee && newAssignee !== 'system') {
+              conversation.assignedTo = newAssignee;
+              await conversation.save();
+              socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+                conversationId: conversation._id,
+                channel: 'whatsapp',
+                brand: conversation.brand,
+                brandName: conversation.brandName,
+                participant: conversation.participant,
+              });
+            }
           }
 
           // Extract message text / media
@@ -274,6 +297,29 @@ const processInboundInstagram = async (body) => {
             status: 'open',
             unreadCount: 0,
           });
+
+          if (assignedTo && assignedTo !== 'system') {
+            socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
+              conversationId: conversation._id,
+              channel: 'instagram',
+              brand: conversation.brand,
+              brandName: conversation.brandName,
+              participant: conversation.participant,
+            });
+          }
+        } else if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+          const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+          if (newAssignee && newAssignee !== 'system') {
+            conversation.assignedTo = newAssignee;
+            await conversation.save();
+            socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+              conversationId: conversation._id,
+              channel: 'instagram',
+              brand: conversation.brand,
+              brandName: conversation.brandName,
+              participant: conversation.participant,
+            });
+          }
         }
 
         let messageType = 'text';
@@ -398,6 +444,29 @@ const processInboundFacebook = async (body) => {
             status: 'open',
             unreadCount: 0,
           });
+
+          if (assignedTo && assignedTo !== 'system') {
+            socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
+              conversationId: conversation._id,
+              channel: 'facebook',
+              brand: conversation.brand,
+              brandName: conversation.brandName,
+              participant: conversation.participant,
+            });
+          }
+        } else if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+          const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+          if (newAssignee && newAssignee !== 'system') {
+            conversation.assignedTo = newAssignee;
+            await conversation.save();
+            socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+              conversationId: conversation._id,
+              channel: 'facebook',
+              brand: conversation.brand,
+              brandName: conversation.brandName,
+              participant: conversation.participant,
+            });
+          }
         }
 
         let messageType = 'text';
@@ -475,6 +544,21 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
   }
 
   const initialMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const now = new Date();
+
+  // Calculate response time from the latest customer message in this conversation
+  const lastCustomerMsg = await Message.findOne({
+    conversationId: conversation._id,
+    senderType: 'customer',
+  }).sort({ timestamp: -1 });
+
+  let responseTimeSeconds = undefined;
+  if (lastCustomerMsg && lastCustomerMsg.timestamp) {
+    const diffMs = now.getTime() - new Date(lastCustomerMsg.timestamp).getTime();
+    if (diffMs >= 0) {
+      responseTimeSeconds = Math.round(diffMs / 1000);
+    }
+  }
 
   // 1. Immediately create message in MongoDB
   const savedMessage = await Message.create({
@@ -488,8 +572,9 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
     messageType,
     text,
     media: media || undefined,
+    responseTimeSeconds,
     status: 'sent',
-    timestamp: new Date(),
+    timestamp: now,
   });
 
   // 2. Update conversation activity immediately
@@ -679,6 +764,21 @@ const convertChatToLead = async ({ conversationId, leadData = {}, createdBy }) =
       if (leadData.functionDate) existingLead.functionDate = new Date(leadData.functionDate);
       existingLead.updatedBy = telecallerId;
       await existingLead.save();
+
+      // Mark conversation as resolved / closed
+      conversation.status = 'resolved';
+      await conversation.save();
+
+      if (conversation.assignedTo) {
+        socketService.emitToTelecaller(conversation.assignedTo, 'chat:status_update', {
+          conversationId: conversation._id,
+          status: 'resolved',
+          leadId: existingLead._id,
+          channel: conversation.channel,
+          brand: conversation.brand,
+        });
+      }
+
       return existingLead;
     }
   }
@@ -700,9 +800,20 @@ const convertChatToLead = async ({ conversationId, leadData = {}, createdBy }) =
 
   const createdLead = await leadService.createLead(leadPayload);
 
-  // Link lead to conversation
+  // Link lead to conversation and auto-close (mark as resolved)
   conversation.leadId = createdLead._id;
+  conversation.status = 'resolved';
   await conversation.save();
+
+  if (conversation.assignedTo) {
+    socketService.emitToTelecaller(conversation.assignedTo, 'chat:status_update', {
+      conversationId: conversation._id,
+      status: 'resolved',
+      leadId: createdLead._id,
+      channel: conversation.channel,
+      brand: conversation.brand,
+    });
+  }
 
   return createdLead;
 };
@@ -779,13 +890,28 @@ const simulateInboundMessage = async ({
       unreadCount: 0,
     });
 
-    socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
-      conversationId: conversation._id,
-      channel,
-      brand: brandKey,
-      brandName,
-      participant: conversation.participant,
-    });
+    if (assignedTo && assignedTo !== 'system') {
+      socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
+        conversationId: conversation._id,
+        channel,
+        brand: brandKey,
+        brandName,
+        participant: conversation.participant,
+      });
+    }
+  } else if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+    const newAssignee = await findOrAssignTelecaller(normalizedPhone, conversation.customerId);
+    if (newAssignee && newAssignee !== 'system') {
+      conversation.assignedTo = newAssignee;
+      await conversation.save();
+      socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+        conversationId: conversation._id,
+        channel,
+        brand: brandKey,
+        brandName,
+        participant: conversation.participant,
+      });
+    }
   }
 
   const messageId = `sim_msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
@@ -833,6 +959,79 @@ const simulateInboundMessage = async ({
   };
 };
 
+/**
+ * Automatically reassigns any open conversations currently held under 'system' or unassigned
+ * to active online telecallers using least-busy load balancing.
+ */
+const reassignPendingSystemChats = async () => {
+  try {
+    const unassignedConversations = await Conversation.find({
+      status: 'open',
+      $or: [
+        { assignedTo: 'system' },
+        { assignedTo: null },
+        { assignedTo: { $exists: false } },
+        { assignedTo: '' },
+      ],
+    }).sort({ lastActivityAt: 1 });
+
+    if (!unassignedConversations.length) {
+      return { reassignedCount: 0 };
+    }
+
+    // Check active telecallers (logged in within 12h)
+    const activeUsers = await User.find({
+      lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) },
+      role: { $ne: 'admin' },
+    }).sort({ lastLoginAt: -1 });
+
+    if (!activeUsers.length) {
+      return { reassignedCount: 0, reason: 'No active telecallers online' };
+    }
+
+    let reassignedCount = 0;
+
+    for (const conversation of unassignedConversations) {
+      const assignedTo = await findOrAssignTelecaller(
+        conversation.participant?.phone || conversation.participant?.normalizedPhone,
+        conversation.customerId
+      );
+
+      if (assignedTo && assignedTo !== 'system') {
+        conversation.assignedTo = assignedTo;
+        await conversation.save();
+        reassignedCount++;
+
+        socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
+          conversationId: conversation._id,
+          channel: conversation.channel,
+          brand: conversation.brand,
+          brandName: conversation.brandName,
+          participant: conversation.participant,
+        });
+
+        // Also fetch latest message to display in UI immediately if unread
+        if (conversation.lastMessage) {
+          socketService.emitToTelecaller(assignedTo, 'chat:new_message', {
+            conversationId: conversation._id,
+            channel: conversation.channel,
+            brand: conversation.brand,
+            brandName: conversation.brandName,
+            message: conversation.lastMessage,
+            participant: conversation.participant,
+          });
+        }
+      }
+    }
+
+    console.log(`[ChatService] Reassigned ${reassignedCount} pending system chat(s) to active telecallers.`);
+    return { reassignedCount };
+  } catch (err) {
+    console.error('[ChatService] Error reassigning pending system chats:', err.message);
+    return { error: err.message };
+  }
+};
+
 module.exports = {
   processInboundWhatsApp,
   processInboundInstagram,
@@ -843,4 +1042,5 @@ module.exports = {
   transferConversation,
   findOrAssignTelecaller,
   simulateInboundMessage,
+  reassignPendingSystemChats,
 };
