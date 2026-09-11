@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const LeadMaster = require('../models/LeadMaster');
+const notificationService = require('../services/notificationService');
 
 /**
  * Assigns an array of newly created lead IDs evenly to currently logged-in telecallers.
@@ -25,6 +26,7 @@ const assignNewlySyncedLeads = async (leadIds) => {
 
   const bulkOps = [];
   const assignmentsLog = [];
+  const countsPerTelecaller = {};
   
   // Fetch phone numbers for better logging
   const leadsToAssign = await LeadMaster.find({ _id: { $in: leadIds } }).select('phone');
@@ -33,6 +35,7 @@ const assignNewlySyncedLeads = async (leadIds) => {
 
   leadIds.forEach((id, index) => {
     const telecaller = activeUsers[index % activeUsers.length];
+    countsPerTelecaller[telecaller.employeeId] = (countsPerTelecaller[telecaller.employeeId] || 0) + 1;
     
     assignmentsLog.push(`Lead: ${id} (Phone: ${phoneMap[id.toString()]}) -> Assigned to: ${telecaller.employeeId}`);
     
@@ -52,6 +55,19 @@ const assignNewlySyncedLeads = async (leadIds) => {
 
   console.log(`[LeadAssigner] Assignment Details:\n  ${assignmentsLog.join('\n  ')}`);
   await LeadMaster.bulkWrite(bulkOps, { ordered: false });
+
+  // Send push notification alerts to assigned telecallers
+  Object.entries(countsPerTelecaller).forEach(([employeeId, count]) => {
+    notificationService.sendNotificationToUser({
+      employeeId,
+      title: 'New Leads Assigned',
+      body: count === 1 ? 'You have been assigned 1 new lead.' : `You have been assigned ${count} new leads.`,
+      data: {
+        type: 'lead_batch',
+        count: String(count),
+      },
+    }).catch(() => {});
+  });
 };
 
 module.exports = { assignNewlySyncedLeads };

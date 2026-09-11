@@ -10,6 +10,8 @@ const userSchema = new mongoose.Schema(
     email: { type: String, trim: true },
     active: { type: Boolean, default: true },
     lastLoginAt: { type: Date },
+    fcmToken: { type: String, trim: true, default: null },
+    fcmTokenUpdatedAt: { type: Date },
   },
   {
     collection: 'users',
@@ -19,5 +21,6 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ lastLoginAt: -1 });
 userSchema.index({ role: 1 });
+userSchema.index({ fcmToken: 1 });
 
 module.exports = mongoose.model('User', userSchema);

@@ -20,17 +20,28 @@ const login = asyncHandler(async (req, res) => {
 
   // Upsert user into local users collection (to reflect in the admin panel)
   const empId = result.data?.employeeId || result.data?.userId || userId;
+  const fcmToken = (req.body.fcmToken || req.body.deviceToken || '').trim();
   if (empId) {
     const formattedEmpId = String(empId).replace(/\s+/g, '').toUpperCase();
+    const updateDoc = {
+      employeeId: formattedEmpId,
+      name: result.data?.name || formattedEmpId,
+      role: result.data?.role || 'Telecaller',
+      store: result.data?.Store || result.data?.store || null,
+      lastLoginAt: new Date(),
+    };
+    if (fcmToken) {
+      updateDoc.fcmToken = fcmToken;
+      updateDoc.fcmTokenUpdatedAt = new Date();
+      // Remove this token from other users
+      await User.updateMany(
+        { employeeId: { $ne: formattedEmpId }, fcmToken },
+        { $set: { fcmToken: null } }
+      );
+    }
     await User.findOneAndUpdate(
       { employeeId: { $regex: new RegExp('^' + formattedEmpId + '$', 'i') } },
-      {
-        employeeId: formattedEmpId,
-        name: result.data?.name || formattedEmpId,
-        role: result.data?.role || 'Telecaller',
-        store: result.data?.Store || result.data?.store || null,
-        lastLoginAt: new Date(),
-      },
+      updateDoc,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
   }
@@ -43,6 +54,7 @@ const telecallerLogin = asyncHandler(async (req, res) => {
   // Accept 'employeeId' (standard) or 'userId' (Flutter app compatibility)
   const employeeId = req.body.employeeId || req.body.userId;
   const { password } = req.body;
+  const fcmToken = (req.body.fcmToken || req.body.deviceToken || '').trim();
   const ts = new Date().toISOString();
 
   if (!employeeId || !password) {
@@ -74,15 +86,25 @@ const telecallerLogin = asyncHandler(async (req, res) => {
 
     // Upsert telecaller into local users collection (no password stored)
     const formattedEmpId = String(user.employeeId).replace(/\s+/g, '').toUpperCase();
+    const updateDoc = {
+      employeeId: formattedEmpId,
+      name: user.name,
+      role: user.role,
+      store: user.store,
+      lastLoginAt: new Date(),
+    };
+    if (fcmToken) {
+      updateDoc.fcmToken = fcmToken;
+      updateDoc.fcmTokenUpdatedAt = new Date();
+      // Remove this token from other users
+      await User.updateMany(
+        { employeeId: { $ne: formattedEmpId }, fcmToken },
+        { $set: { fcmToken: null } }
+      );
+    }
     await User.findOneAndUpdate(
       { employeeId: { $regex: new RegExp('^' + formattedEmpId + '$', 'i') } },
-      {
-        employeeId: formattedEmpId,
-        name: user.name,
-        role: user.role,
-        store: user.store,
-        lastLoginAt: new Date(),
-      },
+      updateDoc,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 

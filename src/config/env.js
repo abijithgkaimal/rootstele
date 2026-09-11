@@ -74,6 +74,10 @@ module.exports = {
     getEnv('FB_PAGE_ACCESS_TOKEN') ||
     getEnv('PAGE_ACCESS_TOKEN') ||
     getEnv('META_PAGE_ACCESS_TOKEN', ''),
+
+  // Firebase Cloud Messaging (FCM)
+  firebaseServiceAccountPath: getEnv('FIREBASE_SERVICE_ACCOUNT_PATH', ''),
+  firebaseServiceAccountKey: getEnv('FIREBASE_SERVICE_ACCOUNT_KEY', ''),
 };
 
 // Backward compatibility

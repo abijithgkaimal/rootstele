@@ -22,6 +22,7 @@ const healthRoutes = require("./src/routes/healthRoutes");
 const justDialRoutes = require("./src/routes/justDialRoutes");
 const webhookRoutes = require("./src/routes/webhookRoutes");
 const chatRoutes = require("./src/routes/chatRoutes");
+const userRoutes = require("./src/routes/userRoutes");
 
 const { handleAdminLogin, handleAdminLogout, renderLoginPage } = require("./src/middlewares/adminSession");
 const { setupSwagger } = require("./src/swagger/swagger");
@@ -64,6 +65,7 @@ app.post("/api/admin/logout", handleAdminLogout);
 app.use("/api/webhooks", webhookRoutes);
 
 app.use("/api", authRoutes);
+app.use("/api", userRoutes);
 app.use("/api/admin", adminPanelRoutes); // New admin APIs MUST be before leadRoutes to avoid JWT authMiddleware catch-all
 app.use("/api", adminRoutes); // Legacy admin MUST be before leadRoutes
 

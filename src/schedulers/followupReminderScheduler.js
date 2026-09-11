@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const LeadMaster = require('../models/LeadMaster');
 const socketService = require('../services/socketService');
+const notificationService = require('../services/notificationService');
 
 /**
  * Sweeps the database for due follow-ups and emits real-time alerts to assigned telecallers.
@@ -28,15 +29,27 @@ const checkFollowupReminders = async () => {
     for (const lead of dueFollowups) {
       const telecallerId = lead.updatedBy;
       if (telecallerId && telecallerId !== 'system') {
+        const customerDisplayName = lead.customerName || lead.name || lead.phone || 'Customer';
         socketService.emitToTelecaller(telecallerId, 'followup:reminder', {
           leadId: lead._id,
-          customerName: lead.customerName || lead.name || 'Unknown',
+          customerName: customerDisplayName,
           phone: lead.phone,
           store: lead.store,
           followupDate: lead.followupDate,
           remarks: lead.remarks,
           subCategory: lead.subCategory,
         });
+
+        notificationService.sendNotificationToUser({
+          employeeId: telecallerId,
+          title: 'Follow-up Reminder',
+          body: `Follow-up scheduled with ${customerDisplayName} (${lead.store || 'General'})`,
+          data: {
+            type: 'followup',
+            leadId: String(lead._id),
+            phone: String(lead.phone || ''),
+          },
+        }).catch(() => {});
       }
       alertedIds.push(lead._id);
     }

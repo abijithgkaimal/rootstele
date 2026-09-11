@@ -9,6 +9,7 @@ const customerService = require('./customerService');
 const leadService = require('./leadService');
 const metaSendService = require('./metaSendService');
 const socketService = require('./socketService');
+const notificationService = require('./notificationService');
 
 /**
  * Assigns a conversation to an active telecaller, prioritizing brand/store match.
@@ -237,7 +238,7 @@ const processInboundWhatsApp = async (body) => {
             $inc: { unreadCount: 1 },
           });
 
-          if (conversation.assignedTo) {
+          if (conversation.assignedTo && conversation.assignedTo !== 'system') {
             socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
               conversationId: conversation._id,
               channel: 'whatsapp',
@@ -246,6 +247,18 @@ const processInboundWhatsApp = async (body) => {
               message: savedMessage,
               participant: conversation.participant,
             });
+
+            notificationService.sendNotificationToUser({
+              employeeId: conversation.assignedTo,
+              title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New WhatsApp Message',
+              body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
+              data: {
+                type: 'chat',
+                chatId: String(conversation._id),
+                channel: 'whatsapp',
+                brand: conversation.brand || '',
+              },
+            }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
           }
         }
       }
@@ -371,7 +384,7 @@ const processInboundInstagram = async (body) => {
           $inc: { unreadCount: 1 },
         });
 
-        if (conversation.assignedTo) {
+        if (conversation.assignedTo && conversation.assignedTo !== 'system') {
           socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
             conversationId: conversation._id,
             channel: 'instagram',
@@ -380,6 +393,18 @@ const processInboundInstagram = async (body) => {
             message: savedMessage,
             participant: conversation.participant,
           });
+
+          notificationService.sendNotificationToUser({
+            employeeId: conversation.assignedTo,
+            title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New Instagram Message',
+            body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
+            data: {
+              type: 'chat',
+              chatId: String(conversation._id),
+              channel: 'instagram',
+              brand: conversation.brand || '',
+            },
+          }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
         }
       }
 
@@ -518,7 +543,7 @@ const processInboundFacebook = async (body) => {
           $inc: { unreadCount: 1 },
         });
 
-        if (conversation.assignedTo) {
+        if (conversation.assignedTo && conversation.assignedTo !== 'system') {
           socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
             conversationId: conversation._id,
             channel: 'facebook',
@@ -527,6 +552,18 @@ const processInboundFacebook = async (body) => {
             message: savedMessage,
             participant: conversation.participant,
           });
+
+          notificationService.sendNotificationToUser({
+            employeeId: conversation.assignedTo,
+            title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New Messenger Message',
+            body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
+            data: {
+              type: 'chat',
+              chatId: String(conversation._id),
+              channel: 'facebook',
+              brand: conversation.brand || '',
+            },
+          }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
         }
       }
     }
@@ -839,6 +876,20 @@ const transferConversation = async (conversationId, newTelecallerId) => {
     participant: conversation.participant,
   });
 
+  if (assignedTo && assignedTo !== 'system') {
+    notificationService.sendNotificationToUser({
+      employeeId: assignedTo,
+      title: 'Chat Assigned',
+      body: `Chat with ${conversation.participant?.name || conversation.participant?.phone || 'Customer'} has been assigned to you`,
+      data: {
+        type: 'chat',
+        chatId: String(conversation._id),
+        channel: conversation.channel || '',
+        brand: conversation.brand || '',
+      },
+    }).catch(() => {});
+  }
+
   return conversation;
 };
 
@@ -1020,6 +1071,18 @@ const reassignPendingSystemChats = async () => {
             message: conversation.lastMessage,
             participant: conversation.participant,
           });
+
+          notificationService.sendNotificationToUser({
+            employeeId: assignedTo,
+            title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New Message',
+            body: conversation.lastMessage.text || 'You have an unread message',
+            data: {
+              type: 'chat',
+              chatId: String(conversation._id),
+              channel: conversation.channel || '',
+              brand: conversation.brand || '',
+            },
+          }).catch(() => {});
         }
       }
     }

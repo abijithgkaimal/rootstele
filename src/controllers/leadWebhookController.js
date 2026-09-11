@@ -4,6 +4,7 @@ const { assignNewlySyncedLeads } = require('../utils/leadAssigner');
 const { normalize } = require('../utils/phoneNormalizer');
 const { normalizeStore } = require('../utils/storeNormalizer');
 const socketService = require('../services/socketService');
+const notificationService = require('../services/notificationService');
 const env = require('../config/env');
 
 /**
@@ -81,6 +82,17 @@ const ingestExternalLead = async (req, res) => {
         source: updatedLead.source,
         createdAt: updatedLead.createdAt,
       });
+
+      notificationService.sendNotificationToUser({
+        employeeId: assignedEmpId,
+        title: 'New Lead Assigned',
+        body: `New ${updatedLead.leadtype || 'lead'}: ${updatedLead.customerName || updatedLead.phone || 'Customer'} (${updatedLead.store || 'General'})`,
+        data: {
+          type: 'lead',
+          leadId: String(updatedLead._id),
+          phone: String(updatedLead.phone || ''),
+        },
+      }).catch((err) => console.error('[LeadWebhook] Push notification error:', err.message));
     }
 
     return res.status(201).json({
