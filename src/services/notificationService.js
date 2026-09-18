@@ -50,13 +50,54 @@ const sendDirectNotification = async ({ token, title, body, data = {} }) => {
     return { success: false, error: 'Firebase Messaging instance unavailable' };
   }
 
+  const cleanTitle = String(title || 'Notification');
+  const cleanBody = String(body || '');
+
+  // Ensure data payload includes title and body as well for background isolate compatibility
+  const cleanData = sanitizeDataPayload({
+    ...data,
+    title: cleanTitle,
+    body: cleanBody,
+  });
+
   const message = {
     token,
     notification: {
-      title: String(title || 'Notification'),
-      body: String(body || ''),
+      title: cleanTitle,
+      body: cleanBody,
     },
-    data: sanitizeDataPayload(data),
+    data: cleanData,
+    android: {
+      priority: 'high',
+      notification: {
+        title: cleanTitle,
+        body: cleanBody,
+        channelId: data?.channelId || 'high_importance_channel',
+        priority: 'high',
+        sound: 'default',
+        defaultSound: true,
+        defaultVibrateTimings: true,
+        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+        visibility: 'public',
+      },
+    },
+    apns: {
+      headers: {
+        'apns-priority': '10',
+        'apns-push-type': 'alert',
+      },
+      payload: {
+        aps: {
+          alert: {
+            title: cleanTitle,
+            body: cleanBody,
+          },
+          sound: 'default',
+          badge: 1,
+          contentAvailable: true,
+        },
+      },
+    },
   };
 
   try {
