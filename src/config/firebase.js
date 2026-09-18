@@ -1,15 +1,18 @@
-const admin = require('firebase-admin');
+const { initializeApp, cert, getApps, getApp } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
 const fs = require('fs');
 const path = require('path');
 const env = require('./env');
 
 let isInitialized = false;
+let firebaseApp = null;
 
 const initFirebase = () => {
-  const existingApps = admin.getApps ? admin.getApps() : (admin.apps || []);
+  const existingApps = getApps();
   if (existingApps.length > 0) {
     isInitialized = true;
-    return admin.getApp ? admin.getApp() : admin.app();
+    firebaseApp = getApp();
+    return firebaseApp;
   }
 
   let serviceAccount = null;
@@ -75,16 +78,12 @@ const initFirebase = () => {
   // 4. Initialize Firebase Admin SDK
   if (serviceAccount) {
     try {
-      const certCredential = admin.credential?.cert
-        ? admin.credential.cert(serviceAccount)
-        : admin.cert(serviceAccount);
-
-      admin.initializeApp({
-        credential: certCredential,
+      firebaseApp = initializeApp({
+        credential: cert(serviceAccount),
       });
       isInitialized = true;
       console.log('[Firebase] Firebase Admin SDK initialized successfully.');
-      return admin.app();
+      return firebaseApp;
     } catch (err) {
       console.error('[Firebase] Error initializing Firebase Admin SDK:', err.message);
     }
@@ -101,8 +100,7 @@ const initFirebase = () => {
 initFirebase();
 
 module.exports = {
-  admin,
   initFirebase,
   isInitialized: () => isInitialized,
-  getMessaging: () => (isInitialized ? admin.messaging() : null),
+  getMessaging: () => (isInitialized ? getMessaging(firebaseApp || getApp()) : null),
 };

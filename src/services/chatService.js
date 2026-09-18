@@ -993,8 +993,8 @@ const simulateInboundMessage = async ({
     $inc: { unreadCount: 1 },
   });
 
-  if (conversation.assignedTo) {
-    socketService.emitToTelecaller(conversation.assignedTo, 'chat:message', {
+  if (conversation.assignedTo && conversation.assignedTo !== 'system') {
+    socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
       conversationId: conversation._id,
       channel,
       brand: brandKey,
@@ -1002,6 +1002,18 @@ const simulateInboundMessage = async ({
       message: savedMessage,
       participant: conversation.participant,
     });
+
+    notificationService.sendNotificationToUser({
+      employeeId: conversation.assignedTo,
+      title: brandName ? `New Message - ${brandName}` : 'New Message',
+      body: text || 'You have a new message',
+      data: {
+        type: 'chat',
+        chatId: String(conversation._id),
+        channel,
+        brand: brandKey,
+      },
+    }).catch((err) => console.error('[ChatService] Simulation push notification error:', err.message));
   }
 
   return {
