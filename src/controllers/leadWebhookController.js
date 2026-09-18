@@ -85,10 +85,13 @@ const ingestExternalLead = async (req, res) => {
 
       notificationService.sendNotificationToUser({
         employeeId: assignedEmpId,
-        title: 'New Lead Assigned',
-        body: `New ${updatedLead.leadtype || 'lead'}: ${updatedLead.customerName || updatedLead.phone || 'Customer'} (${updatedLead.store || 'General'})`,
+        title: 'New Lead!',
+        body: `You have a new lead: ${updatedLead.customerName || updatedLead.name || updatedLead.phone || 'Customer'} (${updatedLead.store || 'General'})`,
         data: {
           type: 'lead',
+          source: String(updatedLead.source || 'webhook'),
+          leadName: String(updatedLead.customerName || updatedLead.name || updatedLead.phone || 'Customer'),
+          customerName: String(updatedLead.customerName || updatedLead.name || ''),
           leadId: String(updatedLead._id),
           phone: String(updatedLead.phone || ''),
         },
