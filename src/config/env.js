@@ -47,6 +47,20 @@ module.exports = {
   waPhoneIdSuitorGuy: getEnv('WA_PHONE_ID_SUITOR_GUY', ''),
   waPhoneIdDapperSquad: getEnv('WA_PHONE_ID_DAPPER_SQUAD', ''),
 
+  // Multi-Brand WhatsApp Access Tokens (Supports multiple Meta Business Portfolios)
+  waAccessTokenZorucci:
+    getEnv('WA_ACCESS_TOKEN_ZORUCCI') ||
+    getEnv('WHATSAPP_ACCESS_TOKEN_ZORUCCI') ||
+    getEnv('WHATSAPP_TOKEN_ZORUCCI', ''),
+  waAccessTokenSuitorGuy:
+    getEnv('WA_ACCESS_TOKEN_SUITOR_GUY') ||
+    getEnv('WHATSAPP_ACCESS_TOKEN_SUITOR_GUY') ||
+    getEnv('WHATSAPP_TOKEN_SUITOR_GUY', ''),
+  waAccessTokenDapperSquad:
+    getEnv('WA_ACCESS_TOKEN_DAPPER_SQUAD') ||
+    getEnv('WHATSAPP_ACCESS_TOKEN_DAPPER_SQUAD') ||
+    getEnv('WHATSAPP_TOKEN_DAPPER_SQUAD', ''),
+
   // Multi-Brand Instagram Account IDs
   igAccountIdZorucci: getEnv('IG_ACCOUNT_ID_ZORUCCI', ''),
   igAccountIdSuitorGuy: getEnv('IG_ACCOUNT_ID_SUITOR_GUY', ''),

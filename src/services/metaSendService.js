@@ -18,6 +18,66 @@ const axiosClient = axios.create({
 });
 
 /**
+ * Dynamically resolves WhatsApp Cloud API token based on Phone Number ID or Brand.
+ * Supports multiple Meta Business Portfolios (e.g. Zorucci vs Suitor Guy).
+ * @param {object} params
+ * @param {string} [params.phoneNumberId] - Meta WhatsApp Phone Number ID
+ * @param {string} [params.brand] - Brand identifier ('zorucci', 'suitor_guy', 'dapper_squad')
+ * @param {string} [params.customToken] - Explicit token override
+ * @returns {string} Access token to use for authorization
+ */
+const resolveWhatsAppToken = ({ phoneNumberId, brand, customToken } = {}) => {
+  if (customToken) return customToken;
+
+  const phoneIdStr = phoneNumberId ? String(phoneNumberId).trim() : '';
+  const normalizedBrand = (brand || '').toLowerCase().replace(/[\s_-]+/g, '_');
+
+  // 1. Suitor Guy Portfolio (External Business Portfolio)
+  if (
+    phoneIdStr === String(env.waPhoneIdSuitorGuy || '1343323682194803') ||
+    phoneIdStr === '1343323682194803' ||
+    normalizedBrand === 'suitor_guy' ||
+    normalizedBrand === 'suitorguy'
+  ) {
+    return (
+      env.waAccessTokenSuitorGuy ||
+      process.env.WA_ACCESS_TOKEN_SUITOR_GUY ||
+      process.env.WHATSAPP_ACCESS_TOKEN_SUITOR_GUY ||
+      process.env.WHATSAPP_TOKEN_SUITOR_GUY ||
+      env.metaAccessToken ||
+      ''
+    );
+  }
+
+  // 2. Dapper Squad Portfolio
+  if (
+    (env.waPhoneIdDapperSquad && phoneIdStr === String(env.waPhoneIdDapperSquad)) ||
+    normalizedBrand === 'dapper_squad' ||
+    normalizedBrand === 'dappersquad'
+  ) {
+    return (
+      env.waAccessTokenDapperSquad ||
+      process.env.WA_ACCESS_TOKEN_DAPPER_SQUAD ||
+      process.env.WHATSAPP_ACCESS_TOKEN_DAPPER_SQUAD ||
+      process.env.WHATSAPP_TOKEN_DAPPER_SQUAD ||
+      env.metaAccessToken ||
+      ''
+    );
+  }
+
+  // 3. Zorucci / Primary Portfolio (Default)
+  return (
+    env.waAccessTokenZorucci ||
+    process.env.WA_ACCESS_TOKEN_ZORUCCI ||
+    process.env.WHATSAPP_ACCESS_TOKEN_ZORUCCI ||
+    process.env.WHATSAPP_TOKEN_ZORUCCI ||
+    env.metaAccessToken ||
+    process.env.META_ACCESS_TOKEN ||
+    ''
+  );
+};
+
+/**
  * Send an outbound message to a WhatsApp user via Meta Cloud API.
  * @param {object} params
  * @param {string} params.to - Customer's phone number with country code (e.g. "919876543210")
@@ -26,16 +86,19 @@ const axiosClient = axios.create({
  * @param {object} [params.media] - { url, caption, fileName }
  * @param {object} [params.template] - { name, language, components }
  * @param {string} [params.phoneNumberId] - WhatsApp phone number ID (brand-specific)
+ * @param {string} [params.brand] - Brand identifier (e.g. 'zorucci', 'suitor_guy', 'dapper_squad')
+ * @param {string} [params.customToken] - Explicit token override
  */
-const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, phoneNumberId }) => {
-  const phoneId = phoneNumberId || env.whatsappPhoneNumberId;
-  const token = env.metaAccessToken;
+const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, phoneNumberId, brand, customToken }) => {
+  const phoneId = phoneNumberId || env.whatsappPhoneNumberId || env.waPhoneIdZorucci || '1342362268957786';
+  const token = resolveWhatsAppToken({ phoneNumberId: phoneId, brand, customToken });
 
   if (!phoneId || !token) {
-    console.warn('[MetaSendService] WhatsApp credentials not configured. Simulating outbound send.');
+    console.warn(`[MetaSendService] WhatsApp credentials not configured for Phone ID "${phoneId}" / Brand "${brand || 'default'}". Simulating outbound send.`);
     return {
       messageId: `wamid.SIMULATED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       simulated: true,
+      phoneNumberId: phoneId,
     };
   }
 
@@ -80,10 +143,10 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
     });
 
     const msgId = response.data?.messages?.[0]?.id || `wamid.${Date.now()}`;
-    return { messageId: msgId, data: response.data };
+    return { messageId: msgId, data: response.data, phoneNumberId: phoneId };
   } catch (err) {
     const errData = err.response?.data || err.message;
-    console.error('[MetaSendService] WhatsApp API send error:', JSON.stringify(errData));
+    console.error(`[MetaSendService] WhatsApp API send error (Phone ID ${phoneId}):`, JSON.stringify(errData));
     throw new Error(`WhatsApp send failed: ${err.response?.data?.error?.message || err.message}`);
   }
 };
@@ -328,9 +391,9 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pa
 /**
  * Mark a WhatsApp message as read.
  */
-const markWhatsAppAsRead = async ({ messageId, phoneNumberId }) => {
+const markWhatsAppAsRead = async ({ messageId, phoneNumberId, brand }) => {
   const phoneId = phoneNumberId || env.whatsappPhoneNumberId;
-  const token = env.metaAccessToken;
+  const token = resolveWhatsAppToken({ phoneNumberId: phoneId, brand });
   if (!phoneId || !token || !messageId) return false;
 
   try {
@@ -361,9 +424,10 @@ const markWhatsAppAsRead = async ({ messageId, phoneNumberId }) => {
  * Resolve direct CDN download URL for a WhatsApp Media ID via Meta Graph API.
  * @param {string} mediaId - WhatsApp media ID (e.g. "123456789")
  * @param {string} [customToken] - Explicit token override
+ * @param {object} [options] - { phoneNumberId, brand }
  * @returns {Promise<{ url: string, mimeType?: string, fileSize?: number }>}
  */
-const getWhatsAppMediaUrl = async (mediaId, customToken) => {
+const getWhatsAppMediaUrl = async (mediaId, customToken, options = {}) => {
   const idStr = mediaId ? String(mediaId).trim() : '';
   if (!idStr) return { url: '' };
 
@@ -375,7 +439,7 @@ const getWhatsAppMediaUrl = async (mediaId, customToken) => {
     return { url: idStr };
   }
 
-  const token = customToken || env.metaAccessToken || process.env.META_ACCESS_TOKEN || '';
+  const token = customToken || resolveWhatsAppToken(options) || env.metaAccessToken || process.env.META_ACCESS_TOKEN || '';
   if (!token) {
     return { url: idStr };
   }
@@ -404,6 +468,7 @@ const getWhatsAppMediaUrl = async (mediaId, customToken) => {
 module.exports = {
   getBrandCredentials,
   resolveFacebookCredentials,
+  resolveWhatsAppToken,
   sendWhatsAppMessage,
   sendInstagramMessage,
   sendFacebookMessage,

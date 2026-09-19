@@ -196,7 +196,10 @@ const processInboundWhatsApp = async (body) => {
             messageType = msg.type;
             const mediaObj = msg[msg.type] || {};
             text = mediaObj.caption || '';
-            const resolved = await metaSendService.getWhatsAppMediaUrl(mediaObj.id, env.metaAccessToken);
+            const resolved = await metaSendService.getWhatsAppMediaUrl(mediaObj.id, null, {
+              phoneNumberId,
+              brand: brandInfo.brand,
+            });
             attachmentUrl = resolved.url || mediaObj.link || mediaObj.id || '';
             mediaMetadata = {
               mimeType: resolved.mimeType || mediaObj.mime_type || '',
@@ -830,6 +833,7 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
           text,
           type: messageType,
           media,
+          brand: conversation.brand,
           phoneNumberId: conversation.channelId,
         });
       } else if (conversation.channel === 'instagram') {
