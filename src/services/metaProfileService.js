@@ -1,3 +1,4 @@
+const https = require('https');
 const axios = require('axios');
 const env = require('../config/env');
 const { getBrandCredentials } = require('./metaSendService');
@@ -5,6 +6,18 @@ const { getBrandCredentials } = require('./metaSendService');
 const GRAPH_API_VERSION = 'v20.0';
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+// Shared persistent HTTPS Agent for connection pooling & ultra-fast API response times
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  keepAliveMsecs: 30000,
+});
+
+const axiosClient = axios.create({
+  httpsAgent,
+  timeout: 8000,
+});
 
 // In-memory profile cache: Map<string, { data: object, expiresAt: number }>
 const profileCache = new Map();
@@ -75,7 +88,7 @@ const refreshPageTokensFromMeta = async () => {
 
   for (const token of candidateTokens) {
     try {
-      const res = await axios.get(`${GRAPH_API_BASE}/me/accounts`, {
+      const res = await axiosClient.get(`${GRAPH_API_BASE}/me/accounts`, {
         params: {
           fields: 'id,name,access_token,instagram_business_account,connected_instagram_account',
           access_token: token,
@@ -108,6 +121,38 @@ const refreshPageTokensFromMeta = async () => {
       // Continue to next candidate token
     }
   }
+};
+
+/**
+ * Retrieve cached or discovered Page Access Token for a brand or page ID.
+ * @param {object} options
+ * @param {string} [options.brand]
+ * @param {string} [options.pageId]
+ * @param {string} [options.igAccountId]
+ * @returns {Promise<string|null>}
+ */
+const getPageAccessToken = async ({ brand, pageId, igAccountId } = {}) => {
+  if (pageTokensCache.size === 0 || Date.now() - lastPageTokensFetch > 30 * 60 * 1000) {
+    await refreshPageTokensFromMeta().catch(() => {});
+  }
+
+  if (pageId) {
+    const token = pageTokensCache.get(`page_${pageId}`);
+    if (token) return token;
+  }
+
+  if (igAccountId) {
+    const token = pageTokensCache.get(`ig_${igAccountId}`);
+    if (token) return token;
+  }
+
+  if (brand) {
+    const normalizedBrand = String(brand).toLowerCase().replace(/[\s_-]+/g, '_');
+    const token = pageTokensCache.get(`brand_${normalizedBrand}`);
+    if (token) return token;
+  }
+
+  return null;
 };
 
 /**
@@ -171,7 +216,7 @@ const getCandidateAccessTokens = async ({ brand, pageAccessToken, pageId } = {})
  * @param {object} [options]
  * @param {string} [options.brand] - Brand key (e.g., 'zorucci', 'suitor_guy', 'dapper_squad')
  * @param {string} [options.pageAccessToken] - Explicit token override
- * @param {string} [options.pageId] - Instagram account ID or Facebook Page ID
+ * @param {string} [options.pageId] - Instagram Business Account or Page ID
  * @returns {Promise<{ name: string, username: string, profilePic: string }>}
  */
 const resolveInstagramProfile = async (igsid, options = {}) => {
@@ -209,7 +254,7 @@ const resolveInstagramProfile = async (igsid, options = {}) => {
   for (const token of tokens) {
     try {
       const url = `${GRAPH_API_BASE}/${userIdStr}`;
-      const response = await axios.get(url, {
+      const response = await axiosClient.get(url, {
         params: {
           fields: 'name,username,profile_pic',
           access_token: token,
@@ -282,7 +327,7 @@ const resolveFacebookProfile = async (psid, options = {}) => {
   for (const token of tokens) {
     try {
       const url = `${GRAPH_API_BASE}/${psidStr}`;
-      const response = await axios.get(url, {
+      const response = await axiosClient.get(url, {
         params: {
           fields: 'first_name,last_name,profile_pic',
           access_token: token,
@@ -324,6 +369,10 @@ const getProfileCacheSize = () => {
 module.exports = {
   resolveInstagramProfile,
   resolveFacebookProfile,
+  getPageAccessToken,
+  refreshPageTokensFromMeta,
+  axiosClient,
+  httpsAgent,
   getCachedProfile,
   setCachedProfile,
   clearProfileCache,

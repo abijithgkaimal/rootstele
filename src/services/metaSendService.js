@@ -1,7 +1,21 @@
+const https = require('https');
 const axios = require('axios');
 const env = require('../config/env');
 
-const GRAPH_API_BASE = 'https://graph.facebook.com/v20.0';
+const GRAPH_API_VERSION = 'v20.0';
+const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
+
+// Persistent HTTPS Agent with TCP connection pooling & keep-alive
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  keepAliveMsecs: 30000,
+});
+
+const axiosClient = axios.create({
+  httpsAgent,
+  timeout: 10000,
+});
 
 /**
  * Send an outbound message to a WhatsApp user via Meta Cloud API.
@@ -57,12 +71,12 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
   }
 
   try {
-    const response = await axios.post(url, payload, {
+    const response = await axiosClient.post(url, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      timeout: 15000,
+      timeout: 10000,
     });
 
     const msgId = response.data?.messages?.[0]?.id || `wamid.${Date.now()}`;
@@ -128,7 +142,20 @@ const sendInstagramMessage = async ({ recipientId, text, media, brand, accountId
   }
 
   const creds = getBrandCredentials(brand);
-  const token = pageAccessToken || creds.accessToken || env.metaAccessToken;
+  let token = pageAccessToken;
+  if (!token) {
+    try {
+      const metaProfileService = require('./metaProfileService');
+      token = await metaProfileService.getPageAccessToken({
+        brand,
+        pageId: creds.pageId || accountId,
+        igAccountId: creds.igAccountId,
+      });
+    } catch (_) {}
+  }
+  if (!token) {
+    token = creds.accessToken || env.metaAccessToken;
+  }
   const targetPageId = creds.pageId || accountId || 'me';
 
   if (!token) {
@@ -170,12 +197,12 @@ const sendInstagramMessage = async ({ recipientId, text, media, brand, accountId
   const url = `${GRAPH_API_BASE}/${targetPageId}/messages`;
 
   try {
-    const response = await axios.post(url, payload, {
+    const response = await axiosClient.post(url, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      timeout: 15000,
+      timeout: 10000,
     });
 
     const msgId = response.data?.message_id || response.data?.messages?.[0]?.id || `mid.${Date.now()}`;
@@ -193,17 +220,25 @@ const sendInstagramMessage = async ({ recipientId, text, media, brand, accountId
  * @param {string} [params.brand] - 'suitor_guy' | 'zorucci' | 'dapper_squad' | 'general'
  * @param {string} [params.pageId] - Facebook Page ID
  * @param {string} [params.pageAccessToken] - Explicit token override
- * @returns {{ token: string, pageId: string }}
+ * @returns {Promise<{ token: string, pageId: string }>}
  */
-const resolveFacebookCredentials = ({ brand, pageId, pageAccessToken } = {}) => {
+const resolveFacebookCredentials = async ({ brand, pageId, pageAccessToken } = {}) => {
   if (pageAccessToken) {
     return { token: pageAccessToken, pageId: pageId || 'me' };
   }
 
   const creds = getBrandCredentials(brand);
+  let discoveredToken = null;
+  try {
+    const metaProfileService = require('./metaProfileService');
+    discoveredToken = await metaProfileService.getPageAccessToken({
+      brand,
+      pageId: pageId || creds.pageId,
+    });
+  } catch (_) {}
 
   return {
-    token: creds.accessToken || env.fbPageAccessToken || env.metaAccessToken,
+    token: discoveredToken || creds.accessToken || env.fbPageAccessToken || env.metaAccessToken,
     pageId: pageId || creds.pageId || 'me',
   };
 };
@@ -231,7 +266,7 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pa
   }
 
   // 2. Brand & Access Token Resolution: dynamically select brand Page Access Token
-  const { token, pageId: resolvedPageId } = resolveFacebookCredentials({ brand, pageId, pageAccessToken });
+  const { token, pageId: resolvedPageId } = await resolveFacebookCredentials({ brand, pageId, pageAccessToken });
   const targetId = resolvedPageId || 'me';
   const url = `${GRAPH_API_BASE}/${targetId}/messages`;
 
@@ -273,12 +308,12 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pa
   };
 
   try {
-    const response = await axios.post(url, payload, {
+    const response = await axiosClient.post(url, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      timeout: 15000,
+      timeout: 10000,
     });
 
     const msgId = response.data?.message_id || `m_mid.${Date.now()}`;
@@ -300,7 +335,7 @@ const markWhatsAppAsRead = async ({ messageId, phoneNumberId }) => {
 
   try {
     const url = `${GRAPH_API_BASE}/${phoneId}/messages`;
-    await axios.post(
+    await axiosClient.post(
       url,
       {
         messaging_product: 'whatsapp',
@@ -312,7 +347,7 @@ const markWhatsAppAsRead = async ({ messageId, phoneNumberId }) => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        timeout: 10000,
+        timeout: 8000,
       }
     );
     return true;
@@ -346,8 +381,8 @@ const getWhatsAppMediaUrl = async (mediaId, customToken) => {
   }
 
   try {
-    const url = `https://graph.facebook.com/v26.0/${idStr}`;
-    const response = await axios.get(url, {
+    const url = `${GRAPH_API_BASE}/${idStr}`;
+    const response = await axiosClient.get(url, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
