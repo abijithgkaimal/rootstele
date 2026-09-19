@@ -67,6 +67,28 @@ const getConversations = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /api/chat/conversations/:id
+ * Retrieve a single conversation by ID.
+ */
+const getConversationById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, 'Invalid conversation ID');
+  }
+
+  const conversation = await Conversation.findById(id)
+    .populate('customerId', 'name phone normalizedPhone latestLeadStatus leadCount')
+    .populate('leadId', 'leadtype leadStatus store bookingNo')
+    .lean();
+
+  if (!conversation) {
+    throw new ApiError(404, 'Conversation not found');
+  }
+
+  return success(res, conversation);
+});
+
+/**
  * GET /api/chat/conversations/:id/messages
  * Retrieve paginated chat history for a conversation.
  */
@@ -201,6 +223,7 @@ const simulateInbound = asyncHandler(async (req, res) => {
 
 module.exports = {
   getConversations,
+  getConversationById,
   getMessages,
   sendMessage,
   markAsRead,

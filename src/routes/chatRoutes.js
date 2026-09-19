@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get('/conversations', chatController.getConversations);
+router.get('/conversations/:id', chatController.getConversationById);
 router.get('/conversations/:id/messages', chatController.getMessages);
 router.post('/conversations/:id/messages', chatController.sendMessage);
 router.post('/conversations/:id/read', chatController.markAsRead);
