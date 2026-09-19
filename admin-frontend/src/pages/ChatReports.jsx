@@ -69,9 +69,9 @@ const ChannelBadge = ({ channel }) => {
 const BrandBadge = ({ brand, brandName }) => {
   const b = (brand || '').toLowerCase();
   let style = 'bg-slate-100 text-slate-700';
-  if (b === 'suitor_guy') style = 'bg-cyan-50 text-cyan-800';
-  if (b === 'zorucci') style = 'bg-slate-800 text-white';
-  if (b === 'dapper_squad') style = 'bg-purple-50 text-purple-800';
+  if (b === 'suitor_guy') style = 'bg-[#0B25B7] text-white shadow-sm';
+  if (b === 'zorucci') style = 'bg-[#144234] text-white shadow-sm';
+  if (b === 'dapper_squad') style = 'bg-[#7B2869] text-white shadow-sm';
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${style}`}>

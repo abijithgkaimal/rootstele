@@ -111,16 +111,37 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
     to: cleanTo,
   };
 
-  if (type === 'text') {
+  if (type === 'text' && !media?.url) {
     payload.type = 'text';
     payload.text = { preview_url: true, body: text };
-  } else if (['image', 'video', 'audio', 'document'].includes(type) && media?.url) {
-    payload.type = type;
-    payload[type] = {
-      link: media.url,
-      caption: text || media.caption || undefined,
-      filename: media.fileName || undefined,
-    };
+  } else if (media?.url) {
+    const mediaType = (type === 'voice' ? 'audio' : (type === 'file' ? 'document' : type)) || 'image';
+    if (['image', 'video', 'audio', 'document'].includes(mediaType)) {
+      payload.type = mediaType;
+      if (mediaType === 'audio') {
+        // Meta WhatsApp Cloud API audio objects only accept link (no caption allowed)
+        payload.audio = { link: media.url };
+      } else if (mediaType === 'document') {
+        payload.document = {
+          link: media.url,
+          filename: media.fileName || 'document.pdf',
+          caption: text || media.caption || undefined,
+        };
+      } else if (mediaType === 'image') {
+        payload.image = {
+          link: media.url,
+          caption: text || media.caption || undefined,
+        };
+      } else if (mediaType === 'video') {
+        payload.video = {
+          link: media.url,
+          caption: text || media.caption || undefined,
+        };
+      }
+    } else {
+      payload.type = 'text';
+      payload.text = { body: text || media.url };
+    }
   } else if (type === 'template' && template) {
     payload.type = 'template';
     payload.template = {
@@ -242,10 +263,12 @@ const sendInstagramMessage = async ({ recipientId, text, media, brand, accountId
 
   let messagePayload = {};
   if (media?.url) {
+    const rawType = (media.type || (media.mimeType && media.mimeType.startsWith('video') ? 'video' : (media.mimeType && media.mimeType.startsWith('audio') ? 'audio' : 'image'))).toLowerCase();
+    const attType = ['image', 'video', 'audio', 'file'].includes(rawType) ? rawType : (rawType.includes('voice') ? 'audio' : 'image');
     messagePayload = {
       attachment: {
-        type: media.type || 'image',
-        payload: { url: media.url },
+        type: attType,
+        payload: { url: media.url, is_reusable: true },
       },
     };
   } else {
@@ -354,10 +377,12 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pa
 
   let messagePayload = {};
   if (media?.url) {
+    const rawType = (media.type || (media.mimeType && media.mimeType.startsWith('video') ? 'video' : (media.mimeType && media.mimeType.startsWith('audio') ? 'audio' : 'image'))).toLowerCase();
+    const attType = ['image', 'video', 'audio', 'file'].includes(rawType) ? rawType : (rawType.includes('voice') ? 'audio' : 'image');
     messagePayload = {
       attachment: {
-        type: media.type || 'image',
-        payload: { url: media.url },
+        type: attType,
+        payload: { url: media.url, is_reusable: true },
       },
     };
   } else {
