@@ -68,8 +68,8 @@ const verifySignature = (req) => {
  * Handle incoming Meta webhook events (POST /api/webhooks/meta).
  */
 const handleWebhook = async (req, res) => {
-  // Log full incoming Meta webhook event for inspection
-  console.log('--- INCOMING META WEBHOOK ---', JSON.stringify(req.body, null, 2));
+  // 1. Log full incoming Meta webhook event immediately on line 1 before any processing
+  console.log('--- INCOMING META WEBHOOK RAW BODY ---', JSON.stringify(req.body, null, 2));
 
   try {
     const body = req.body || {};

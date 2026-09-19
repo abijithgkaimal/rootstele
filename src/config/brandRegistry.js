@@ -6,14 +6,28 @@
 
 const BRAND_REGISTRY = {
   // ─── WHATSAPP BUSINESS NUMBERS (Mapped by Phone Number ID) ───
-  [process.env.WA_PHONE_ID_ZORUCCI || 'WA_PHONE_ID_ZORUCCI']: {
+  [process.env.WA_PHONE_ID_ZORUCCI || '1342362268957786']: {
     brand: 'zorucci',
     brandName: 'Zorucci',
     channel: 'whatsapp',
     storePrefix: 'Z-',
     themeColor: '#1A1A1A',
   },
-  [process.env.WA_PHONE_ID_SUITOR_GUY || 'WA_PHONE_ID_SUITOR_GUY']: {
+  '1342362268957786': {
+    brand: 'zorucci',
+    brandName: 'Zorucci',
+    channel: 'whatsapp',
+    storePrefix: 'Z-',
+    themeColor: '#1A1A1A',
+  },
+  [process.env.WA_PHONE_ID_SUITOR_GUY || '1343323682194803']: {
+    brand: 'suitor_guy',
+    brandName: 'Suitor Guy',
+    channel: 'whatsapp',
+    storePrefix: 'SG-',
+    themeColor: '#0A4D68',
+  },
+  '1343323682194803': {
     brand: 'suitor_guy',
     brandName: 'Suitor Guy',
     channel: 'whatsapp',
