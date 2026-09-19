@@ -135,7 +135,7 @@ components:
           example: EMP102
         messageType:
           type: string
-          enum: [text, image, video, audio, document, template, interactive]
+          enum: [text, image, audio, video, file, document, ig_reel, share, story_mention, fallback, template, interactive]
           example: text
         text:
           type: string

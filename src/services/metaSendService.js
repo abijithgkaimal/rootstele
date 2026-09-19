@@ -322,6 +322,50 @@ const markWhatsAppAsRead = async ({ messageId, phoneNumberId }) => {
   }
 };
 
+/**
+ * Resolve direct CDN download URL for a WhatsApp Media ID via Meta Graph API.
+ * @param {string} mediaId - WhatsApp media ID (e.g. "123456789")
+ * @param {string} [customToken] - Explicit token override
+ * @returns {Promise<{ url: string, mimeType?: string, fileSize?: number }>}
+ */
+const getWhatsAppMediaUrl = async (mediaId, customToken) => {
+  const idStr = mediaId ? String(mediaId).trim() : '';
+  if (!idStr) return { url: '' };
+
+  // If already a full URL or simulated ID, return directly
+  if (idStr.startsWith('http://') || idStr.startsWith('https://')) {
+    return { url: idStr };
+  }
+  if (idStr.startsWith('sim_') || idStr.startsWith('test_')) {
+    return { url: idStr };
+  }
+
+  const token = customToken || env.metaAccessToken || process.env.META_ACCESS_TOKEN || '';
+  if (!token) {
+    return { url: idStr };
+  }
+
+  try {
+    const url = `https://graph.facebook.com/v26.0/${idStr}`;
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      timeout: 6000,
+    });
+
+    const data = response.data || {};
+    return {
+      url: data.url || idStr,
+      mimeType: data.mime_type || undefined,
+      fileSize: data.file_size || undefined,
+    };
+  } catch (err) {
+    console.warn(`[MetaSendService] Failed to resolve WhatsApp media URL for ${idStr}: ${err.message}`);
+    return { url: idStr };
+  }
+};
+
 module.exports = {
   getBrandCredentials,
   resolveFacebookCredentials,
@@ -329,4 +373,5 @@ module.exports = {
   sendInstagramMessage,
   sendFacebookMessage,
   markWhatsAppAsRead,
+  getWhatsAppMediaUrl,
 };

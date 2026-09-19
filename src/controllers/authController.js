@@ -2,6 +2,7 @@ const authService = require('../services/authService');
 const { success, error } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const User = require('../models/User');
+const chatService = require('../services/chatService');
 
 const login = asyncHandler(async (req, res) => {
   const { userId, password } = req.body;
@@ -44,6 +45,11 @@ const login = asyncHandler(async (req, res) => {
       updateDoc,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+
+    // Auto-reassign any system-held/backlog chats to active telecallers
+    chatService.reassignPendingSystemChats().catch((err) => {
+      console.error('[Auth] Error auto-reassigning system chats on login:', err.message);
+    });
   }
 
   return success(res, data, 'Login successful');
@@ -107,6 +113,11 @@ const telecallerLogin = asyncHandler(async (req, res) => {
       updateDoc,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+
+    // Auto-reassign any system-held/backlog chats to active telecallers
+    chatService.reassignPendingSystemChats().catch((err) => {
+      console.error('[Auth] Error auto-reassigning system chats on login:', err.message);
+    });
 
     const token = authService.generateToken(user, { expiresIn: '12h' });
 

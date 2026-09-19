@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const LeadMaster = require('../models/LeadMaster');
 const socketService = require('../services/socketService');
 const notificationService = require('../services/notificationService');
+const chatService = require('../services/chatService');
 
 /**
  * Sweeps the database for due follow-ups and emits real-time alerts to assigned telecallers.
@@ -70,18 +71,24 @@ const checkFollowupReminders = async () => {
 };
 
 /**
- * Initialize Followup Reminder Scheduler cron job (every 5 minutes).
+ * Initialize Followup Reminder & System Chat Auto-Reassign Scheduler cron job (every 5 minutes).
  */
 const initializeFollowupScheduler = () => {
-  console.log('[FollowupScheduler] Initializing Followup Reminder Scheduler (every 5 minutes)...');
+  console.log('[FollowupScheduler] Initializing Followup Reminder & System Chat Reassign Scheduler (every 5 minutes)...');
 
   cron.schedule('*/5 * * * *', async () => {
     await checkFollowupReminders();
+    await chatService.reassignPendingSystemChats().catch((err) => {
+      console.error('[FollowupScheduler] Error auto-reassigning system chats:', err.message);
+    });
   });
 
   // Run an immediate sweep on boot
   checkFollowupReminders().catch((err) => {
     console.error('[FollowupScheduler] Boot sweep failed:', err.message);
+  });
+  chatService.reassignPendingSystemChats().catch((err) => {
+    console.error('[FollowupScheduler] Boot system chat sweep failed:', err.message);
   });
 };
 

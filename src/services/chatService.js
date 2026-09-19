@@ -8,6 +8,7 @@ const { resolveBrandByChannelId } = require('../config/brandRegistry');
 const customerService = require('./customerService');
 const leadService = require('./leadService');
 const metaSendService = require('./metaSendService');
+const metaProfileService = require('./metaProfileService');
 const socketService = require('./socketService');
 const notificationService = require('./notificationService');
 
@@ -185,6 +186,8 @@ const processInboundWhatsApp = async (body) => {
           let messageType = 'text';
           let text = '';
           let media = null;
+          let attachmentUrl = undefined;
+          let mediaMetadata = undefined;
 
           if (msg.type === 'text') {
             messageType = 'text';
@@ -193,11 +196,20 @@ const processInboundWhatsApp = async (body) => {
             messageType = msg.type;
             const mediaObj = msg[msg.type] || {};
             text = mediaObj.caption || '';
-            media = {
-              url: mediaObj.id || mediaObj.link || '',
-              mimeType: mediaObj.mime_type || '',
+            const resolved = await metaSendService.getWhatsAppMediaUrl(mediaObj.id, env.metaAccessToken);
+            attachmentUrl = resolved.url || mediaObj.link || mediaObj.id || '';
+            mediaMetadata = {
+              mimeType: resolved.mimeType || mediaObj.mime_type || '',
               fileName: mediaObj.filename || `${msg.type}_${Date.now()}`,
-              fileSize: mediaObj.file_size || 0,
+              fileSize: resolved.fileSize || mediaObj.file_size || 0,
+              title: text || undefined,
+            };
+            media = {
+              url: attachmentUrl,
+              mimeType: mediaMetadata.mimeType,
+              fileName: mediaMetadata.fileName,
+              fileSize: mediaMetadata.fileSize,
+              title: mediaMetadata.title,
             };
           } else if (msg.type === 'interactive') {
             messageType = 'interactive';
@@ -209,6 +221,8 @@ const processInboundWhatsApp = async (body) => {
             text = `[${msg.type} message]`;
           }
 
+          const customerSenderName = contactName || conversation.participant?.name || (customer ? customer.name : rawPhone);
+
           const savedMessage = await Message.create({
             conversationId: conversation._id,
             messageId,
@@ -216,8 +230,11 @@ const processInboundWhatsApp = async (body) => {
             brand: conversation.brand,
             senderType: 'customer',
             senderId: rawPhone,
+            senderName: customerSenderName,
             messageType,
             text,
+            attachmentUrl,
+            mediaMetadata,
             media: media || undefined,
             status: 'delivered',
             rawPayload: msg,
@@ -287,6 +304,11 @@ const processInboundInstagram = async (body) => {
         const existing = await Message.findOne({ messageId });
         if (existing) continue;
 
+        const profile = await metaProfileService.resolveInstagramProfile(igUserId, {
+          brand: brandInfo.brand,
+          pageId: recipientId,
+        });
+
         let conversation = await Conversation.findOne({
           channel: 'instagram',
           channelId: recipientId,
@@ -295,7 +317,6 @@ const processInboundInstagram = async (body) => {
 
         if (!conversation) {
           const assignedTo = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-          const userIdStr = igUserId ? String(igUserId) : 'User';
           conversation = await Conversation.create({
             channel: 'instagram',
             brand: brandInfo.brand,
@@ -304,7 +325,9 @@ const processInboundInstagram = async (body) => {
             participant: {
               socialUserId: igUserId,
               igUserId,
-              name: `Instagram User (${userIdStr.slice(-4)})`,
+              name: profile.name,
+              username: profile.username || undefined,
+              profilePic: profile.profilePic || undefined,
             },
             assignedTo,
             status: 'open',
@@ -320,40 +343,113 @@ const processInboundInstagram = async (body) => {
               participant: conversation.participant,
             });
           }
-        } else if (!conversation.assignedTo || conversation.assignedTo === 'system') {
-          const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-          if (newAssignee && newAssignee !== 'system') {
-            conversation.assignedTo = newAssignee;
+        } else {
+          let updated = false;
+          if (profile.name && (!conversation.participant?.name || conversation.participant.name.startsWith('Instagram User'))) {
+            conversation.participant = conversation.participant || {};
+            conversation.participant.name = profile.name;
+            updated = true;
+          }
+          if (profile.username && conversation.participant?.username !== profile.username) {
+            conversation.participant = conversation.participant || {};
+            conversation.participant.username = profile.username;
+            updated = true;
+          }
+          if (profile.profilePic && conversation.participant?.profilePic !== profile.profilePic) {
+            conversation.participant = conversation.participant || {};
+            conversation.participant.profilePic = profile.profilePic;
+            updated = true;
+          }
+
+          if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+            const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+            if (newAssignee && newAssignee !== 'system') {
+              conversation.assignedTo = newAssignee;
+              updated = true;
+              socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+                conversationId: conversation._id,
+                channel: 'instagram',
+                brand: conversation.brand,
+                brandName: conversation.brandName,
+                participant: conversation.participant,
+              });
+            }
+          }
+
+          if (updated) {
             await conversation.save();
-            socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
-              conversationId: conversation._id,
-              channel: 'instagram',
-              brand: conversation.brand,
-              brandName: conversation.brandName,
-              participant: conversation.participant,
-            });
           }
         }
 
         let messageType = 'text';
         let text = event.message.text || '';
         let media = null;
+        let attachmentUrl = undefined;
+        let mediaMetadata = undefined;
 
         if (event.message.attachments && event.message.attachments.length > 0) {
           const att = event.message.attachments[0];
-          messageType = att.type || 'image';
-          media = {
-            url: att.payload?.url || '',
-            mimeType: att.type || '',
+          const rawType = (att.type || 'image').toLowerCase();
+          const validTypes = [
+            'text',
+            'image',
+            'audio',
+            'video',
+            'file',
+            'document',
+            'ig_reel',
+            'share',
+            'story_mention',
+            'fallback',
+          ];
+          messageType = validTypes.includes(rawType)
+            ? rawType
+            : (rawType.includes('reel') ? 'ig_reel' : 'image');
+
+          const payload = att.payload || {};
+          const mediaUrl =
+            payload.url ||
+            payload.reel_url ||
+            (payload.reel_video_id ? `https://www.instagram.com/reel/${payload.reel_video_id}/` : '') ||
+            '';
+
+          attachmentUrl = mediaUrl;
+          mediaMetadata = {
+            title: payload.title || undefined,
+            reelVideoId: payload.reel_video_id || undefined,
+            mimeType: payload.mime_type || att.type || '',
             fileName: `ig_${messageType}_${Date.now()}`,
+            fileSize: payload.file_size || undefined,
           };
-          if (!text) text = `[Instagram ${messageType}]`;
+
+          media = {
+            url: attachmentUrl,
+            mimeType: mediaMetadata.mimeType,
+            fileName: mediaMetadata.fileName,
+            fileSize: mediaMetadata.fileSize,
+            title: mediaMetadata.title,
+            reelVideoId: mediaMetadata.reelVideoId,
+          };
+
+          if (!text) {
+            if (messageType === 'ig_reel') {
+              text = payload.title ? `[Instagram Reel: ${payload.title}]` : '[Instagram Reel]';
+            } else if (messageType === 'share') {
+              text = payload.title ? `[Shared Post: ${payload.title}]` : '[Instagram Shared Post]';
+            } else if (messageType === 'story_mention') {
+              text = '[Mentioned in Instagram Story]';
+            } else {
+              text = `[Instagram ${messageType}]`;
+            }
+          }
         }
 
         const rawTs = Number(event.timestamp);
         const msgDate = !isNaN(rawTs) && rawTs > 0
           ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs)
           : new Date();
+
+        const customerSenderName = profile.name || conversation.participant?.name || 'Instagram User';
 
         const savedMessage = await Message.create({
           conversationId: conversation._id,
@@ -362,8 +458,11 @@ const processInboundInstagram = async (body) => {
           brand: conversation.brand,
           senderType: 'customer',
           senderId: igUserId,
+          senderName: customerSenderName,
           messageType,
           text,
+          attachmentUrl,
+          mediaMetadata,
           media: media || undefined,
           status: 'delivered',
           rawPayload: event,
@@ -447,6 +546,11 @@ const processInboundFacebook = async (body) => {
         const existing = await Message.findOne({ messageId });
         if (existing) continue;
 
+        const profile = await metaProfileService.resolveFacebookProfile(psid, {
+          brand: brandInfo.brand,
+          pageId: recipientId,
+        });
+
         let conversation = await Conversation.findOne({
           channel: 'facebook',
           channelId: recipientId,
@@ -455,7 +559,6 @@ const processInboundFacebook = async (body) => {
 
         if (!conversation) {
           const assignedTo = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-          const psidStr = psid ? String(psid) : 'User';
           conversation = await Conversation.create({
             channel: 'facebook',
             brand: brandInfo.brand,
@@ -463,7 +566,8 @@ const processInboundFacebook = async (body) => {
             channelId: recipientId,
             participant: {
               socialUserId: psid,
-              name: `Facebook User (${psidStr.slice(-4)})`,
+              name: profile.name,
+              profilePic: profile.profilePic || undefined,
             },
             assignedTo,
             status: 'open',
@@ -479,40 +583,98 @@ const processInboundFacebook = async (body) => {
               participant: conversation.participant,
             });
           }
-        } else if (!conversation.assignedTo || conversation.assignedTo === 'system') {
-          const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-          if (newAssignee && newAssignee !== 'system') {
-            conversation.assignedTo = newAssignee;
+        } else {
+          let updated = false;
+          if (profile.name && (!conversation.participant?.name || conversation.participant.name.startsWith('Facebook User'))) {
+            conversation.participant = conversation.participant || {};
+            conversation.participant.name = profile.name;
+            updated = true;
+          }
+          if (profile.profilePic && conversation.participant?.profilePic !== profile.profilePic) {
+            conversation.participant = conversation.participant || {};
+            conversation.participant.profilePic = profile.profilePic;
+            updated = true;
+          }
+
+          if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+            const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+            if (newAssignee && newAssignee !== 'system') {
+              conversation.assignedTo = newAssignee;
+              updated = true;
+              socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+                conversationId: conversation._id,
+                channel: 'facebook',
+                brand: conversation.brand,
+                brandName: conversation.brandName,
+                participant: conversation.participant,
+              });
+            }
+          }
+
+          if (updated) {
             await conversation.save();
-            socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
-              conversationId: conversation._id,
-              channel: 'facebook',
-              brand: conversation.brand,
-              brandName: conversation.brandName,
-              participant: conversation.participant,
-            });
           }
         }
 
         let messageType = 'text';
         let text = event.message.text || '';
         let media = null;
+        let attachmentUrl = undefined;
+        let mediaMetadata = undefined;
 
         if (event.message.attachments && event.message.attachments.length > 0) {
           const att = event.message.attachments[0];
-          messageType = att.type || 'image';
-          media = {
-            url: att.payload?.url || '',
-            mimeType: att.type || '',
+          const rawType = (att.type || 'image').toLowerCase();
+          const validTypes = [
+            'text',
+            'image',
+            'audio',
+            'video',
+            'file',
+            'document',
+            'ig_reel',
+            'share',
+            'story_mention',
+            'fallback',
+          ];
+          messageType = validTypes.includes(rawType)
+            ? rawType
+            : (rawType.includes('reel') ? 'ig_reel' : 'image');
+
+          const payload = att.payload || {};
+          const mediaUrl = payload.url || payload.reel_url || '';
+
+          attachmentUrl = mediaUrl;
+          mediaMetadata = {
+            title: payload.title || undefined,
+            mimeType: payload.mime_type || att.type || '',
             fileName: `fb_${messageType}_${Date.now()}`,
           };
-          if (!text) text = `[Facebook ${messageType}]`;
+
+          media = {
+            url: attachmentUrl,
+            mimeType: mediaMetadata.mimeType,
+            fileName: mediaMetadata.fileName,
+            title: mediaMetadata.title,
+          };
+
+          if (!text) {
+            if (messageType === 'share') {
+              text = payload.title ? `[Shared Post: ${payload.title}]` : '[Facebook Shared Post]';
+            } else if (messageType === 'fallback') {
+              text = payload.title || '[Facebook Attachment]';
+            } else {
+              text = `[Facebook ${messageType}]`;
+            }
+          }
         }
 
         const rawTs = Number(event.timestamp);
         const msgDate = !isNaN(rawTs) && rawTs > 0
           ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs)
           : new Date();
+
+        const customerSenderName = profile.name || conversation.participant?.name || 'Facebook User';
 
         const savedMessage = await Message.create({
           conversationId: conversation._id,
@@ -521,8 +683,11 @@ const processInboundFacebook = async (body) => {
           brand: conversation.brand,
           senderType: 'customer',
           senderId: psid,
+          senderName: customerSenderName,
           messageType,
           text,
+          attachmentUrl,
+          mediaMetadata,
           media: media || undefined,
           status: 'delivered',
           rawPayload: event,
@@ -597,6 +762,18 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
     }
   }
 
+  const outboundSenderName = senderId || conversation.assignedTo || 'Agent';
+  const attachmentUrl = media?.url || undefined;
+  const mediaMetadata = media?.url
+    ? {
+        title: media.title,
+        reelVideoId: media.reelVideoId,
+        mimeType: media.mimeType,
+        fileName: media.fileName,
+        fileSize: media.fileSize,
+      }
+    : undefined;
+
   // 1. Immediately create message in MongoDB
   const savedMessage = await Message.create({
     conversationId: conversation._id,
@@ -606,8 +783,11 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
     brand: conversation.brand,
     senderType: 'telecaller',
     senderId: senderId || conversation.assignedTo || 'system',
+    senderName: outboundSenderName,
     messageType,
     text,
+    attachmentUrl,
+    mediaMetadata,
     media: media || undefined,
     responseTimeSeconds,
     status: 'sent',
@@ -902,7 +1082,11 @@ const simulateInboundMessage = async ({
   phone = '9876543210',
   customerName = 'Test Customer',
   text = 'Hello! I need a suit rental for wedding next week',
-  socialUserId
+  socialUserId,
+  messageType = 'text',
+  media,
+  attachmentUrl,
+  mediaMetadata,
 }) => {
   const brandKey = (brand || 'suitor_guy').toLowerCase();
   const brandName = brandKey === 'suitor_guy' ? 'Suitor Guy' : brandKey === 'zorucci' ? 'Zorucci' : 'Dapper Squad';
@@ -965,6 +1149,15 @@ const simulateInboundMessage = async ({
     }
   }
 
+  const resolvedAttachmentUrl = attachmentUrl || media?.url || undefined;
+  const resolvedMediaMetadata = mediaMetadata || (media?.url ? {
+    title: media.title,
+    reelVideoId: media.reelVideoId,
+    mimeType: media.mimeType,
+    fileName: media.fileName,
+    fileSize: media.fileSize,
+  } : undefined);
+
   const messageId = `sim_msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const savedMessage = await Message.create({
     conversationId: conversation._id,
@@ -973,8 +1166,19 @@ const simulateInboundMessage = async ({
     brand: brandKey,
     senderType: 'customer',
     senderId: channel === 'whatsapp' ? normalizedPhone : userId,
-    messageType: 'text',
+    senderName: customerName,
+    messageType,
     text,
+    attachmentUrl: resolvedAttachmentUrl,
+    mediaMetadata: resolvedMediaMetadata,
+    media: media || (resolvedAttachmentUrl ? {
+      url: resolvedAttachmentUrl,
+      title: resolvedMediaMetadata?.title,
+      reelVideoId: resolvedMediaMetadata?.reelVideoId,
+      mimeType: resolvedMediaMetadata?.mimeType,
+      fileName: resolvedMediaMetadata?.fileName,
+      fileSize: resolvedMediaMetadata?.fileSize,
+    } : undefined),
     status: 'delivered',
     timestamp: new Date(),
   });
@@ -984,7 +1188,7 @@ const simulateInboundMessage = async ({
       lastMessage: {
         text,
         senderType: 'customer',
-        messageType: 'text',
+        messageType,
         timestamp: savedMessage.timestamp,
       },
       lastActivityAt: savedMessage.timestamp,
@@ -1006,7 +1210,7 @@ const simulateInboundMessage = async ({
     notificationService.sendNotificationToUser({
       employeeId: conversation.assignedTo,
       title: brandName ? `New Message - ${brandName}` : 'New Message',
-      body: text || 'You have a new message',
+      body: text || (resolvedAttachmentUrl ? `[${messageType} attachment]` : 'You have a new message'),
       data: {
         type: 'chat',
         chatId: String(conversation._id),
