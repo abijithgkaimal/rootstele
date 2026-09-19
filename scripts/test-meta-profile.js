@@ -65,10 +65,10 @@ async function runTests() {
 
   // Test 6: Graph API Constants & Version
   console.log('Test 6: Graph API version check');
-  assert.strictEqual(metaProfileService.GRAPH_API_VERSION, 'v26.0');
-  assert.strictEqual(metaProfileService.GRAPH_API_BASE, 'https://graph.facebook.com/v26.0');
+  assert.strictEqual(metaProfileService.GRAPH_API_VERSION, 'v20.0');
+  assert.strictEqual(metaProfileService.GRAPH_API_BASE, 'https://graph.facebook.com/v20.0');
   assert.strictEqual(metaProfileService.CACHE_TTL_MS, 24 * 60 * 60 * 1000);
-  console.log('✓ Graph API is configured for v26.0 and 24h TTL');
+  console.log('✓ Graph API is configured for v20.0 and 24h TTL');
 
   console.log('\n--- All Meta Profile Service Tests Passed Successfully! ---');
 }

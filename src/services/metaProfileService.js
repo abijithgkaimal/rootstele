@@ -2,12 +2,16 @@ const axios = require('axios');
 const env = require('../config/env');
 const { getBrandCredentials } = require('./metaSendService');
 
-const GRAPH_API_VERSION = 'v26.0';
+const GRAPH_API_VERSION = 'v20.0';
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // In-memory profile cache: Map<string, { data: object, expiresAt: number }>
 const profileCache = new Map();
+
+// In-memory page token cache: Map<string, string>
+const pageTokensCache = new Map();
+let lastPageTokensFetch = 0;
 
 /**
  * Clean up expired entries periodically to prevent memory leak
@@ -56,29 +60,108 @@ const setCachedProfile = (cacheKey, data, ttlMs = CACHE_TTL_MS) => {
 };
 
 /**
+ * Discover and cache Page Access Tokens from Meta /me/accounts endpoint.
+ */
+const refreshPageTokensFromMeta = async () => {
+  const candidateTokens = [
+    env.metaAccessToken,
+    env.fbPageAccessTokenZorucci,
+    env.fbPageAccessTokenSuitorGuy,
+    env.fbPageAccessTokenDapperSquad,
+    env.fbPageAccessToken,
+    process.env.PAGE_ACCESS_TOKEN,
+    process.env.META_ACCESS_TOKEN,
+  ].filter(Boolean);
+
+  for (const token of candidateTokens) {
+    try {
+      const res = await axios.get(`${GRAPH_API_BASE}/me/accounts`, {
+        params: {
+          fields: 'id,name,access_token,instagram_business_account,connected_instagram_account',
+          access_token: token,
+          limit: 50,
+        },
+        timeout: 5000,
+      });
+
+      const pages = res.data?.data || [];
+      for (const page of pages) {
+        if (page.id && page.access_token) {
+          pageTokensCache.set(`page_${page.id}`, page.access_token);
+          if (page.name) {
+            const normalizedName = page.name.toLowerCase().replace(/[\s_-]+/g, '_');
+            pageTokensCache.set(`brand_${normalizedName}`, page.access_token);
+          }
+          if (page.instagram_business_account?.id) {
+            pageTokensCache.set(`ig_${page.instagram_business_account.id}`, page.access_token);
+          }
+          if (page.connected_instagram_account?.id) {
+            pageTokensCache.set(`ig_${page.connected_instagram_account.id}`, page.access_token);
+          }
+        }
+      }
+      if (pages.length > 0) {
+        lastPageTokensFetch = Date.now();
+        break;
+      }
+    } catch (_) {
+      // Continue to next candidate token
+    }
+  }
+};
+
+/**
  * Dynamically resolves Page Access Token for a brand or page.
  * @param {object} options
  * @param {string} [options.brand]
  * @param {string} [options.pageAccessToken]
  * @param {string} [options.pageId]
- * @returns {string}
+ * @returns {Promise<string[]>} Array of candidate tokens to try
  */
-const resolveAccessToken = ({ brand, pageAccessToken, pageId } = {}) => {
-  if (pageAccessToken) return pageAccessToken;
+const getCandidateAccessTokens = async ({ brand, pageAccessToken, pageId } = {}) => {
+  const tokens = [];
+
+  if (pageAccessToken) tokens.push(pageAccessToken);
+
+  // Refresh page tokens if empty or stale (> 30 minutes)
+  if (pageTokensCache.size === 0 || Date.now() - lastPageTokensFetch > 30 * 60 * 1000) {
+    await refreshPageTokensFromMeta().catch(() => {});
+  }
+
+  if (pageId) {
+    const fromPage = pageTokensCache.get(`page_${pageId}`) || pageTokensCache.get(`ig_${pageId}`);
+    if (fromPage && !tokens.includes(fromPage)) tokens.push(fromPage);
+  }
 
   if (brand) {
     const creds = getBrandCredentials(brand);
-    if (creds?.accessToken) return creds.accessToken;
+    if (creds?.accessToken && !tokens.includes(creds.accessToken)) {
+      tokens.push(creds.accessToken);
+    }
+    const normalizedBrand = String(brand).toLowerCase().replace(/[\s_-]+/g, '_');
+    const fromBrand = pageTokensCache.get(`brand_${normalizedBrand}`);
+    if (fromBrand && !tokens.includes(fromBrand)) tokens.push(fromBrand);
   }
 
-  return (
-    env.fbPageAccessToken ||
-    env.metaAccessToken ||
-    process.env.PAGE_ACCESS_TOKEN ||
-    process.env.META_PAGE_ACCESS_TOKEN ||
-    process.env.META_ACCESS_TOKEN ||
-    ''
-  );
+  // Also add any known cached page tokens
+  for (const t of pageTokensCache.values()) {
+    if (!tokens.includes(t)) tokens.push(t);
+  }
+
+  // Global fallbacks
+  const fallbacks = [
+    env.fbPageAccessToken,
+    env.metaAccessToken,
+    process.env.PAGE_ACCESS_TOKEN,
+    process.env.META_PAGE_ACCESS_TOKEN,
+    process.env.META_ACCESS_TOKEN,
+  ].filter(Boolean);
+
+  for (const f of fallbacks) {
+    if (!tokens.includes(f)) tokens.push(f);
+  }
+
+  return tokens;
 };
 
 /**
@@ -117,44 +200,42 @@ const resolveInstagramProfile = async (igsid, options = {}) => {
     return defaultFallback;
   }
 
-  const token = resolveAccessToken(options);
-  if (!token) {
+  const tokens = await getCandidateAccessTokens(options);
+  if (!tokens || tokens.length === 0) {
     console.warn(`[MetaProfileService] No access token available for Instagram profile resolution (IGSID: ${userIdStr})`);
     return defaultFallback;
   }
 
-  try {
-    const url = `${GRAPH_API_BASE}/${userIdStr}`;
-    const response = await axios.get(url, {
-      params: {
-        fields: 'name,username,profile_pic',
-        access_token: token,
-      },
-      timeout: 6000,
-    });
+  for (const token of tokens) {
+    try {
+      const url = `${GRAPH_API_BASE}/${userIdStr}`;
+      const response = await axios.get(url, {
+        params: {
+          fields: 'name,username,profile_pic',
+          access_token: token,
+        },
+        timeout: 6000,
+      });
 
-    const data = response.data || {};
-    const resolvedName = (data.name && data.name.trim()) || (data.username && data.username.trim()) || fallbackName;
-    const resolvedUsername = data.username || '';
-    const resolvedProfilePic = data.profile_pic || '';
-
-    const profile = {
-      name: resolvedName,
-      username: resolvedUsername,
-      profilePic: resolvedProfilePic,
-    };
-
-    setCachedProfile(cacheKey, profile);
-    return profile;
-  } catch (err) {
-    const errStatus = err.response?.status;
-    const errMsg = err.response?.data?.error?.message || err.message;
-    console.warn(`[MetaProfileService] Failed to fetch Instagram profile for IGSID ${userIdStr} [Status ${errStatus}]: ${errMsg}. Using fallback.`);
-
-    // Cache fallback temporarily (e.g. 5 minutes) on errors to prevent hammering API
-    setCachedProfile(cacheKey, defaultFallback, 5 * 60 * 1000);
-    return defaultFallback;
+      const data = response.data || {};
+      const resolvedName = (data.name && data.name.trim()) || (data.username && data.username.trim());
+      if (resolvedName) {
+        const profile = {
+          name: resolvedName,
+          username: data.username || '',
+          profilePic: data.profile_pic || '',
+        };
+        setCachedProfile(cacheKey, profile);
+        return profile;
+      }
+    } catch (_) {
+      // Try next candidate token
+    }
   }
+
+  // Cache fallback temporarily on failure
+  setCachedProfile(cacheKey, defaultFallback, 5 * 60 * 1000);
+  return defaultFallback;
 };
 
 /**
@@ -192,43 +273,41 @@ const resolveFacebookProfile = async (psid, options = {}) => {
     return defaultFallback;
   }
 
-  const token = resolveAccessToken(options);
-  if (!token) {
+  const tokens = await getCandidateAccessTokens(options);
+  if (!tokens || tokens.length === 0) {
     console.warn(`[MetaProfileService] No access token available for Facebook profile resolution (PSID: ${psidStr})`);
     return defaultFallback;
   }
 
-  try {
-    const url = `${GRAPH_API_BASE}/${psidStr}`;
-    const response = await axios.get(url, {
-      params: {
-        fields: 'first_name,last_name,profile_pic',
-        access_token: token,
-      },
-      timeout: 6000,
-    });
+  for (const token of tokens) {
+    try {
+      const url = `${GRAPH_API_BASE}/${psidStr}`;
+      const response = await axios.get(url, {
+        params: {
+          fields: 'first_name,last_name,profile_pic',
+          access_token: token,
+        },
+        timeout: 6000,
+      });
 
-    const data = response.data || {};
-    const fullName = [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
-    const resolvedName = fullName || fallbackName;
-    const resolvedProfilePic = data.profile_pic || '';
-
-    const profile = {
-      name: resolvedName,
-      profilePic: resolvedProfilePic,
-    };
-
-    setCachedProfile(cacheKey, profile);
-    return profile;
-  } catch (err) {
-    const errStatus = err.response?.status;
-    const errMsg = err.response?.data?.error?.message || err.message;
-    console.warn(`[MetaProfileService] Failed to fetch Facebook profile for PSID ${psidStr} [Status ${errStatus}]: ${errMsg}. Using fallback.`);
-
-    // Cache fallback temporarily (e.g. 5 minutes) on errors to prevent hammering API
-    setCachedProfile(cacheKey, defaultFallback, 5 * 60 * 1000);
-    return defaultFallback;
+      const data = response.data || {};
+      const fullName = [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
+      if (fullName) {
+        const profile = {
+          name: fullName,
+          profilePic: data.profile_pic || '',
+        };
+        setCachedProfile(cacheKey, profile);
+        return profile;
+      }
+    } catch (_) {
+      // Try next candidate token
+    }
   }
+
+  // Cache fallback temporarily on failure
+  setCachedProfile(cacheKey, defaultFallback, 5 * 60 * 1000);
+  return defaultFallback;
 };
 
 /**
