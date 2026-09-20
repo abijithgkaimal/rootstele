@@ -11,9 +11,55 @@ const metaSendService = require('./metaSendService');
 const metaProfileService = require('./metaProfileService');
 const socketService = require('./socketService');
 const notificationService = require('./notificationService');
+const gridfsService = require('./gridfsService');
+const mongoose = require('mongoose');
 
 // Concurrency mutex per participant key to prevent simultaneous conversation creation race conditions
 const participantLocks = new Map();
+
+/**
+ * Helper to stream an incoming media buffer/stream into GridFS and return file details.
+ * @param {import('stream').Readable|Buffer} streamOrBuffer
+ * @param {string} filename
+ * @param {string} mimeType
+ * @param {object} metadata
+ * @returns {Promise<{ fileId: string, mediaUrl: string, mimeType: string, fileName: string, fileSize?: number }>}
+ */
+const pipeMediaToGridFS = async (streamOrBuffer, filename, mimeType, metadata = {}) => {
+  if (Buffer.isBuffer(streamOrBuffer)) {
+    const res = await gridfsService.uploadBuffer(streamOrBuffer, filename, mimeType, metadata);
+    return {
+      fileId: res.fileId,
+      mediaUrl: `/api/chat/media/${res.fileId}`,
+      mimeType: res.contentType,
+      fileName: res.filename,
+      fileSize: res.length,
+    };
+  }
+
+  return new Promise((resolve, reject) => {
+    const uploadStream = gridfsService.createUploadStream(filename, {
+      contentType: mimeType || 'application/octet-stream',
+      metadata,
+    });
+
+    uploadStream.on('finish', () => {
+      resolve({
+        fileId: uploadStream.id.toString(),
+        mediaUrl: `/api/chat/media/${uploadStream.id}`,
+        mimeType: mimeType || 'application/octet-stream',
+        fileName: filename,
+        fileSize: uploadStream.length || undefined,
+      });
+    });
+
+    uploadStream.on('error', (err) => {
+      reject(err);
+    });
+
+    streamOrBuffer.pipe(uploadStream);
+  });
+};
 
 /**
  * Executes an async function with a per-participant lock/queue to prevent race condition duplicates.
@@ -254,9 +300,15 @@ const processInboundWhatsApp = async (body) => {
             // Extract message text / media
             let messageType = 'text';
             let text = '';
+            let caption = '';
             let media = null;
+            let mediaFileId = undefined;
+            let mediaUrl = undefined;
             let attachmentUrl = undefined;
             let mediaMetadata = undefined;
+            let isVoiceNote = false;
+            let fileName = undefined;
+            let mimeType = undefined;
 
             if (msg.type === 'text') {
               messageType = 'text';
@@ -264,25 +316,83 @@ const processInboundWhatsApp = async (body) => {
             } else if (['image', 'video', 'audio', 'document'].includes(msg.type)) {
               messageType = msg.type;
               const mediaObj = msg[msg.type] || {};
-              text = mediaObj.caption || '';
-              const resolved = await metaSendService.getWhatsAppMediaUrl(mediaObj.id, null, {
-                phoneNumberId,
-                brand: brandInfo.brand,
-              });
-              attachmentUrl = resolved.url || mediaObj.link || mediaObj.id || '';
-              mediaMetadata = {
-                mimeType: resolved.mimeType || mediaObj.mime_type || '',
-                fileName: mediaObj.filename || `${msg.type}_${Date.now()}`,
-                fileSize: resolved.fileSize || mediaObj.file_size || 0,
-                title: text || undefined,
-              };
-              media = {
-                url: attachmentUrl,
-                mimeType: mediaMetadata.mimeType,
-                fileName: mediaMetadata.fileName,
-                fileSize: mediaMetadata.fileSize,
-                title: mediaMetadata.title,
-              };
+              caption = mediaObj.caption || '';
+              text = caption || '';
+              isVoiceNote =
+                msg.type === 'audio' &&
+                (Boolean(mediaObj.voice) ||
+                  (mediaObj.mime_type &&
+                    (mediaObj.mime_type.includes('ogg') || mediaObj.mime_type.includes('opus'))));
+
+              fileName = mediaObj.filename || `${msg.type}_${Date.now()}`;
+              mimeType =
+                mediaObj.mime_type ||
+                (msg.type === 'audio'
+                  ? 'audio/ogg'
+                  : msg.type === 'image'
+                  ? 'image/jpeg'
+                  : msg.type === 'video'
+                  ? 'video/mp4'
+                  : 'application/pdf');
+
+              try {
+                const downloaded = await metaSendService.downloadWhatsAppMediaStream(mediaObj.id, {
+                  phoneNumberId,
+                  brand: brandInfo.brand,
+                });
+
+                if (downloaded.mimeType) mimeType = downloaded.mimeType;
+
+                const stored = await pipeMediaToGridFS(downloaded.stream, fileName, mimeType, {
+                  channel: 'whatsapp',
+                  brand: brandInfo.brand,
+                  messageType: msg.type,
+                  metaMediaId: mediaObj.id,
+                  isVoiceNote,
+                });
+
+                mediaFileId = stored.fileId;
+                mediaUrl = stored.mediaUrl;
+                attachmentUrl = stored.mediaUrl;
+                mediaMetadata = {
+                  mimeType,
+                  fileName,
+                  fileSize: downloaded.fileSize || stored.fileSize || mediaObj.file_size,
+                  title: caption || undefined,
+                };
+                media = {
+                  url: stored.mediaUrl,
+                  mimeType,
+                  fileName,
+                  fileSize: mediaMetadata.fileSize,
+                  title: caption || undefined,
+                };
+              } catch (downloadErr) {
+                console.warn(
+                  `[ChatService] Failed to stream WhatsApp media ${mediaObj.id} to GridFS:`,
+                  downloadErr.message
+                );
+                // Fallback to resolving CDN URL
+                const resolved = await metaSendService.getWhatsAppMediaUrl(mediaObj.id, null, {
+                  phoneNumberId,
+                  brand: brandInfo.brand,
+                });
+                attachmentUrl = resolved.url || mediaObj.link || mediaObj.id || '';
+                mediaUrl = attachmentUrl;
+                mediaMetadata = {
+                  mimeType: resolved.mimeType || mediaObj.mime_type || '',
+                  fileName,
+                  fileSize: resolved.fileSize || mediaObj.file_size || 0,
+                  title: caption || undefined,
+                };
+                media = {
+                  url: attachmentUrl,
+                  mimeType: mediaMetadata.mimeType,
+                  fileName,
+                  fileSize: mediaMetadata.fileSize,
+                  title: caption || undefined,
+                };
+              }
             } else if (msg.type === 'interactive') {
               messageType = 'interactive';
               text = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || 'Interactive response';
@@ -305,6 +415,12 @@ const processInboundWhatsApp = async (body) => {
               senderName: customerSenderName,
               messageType,
               text,
+              caption: caption || undefined,
+              mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
+              mediaUrl,
+              mimeType,
+              fileName,
+              isVoiceNote,
               attachmentUrl,
               mediaMetadata,
               media: media || undefined,
@@ -482,9 +598,16 @@ const processInboundInstagram = async (body) => {
 
           let messageType = 'text';
           let text = event.message.text || '';
+          let caption = '';
           let media = null;
+          let mediaFileId = undefined;
+          let mediaUrl = undefined;
           let attachmentUrl = undefined;
           let mediaMetadata = undefined;
+          let isVoiceNote = false;
+          let sharedPostUrl = undefined;
+          let fileName = undefined;
+          let mimeType = undefined;
 
           if (event.message.attachments && event.message.attachments.length > 0) {
             const att = event.message.attachments[0];
@@ -505,30 +628,92 @@ const processInboundInstagram = async (body) => {
               ? rawType
               : (rawType.includes('reel') ? 'ig_reel' : 'image');
 
+            isVoiceNote = rawType === 'audio';
+
             const payload = att.payload || {};
-            const mediaUrl =
-              payload.url ||
+            const directUrl = payload.url || '';
+            const reelOrShareUrl =
               payload.reel_url ||
               (payload.reel_video_id ? `https://www.instagram.com/reel/${payload.reel_video_id}/` : '') ||
-              '';
+              (messageType === 'ig_reel' || messageType === 'share' ? directUrl : '');
 
-            attachmentUrl = mediaUrl;
-            mediaMetadata = {
-              title: payload.title || undefined,
-              reelVideoId: payload.reel_video_id || undefined,
-              mimeType: payload.mime_type || att.type || '',
-              fileName: `ig_${messageType}_${Date.now()}`,
-              fileSize: payload.file_size || undefined,
-            };
+            if (reelOrShareUrl) {
+              sharedPostUrl = reelOrShareUrl;
+            }
 
-            media = {
-              url: attachmentUrl,
-              mimeType: mediaMetadata.mimeType,
-              fileName: mediaMetadata.fileName,
-              fileSize: mediaMetadata.fileSize,
-              title: mediaMetadata.title,
-              reelVideoId: mediaMetadata.reelVideoId,
-            };
+            fileName = `ig_${messageType}_${Date.now()}`;
+            mimeType = payload.mime_type || (rawType === 'audio' ? 'audio/aac' : rawType === 'video' ? 'video/mp4' : 'image/jpeg');
+
+            // Download direct media files (audio, image, video, file) to GridFS
+            if (directUrl && ['audio', 'image', 'video', 'file', 'document'].includes(rawType)) {
+              try {
+                const downloaded = await metaSendService.downloadExternalMediaStream(directUrl, { mimeType });
+                if (downloaded.mimeType) mimeType = downloaded.mimeType;
+
+                const stored = await pipeMediaToGridFS(downloaded.stream, fileName, mimeType, {
+                  channel: 'instagram',
+                  brand: brandInfo.brand,
+                  messageType,
+                  isVoiceNote,
+                });
+
+                mediaFileId = stored.fileId;
+                mediaUrl = stored.mediaUrl;
+                attachmentUrl = stored.mediaUrl;
+                mediaMetadata = {
+                  title: payload.title || undefined,
+                  reelVideoId: payload.reel_video_id || undefined,
+                  mimeType,
+                  fileName,
+                  fileSize: downloaded.fileSize || stored.fileSize || payload.file_size,
+                };
+                media = {
+                  url: stored.mediaUrl,
+                  mimeType,
+                  fileName,
+                  fileSize: mediaMetadata.fileSize,
+                  title: payload.title || undefined,
+                  reelVideoId: payload.reel_video_id || undefined,
+                };
+              } catch (downloadErr) {
+                console.warn('[ChatService] Failed to stream Instagram media to GridFS:', downloadErr.message);
+                attachmentUrl = directUrl;
+                mediaUrl = directUrl;
+                mediaMetadata = {
+                  title: payload.title || undefined,
+                  reelVideoId: payload.reel_video_id || undefined,
+                  mimeType,
+                  fileName,
+                  fileSize: payload.file_size || undefined,
+                };
+                media = {
+                  url: directUrl,
+                  mimeType,
+                  fileName,
+                  fileSize: payload.file_size || undefined,
+                  title: payload.title || undefined,
+                  reelVideoId: payload.reel_video_id || undefined,
+                };
+              }
+            } else {
+              attachmentUrl = directUrl || reelOrShareUrl || '';
+              mediaUrl = attachmentUrl;
+              mediaMetadata = {
+                title: payload.title || undefined,
+                reelVideoId: payload.reel_video_id || undefined,
+                mimeType,
+                fileName,
+                fileSize: payload.file_size || undefined,
+              };
+              media = {
+                url: attachmentUrl,
+                mimeType,
+                fileName,
+                fileSize: payload.file_size || undefined,
+                title: payload.title || undefined,
+                reelVideoId: payload.reel_video_id || undefined,
+              };
+            }
 
             if (!text) {
               if (messageType === 'ig_reel') {
@@ -560,6 +745,13 @@ const processInboundInstagram = async (body) => {
             senderName: customerSenderName,
             messageType,
             text,
+            caption: caption || undefined,
+            mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
+            mediaUrl,
+            mimeType,
+            fileName,
+            isVoiceNote,
+            sharedPostUrl,
             attachmentUrl,
             mediaMetadata,
             media: media || undefined,
@@ -743,32 +935,92 @@ const processInboundFacebook = async (body) => {
 
           let messageType = 'text';
           let text = event.message.text || '';
+          let caption = '';
           let media = null;
+          let mediaFileId = undefined;
+          let mediaUrl = undefined;
           let attachmentUrl = undefined;
           let mediaMetadata = undefined;
+          let isVoiceNote = false;
+          let fileName = undefined;
+          let mimeType = undefined;
 
           if (event.message.attachments && event.message.attachments.length > 0) {
             const att = event.message.attachments[0];
             const rawType = (att.type || 'image').toLowerCase();
             const validTypes = ['text', 'image', 'audio', 'video', 'file', 'fallback'];
             messageType = validTypes.includes(rawType) ? rawType : 'image';
+            isVoiceNote = rawType === 'audio';
 
             const payload = att.payload || {};
-            attachmentUrl = payload.url || '';
-            mediaMetadata = {
-              title: payload.title || undefined,
-              mimeType: payload.mime_type || att.type || '',
-              fileName: `fb_${messageType}_${Date.now()}`,
-              fileSize: payload.file_size || undefined,
-            };
+            const directUrl = payload.url || '';
 
-            media = {
-              url: attachmentUrl,
-              mimeType: mediaMetadata.mimeType,
-              fileName: mediaMetadata.fileName,
-              fileSize: mediaMetadata.fileSize,
-              title: mediaMetadata.title,
-            };
+            fileName = `fb_${messageType}_${Date.now()}`;
+            mimeType = payload.mime_type || (rawType === 'audio' ? 'audio/aac' : rawType === 'video' ? 'video/mp4' : 'image/jpeg');
+
+            if (directUrl && ['audio', 'image', 'video', 'file'].includes(rawType)) {
+              try {
+                const downloaded = await metaSendService.downloadExternalMediaStream(directUrl, { mimeType });
+                if (downloaded.mimeType) mimeType = downloaded.mimeType;
+
+                const stored = await pipeMediaToGridFS(downloaded.stream, fileName, mimeType, {
+                  channel: 'facebook',
+                  brand: brandInfo.brand,
+                  messageType,
+                  isVoiceNote,
+                });
+
+                mediaFileId = stored.fileId;
+                mediaUrl = stored.mediaUrl;
+                attachmentUrl = stored.mediaUrl;
+                mediaMetadata = {
+                  title: payload.title || undefined,
+                  mimeType,
+                  fileName,
+                  fileSize: downloaded.fileSize || stored.fileSize || payload.file_size,
+                };
+                media = {
+                  url: stored.mediaUrl,
+                  mimeType,
+                  fileName,
+                  fileSize: mediaMetadata.fileSize,
+                  title: payload.title || undefined,
+                };
+              } catch (downloadErr) {
+                console.warn('[ChatService] Failed to stream Facebook media to GridFS:', downloadErr.message);
+                attachmentUrl = directUrl;
+                mediaUrl = directUrl;
+                mediaMetadata = {
+                  title: payload.title || undefined,
+                  mimeType,
+                  fileName,
+                  fileSize: payload.file_size || undefined,
+                };
+                media = {
+                  url: directUrl,
+                  mimeType,
+                  fileName,
+                  fileSize: payload.file_size || undefined,
+                  title: payload.title || undefined,
+                };
+              }
+            } else {
+              attachmentUrl = directUrl || '';
+              mediaUrl = attachmentUrl;
+              mediaMetadata = {
+                title: payload.title || undefined,
+                mimeType,
+                fileName,
+                fileSize: payload.file_size || undefined,
+              };
+              media = {
+                url: attachmentUrl,
+                mimeType,
+                fileName,
+                fileSize: payload.file_size || undefined,
+                title: payload.title || undefined,
+              };
+            }
 
             if (!text) {
               text = `[Facebook ${messageType}]`;
@@ -792,6 +1044,12 @@ const processInboundFacebook = async (body) => {
             senderName: customerSenderName,
             messageType,
             text,
+            caption: caption || undefined,
+            mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
+            mediaUrl,
+            mimeType,
+            fileName,
+            isVoiceNote,
             attachmentUrl,
             mediaMetadata,
             media: media || undefined,
@@ -881,6 +1139,18 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
       }
     : undefined;
 
+  const isVoiceNote = Boolean(
+    media?.isVoiceNote ||
+    messageType === 'voice' ||
+    (media?.mimeType && media.mimeType.startsWith('audio') && media.isVoiceNote)
+  );
+
+  const mediaFileId = media?.fileId && mongoose.Types.ObjectId.isValid(media.fileId)
+    ? new mongoose.Types.ObjectId(media.fileId)
+    : undefined;
+
+  const caption = media?.caption || (text && media?.url ? text : undefined);
+
   // 1. Immediately create message in MongoDB
   const savedMessage = await Message.create({
     conversationId: conversation._id,
@@ -893,6 +1163,12 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
     senderName: outboundSenderName,
     messageType,
     text,
+    caption,
+    mediaFileId,
+    mediaUrl: media?.url || undefined,
+    mimeType: media?.mimeType || undefined,
+    fileName: media?.fileName || undefined,
+    isVoiceNote,
     attachmentUrl,
     mediaMetadata,
     media: media || undefined,
@@ -1266,6 +1542,18 @@ const simulateInboundMessage = async ({
     fileSize: media.fileSize,
   } : undefined);
 
+  const isVoiceNote = Boolean(
+    media?.isVoiceNote ||
+    messageType === 'voice' ||
+    (resolvedMediaMetadata?.mimeType && resolvedMediaMetadata.mimeType.startsWith('audio') && media?.isVoiceNote)
+  );
+
+  const mediaFileId = media?.fileId && mongoose.Types.ObjectId.isValid(media.fileId)
+    ? new mongoose.Types.ObjectId(media.fileId)
+    : undefined;
+
+  const caption = media?.caption || (text && resolvedAttachmentUrl ? text : undefined);
+
   const messageId = `sim_msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const savedMessage = await Message.create({
     conversationId: conversation._id,
@@ -1277,6 +1565,12 @@ const simulateInboundMessage = async ({
     senderName: customerName,
     messageType,
     text,
+    caption,
+    mediaFileId,
+    mediaUrl: resolvedAttachmentUrl,
+    mimeType: resolvedMediaMetadata?.mimeType,
+    fileName: resolvedMediaMetadata?.fileName,
+    isVoiceNote,
     attachmentUrl: resolvedAttachmentUrl,
     mediaMetadata: resolvedMediaMetadata,
     media: media || (resolvedAttachmentUrl ? {

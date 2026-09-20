@@ -18,6 +18,23 @@ const axiosClient = axios.create({
 });
 
 /**
+ * Resolves relative media URLs (e.g. /api/chat/media/:fileId) to a fully qualified public URL.
+ * @param {string} url
+ * @returns {string}
+ */
+const getPublicMediaUrl = (url) => {
+  if (!url) return '';
+  const urlStr = String(url).trim();
+  if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
+    return urlStr;
+  }
+  const baseUrl = process.env.APP_BASE_URL || env.appBaseUrl || 'https://rootstele-imrn.onrender.com';
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  const cleanPath = urlStr.startsWith('/') ? urlStr : `/${urlStr}`;
+  return `${cleanBase}${cleanPath}`;
+};
+
+/**
  * Dynamically resolves WhatsApp Cloud API token based on Phone Number ID or Brand.
  * Supports multiple Meta Business Portfolios (e.g. Zorucci vs Suitor Guy).
  * @param {object} params
@@ -115,32 +132,33 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
     payload.type = 'text';
     payload.text = { preview_url: true, body: text };
   } else if (media?.url) {
+    const publicMediaUrl = getPublicMediaUrl(media.url);
     const mediaType = (type === 'voice' ? 'audio' : (type === 'file' ? 'document' : type)) || 'image';
     if (['image', 'video', 'audio', 'document'].includes(mediaType)) {
       payload.type = mediaType;
       if (mediaType === 'audio') {
         // Meta WhatsApp Cloud API audio objects only accept link (no caption allowed)
-        payload.audio = { link: media.url };
+        payload.audio = { link: publicMediaUrl };
       } else if (mediaType === 'document') {
         payload.document = {
-          link: media.url,
+          link: publicMediaUrl,
           filename: media.fileName || 'document.pdf',
           caption: text || media.caption || undefined,
         };
       } else if (mediaType === 'image') {
         payload.image = {
-          link: media.url,
+          link: publicMediaUrl,
           caption: text || media.caption || undefined,
         };
       } else if (mediaType === 'video') {
         payload.video = {
-          link: media.url,
+          link: publicMediaUrl,
           caption: text || media.caption || undefined,
         };
       }
     } else {
       payload.type = 'text';
-      payload.text = { body: text || media.url };
+      payload.text = { body: text || publicMediaUrl };
     }
   } else if (type === 'template' && template) {
     payload.type = 'template';
@@ -279,12 +297,13 @@ const sendInstagramMessage = async ({ recipientId, text, media, brand, accountId
 
   let messagePayload = {};
   if (media?.url) {
+    const publicMediaUrl = getPublicMediaUrl(media.url);
     const rawType = (media.type || (media.mimeType && media.mimeType.startsWith('video') ? 'video' : (media.mimeType && media.mimeType.startsWith('audio') ? 'audio' : 'image'))).toLowerCase();
     const attType = ['image', 'video', 'audio', 'file'].includes(rawType) ? rawType : (rawType.includes('voice') ? 'audio' : 'image');
     messagePayload = {
       attachment: {
         type: attType,
-        payload: { url: media.url, is_reusable: true },
+        payload: { url: publicMediaUrl, is_reusable: true },
       },
     };
   } else {
@@ -393,12 +412,13 @@ const sendFacebookMessage = async ({ recipientId, text, media, pageId, brand, pa
 
   let messagePayload = {};
   if (media?.url) {
+    const publicMediaUrl = getPublicMediaUrl(media.url);
     const rawType = (media.type || (media.mimeType && media.mimeType.startsWith('video') ? 'video' : (media.mimeType && media.mimeType.startsWith('audio') ? 'audio' : 'image'))).toLowerCase();
     const attType = ['image', 'video', 'audio', 'file'].includes(rawType) ? rawType : (rawType.includes('voice') ? 'audio' : 'image');
     messagePayload = {
       attachment: {
         type: attType,
-        payload: { url: media.url, is_reusable: true },
+        payload: { url: publicMediaUrl, is_reusable: true },
       },
     };
   } else {
@@ -506,13 +526,75 @@ const getWhatsAppMediaUrl = async (mediaId, customToken, options = {}) => {
   }
 };
 
+/**
+ * Download a binary stream for a WhatsApp media ID from Meta Graph API.
+ * @param {string} mediaId
+ * @param {object} [options] - { phoneNumberId, brand, customToken }
+ * @returns {Promise<{ stream: import('stream').Readable, mimeType: string, fileSize?: number }>}
+ */
+const downloadWhatsAppMediaStream = async (mediaId, options = {}) => {
+  const idStr = mediaId ? String(mediaId).trim() : '';
+  if (!idStr) throw new Error('[MetaSendService] Media ID is required');
+
+  const token = options.customToken || resolveWhatsAppToken(options) || env.metaAccessToken || process.env.META_ACCESS_TOKEN || '';
+  if (!token) throw new Error('[MetaSendService] WhatsApp access token not available for media download');
+
+  // 1. Fetch direct CDN url from Meta Graph
+  const metaUrl = `${GRAPH_API_BASE}/${idStr}`;
+  const metaRes = await axiosClient.get(metaUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: 10000,
+  });
+
+  const cdnUrl = metaRes.data?.url;
+  if (!cdnUrl) throw new Error(`[MetaSendService] Failed to retrieve CDN media URL from Meta Graph for ${idStr}`);
+
+  // 2. Download binary stream using Meta Bearer token
+  const streamRes = await axios.get(cdnUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+    responseType: 'stream',
+    timeout: 30000,
+  });
+
+  return {
+    stream: streamRes.data,
+    mimeType: metaRes.data?.mime_type || streamRes.headers['content-type'] || 'application/octet-stream',
+    fileSize: metaRes.data?.file_size || Number(streamRes.headers['content-length']) || undefined,
+  };
+};
+
+/**
+ * Download a binary stream from an external CDN (e.g. Instagram / Facebook Messenger attachments).
+ * @param {string} url
+ * @param {object} [options]
+ * @returns {Promise<{ stream: import('stream').Readable, mimeType: string, fileSize?: number }>}
+ */
+const downloadExternalMediaStream = async (url, options = {}) => {
+  if (!url) throw new Error('[MetaSendService] Media URL is required');
+
+  const streamRes = await axios.get(url, {
+    responseType: 'stream',
+    timeout: 30000,
+    headers: options.headers || {},
+  });
+
+  return {
+    stream: streamRes.data,
+    mimeType: streamRes.headers['content-type'] || options.mimeType || 'application/octet-stream',
+    fileSize: Number(streamRes.headers['content-length']) || undefined,
+  };
+};
+
 module.exports = {
   getBrandCredentials,
   resolveFacebookCredentials,
   resolveWhatsAppToken,
+  getPublicMediaUrl,
   sendWhatsAppMessage,
   sendInstagramMessage,
   sendFacebookMessage,
   markWhatsAppAsRead,
   getWhatsAppMediaUrl,
+  downloadWhatsAppMediaStream,
+  downloadExternalMediaStream,
 };

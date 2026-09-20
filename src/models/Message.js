@@ -58,7 +58,14 @@ const messageSchema = new mongoose.Schema(
       default: 'text',
     },
     text: { type: String, trim: true },
-    attachmentUrl: { type: String }, // Direct media CDN URL or Instagram reel URL
+    caption: { type: String, trim: true },
+    mediaFileId: { type: mongoose.Schema.Types.ObjectId, ref: 'omni_chat_media.files' },
+    mediaUrl: { type: String }, // Relative /api/chat/media/:fileId or external CDN URL
+    mimeType: { type: String },
+    fileName: { type: String },
+    isVoiceNote: { type: Boolean, default: false },
+    sharedPostUrl: { type: String }, // Instagram reel or shared post link
+    attachmentUrl: { type: String }, // Direct media CDN URL or Instagram reel URL (backward compatibility)
     mediaMetadata: { type: mediaMetadataSchema },
     media: { type: mediaSchema },
     responseTimeSeconds: { type: Number }, // Time taken (in seconds) to reply to the latest customer message
@@ -77,6 +84,7 @@ const messageSchema = new mongoose.Schema(
 messageSchema.index({ conversationId: 1, timestamp: 1 });
 messageSchema.index({ conversationId: 1, senderType: 1, timestamp: -1 });
 messageSchema.index({ messageId: 1 }, { unique: true, sparse: true });
+messageSchema.index({ mediaFileId: 1 }, { sparse: true });
 messageSchema.index({ timestamp: -1 });
 
 module.exports = mongoose.model('Message', messageSchema);

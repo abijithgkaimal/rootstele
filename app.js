@@ -68,6 +68,8 @@ app.use("/api", authRoutes);
 app.use("/api", userRoutes);
 app.use("/api/admin", adminPanelRoutes); // New admin APIs MUST be before leadRoutes to avoid JWT authMiddleware catch-all
 app.use("/api", adminRoutes); // Legacy admin MUST be before leadRoutes
+app.use("/api/chat", chatRoutes); // Multi-channel Chat APIs (Public media streaming + JWT protected chat)
+app.use("/api", healthRoutes);
 
 app.use("/api", justDialRoutes);
 app.use("/api", followupRoutes);
@@ -77,8 +79,6 @@ app.use("/api", leadRoutes);
 app.use("/api", syncRoutes);
 app.use("/api", storeRoutes);
 app.use("/api", customerRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api", healthRoutes);
 
 // =====================
 // Swagger Docs

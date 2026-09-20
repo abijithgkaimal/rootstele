@@ -1,10 +1,144 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const chatService = require('../services/chatService');
+const gridfsService = require('../services/gridfsService');
 const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const mongoose = require('mongoose');
+
+/**
+ * GET /api/chat/media/:fileId
+ * Public endpoint to stream media from MongoDB GridFS.
+ * Supports HTTP Range requests (206 Partial Content) for audio seeking and video scrubbing.
+ */
+const streamMedia = asyncHandler(async (req, res) => {
+  const { fileId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(fileId)) {
+    throw new ApiError(400, 'Invalid media file ID');
+  }
+
+  const file = await gridfsService.getFileMetadata(fileId);
+  if (!file) {
+    throw new ApiError(404, 'Media file not found');
+  }
+
+  const fileSize = file.length;
+  const contentType = file.contentType || file.metadata?.mimeType || 'application/octet-stream';
+  const filename = file.filename || `media_${fileId}`;
+
+  // Common response headers
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
+
+  const rangeHeader = req.headers.range;
+  if (rangeHeader) {
+    const parts = rangeHeader.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    if (isNaN(start) || start >= fileSize || (parts[1] && (isNaN(end) || end < start))) {
+      res.setHeader('Content-Range', `bytes */${fileSize}`);
+      return res.status(416).send('Requested range not satisfiable');
+    }
+
+    const chunkLength = end - start + 1;
+    res.status(206);
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+    res.setHeader('Content-Length', chunkLength);
+
+    const downloadStream = gridfsService.downloadStream(fileId, { start, end });
+    downloadStream.on('error', (err) => {
+      console.warn(`[ChatController] Range stream error for file ${fileId}:`, err.message);
+      if (!res.headersSent) {
+        res.status(500).send('Streaming error');
+      }
+    });
+
+    return downloadStream.pipe(res);
+  }
+
+  // Full content (200 OK)
+  res.status(200);
+  res.setHeader('Content-Length', fileSize);
+
+  const downloadStream = gridfsService.downloadStream(fileId);
+  downloadStream.on('error', (err) => {
+    console.warn(`[ChatController] Download stream error for file ${fileId}:`, err.message);
+    if (!res.headersSent) {
+      res.status(500).send('Download error');
+    }
+  });
+
+  return downloadStream.pipe(res);
+});
+
+/**
+ * POST /api/chat/conversations/:id/media
+ * Multipart upload endpoint for telecaller outbound media (audio, voice notes, images, videos, documents).
+ */
+const uploadMedia = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { text, caption, messageType, tempId, isVoiceNote } = req.body;
+  const senderId = req.user?.employeeId || req.user?.userId || 'unknown';
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, 'Invalid conversation ID');
+  }
+
+  if (!req.file) {
+    throw new ApiError(400, 'No file uploaded');
+  }
+
+  const mimeType = req.file.mimetype || 'application/octet-stream';
+  const originalName = req.file.originalname || `upload_${Date.now()}`;
+  const isVoice = isVoiceNote === 'true' || isVoiceNote === true || messageType === 'voice';
+
+  // Infer messageType from MIME type if not explicitly provided
+  let inferredType = messageType;
+  if (!inferredType || inferredType === 'text') {
+    if (mimeType.startsWith('audio/') || isVoice) {
+      inferredType = 'audio';
+    } else if (mimeType.startsWith('image/')) {
+      inferredType = 'image';
+    } else if (mimeType.startsWith('video/')) {
+      inferredType = 'video';
+    } else {
+      inferredType = 'document';
+    }
+  }
+
+  // Store file in MongoDB GridFS
+  const stored = await gridfsService.uploadBuffer(req.file.buffer, originalName, mimeType, {
+    uploadedBy: senderId,
+    conversationId: id,
+    isVoiceNote: isVoice,
+    messageType: inferredType,
+  });
+
+  const mediaObj = {
+    fileId: stored.fileId,
+    url: `/api/chat/media/${stored.fileId}`,
+    fileName: originalName,
+    mimeType,
+    fileSize: req.file.size,
+    caption: caption || text || undefined,
+    isVoiceNote: isVoice,
+  };
+
+  const message = await chatService.sendOutboundMessage({
+    conversationId: id,
+    senderId,
+    text: caption || text || '',
+    media: mediaObj,
+    messageType: inferredType,
+    tempId,
+  });
+
+  return success(res, message, 'Media uploaded and sent successfully', 201);
+});
 
 /**
  * GET /api/chat/conversations
@@ -231,6 +365,8 @@ const simulateInbound = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  streamMedia,
+  uploadMedia,
   getConversations,
   getConversationById,
   getMessages,

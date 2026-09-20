@@ -350,6 +350,102 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
+  /chat/media/{fileId}:
+    get:
+      tags:
+        - Multi-Channel Chat
+      summary: Stream public chat media from MongoDB GridFS
+      description: Streams audio (voice notes), video, image, and document binary streams stored in MongoDB GridFS with HTTP 206 Partial Content (range requests) support for audio seeking and video playback.
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: MongoDB GridFS file ID
+        - name: Range
+          in: header
+          required: false
+          schema:
+            type: string
+            example: "bytes=0-1048576"
+          description: Optional HTTP byte range for media scrubbing
+      responses:
+        '200':
+          description: Full binary media content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: Partial content byte slice
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Media file not found
+
+  /chat/conversations/{id}/media:
+    post:
+      tags:
+        - Multi-Channel Chat
+      summary: Upload and send outbound media in a conversation
+      description: Uploads a voice note, image, video, or PDF document via multipart/form-data, stores it in MongoDB GridFS, and dispatches it to the recipient on WhatsApp, Instagram, or Facebook Messenger.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Target conversation ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Binary media file (audio, image, video, pdf/doc)
+                caption:
+                  type: string
+                  description: Optional caption or text message body
+                messageType:
+                  type: string
+                  enum: [image, video, audio, voice, document, file]
+                  description: Optional media type override
+                isVoiceNote:
+                  type: boolean
+                  description: Flag indicating if the audio is a voice note
+                tempId:
+                  type: string
+                  description: Client-generated temporary ID for optimistic UI matching
+      responses:
+        '201':
+          description: Media uploaded and message dispatched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Media uploaded and sent successfully
+                  data:
+                    $ref: '#/components/schemas/ChatMessage'
+
   /chat/simulate-inbound:
     post:
       tags:
