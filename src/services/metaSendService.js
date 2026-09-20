@@ -137,11 +137,16 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
     if (['image', 'video', 'audio', 'document'].includes(mediaType)) {
       payload.type = mediaType;
       if (mediaType === 'audio') {
-        // Meta WhatsApp Cloud API: include voice: true for native Push-To-Talk voice notes (green waveform)
+        // Meta WhatsApp Cloud API: native green PTT voice notes strictly require OGG container encoded with OPUS.
+        // If an M4A/AAC/MP3 file is sent with voice: true, WhatsApp's PTT player freezes on playback.
+        const fileName = (media?.fileName || '').toLowerCase();
+        const mime = (media?.mimeType || '').toLowerCase();
+        const isOggOpus = fileName.endsWith('.ogg') || fileName.endsWith('.opus') || mime.includes('ogg') || mime.includes('opus');
         const isVoice = Boolean(media?.isVoiceNote || type === 'voice');
+
         payload.audio = {
           link: publicMediaUrl,
-          ...(isVoice ? { voice: true } : {}),
+          ...(isVoice && isOggOpus ? { voice: true } : {}),
         };
       } else if (mediaType === 'document') {
         payload.document = {
