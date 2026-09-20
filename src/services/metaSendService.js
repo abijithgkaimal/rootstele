@@ -137,8 +137,12 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
     if (['image', 'video', 'audio', 'document'].includes(mediaType)) {
       payload.type = mediaType;
       if (mediaType === 'audio') {
-        // Meta WhatsApp Cloud API audio objects only accept link (no caption allowed)
-        payload.audio = { link: publicMediaUrl };
+        // Meta WhatsApp Cloud API: include voice: true for native Push-To-Talk voice notes (green waveform)
+        const isVoice = Boolean(media?.isVoiceNote || type === 'voice');
+        payload.audio = {
+          link: publicMediaUrl,
+          ...(isVoice ? { voice: true } : {}),
+        };
       } else if (mediaType === 'document') {
         payload.document = {
           link: publicMediaUrl,
