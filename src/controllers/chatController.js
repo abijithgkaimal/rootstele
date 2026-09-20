@@ -5,6 +5,7 @@ const gridfsService = require('../services/gridfsService');
 const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
+const mimeHelper = require('../utils/mimeHelper');
 const mongoose = require('mongoose');
 
 /**
@@ -24,8 +25,10 @@ const streamMedia = asyncHandler(async (req, res) => {
   }
 
   const fileSize = file.length;
-  const contentType = file.contentType || file.metadata?.mimeType || 'application/octet-stream';
-  const filename = file.filename || `media_${fileId}`;
+  const filename = file.filename || file.metadata?.fileName || `media_${fileId}`;
+  const typeHint = file.metadata?.isVoiceNote ? 'audio' : file.metadata?.messageType;
+  const rawContentType = file.contentType || file.metadata?.mimeType;
+  const contentType = mimeHelper.normalizeContentType(rawContentType, filename, typeHint);
 
   // Common response headers
   res.setHeader('Content-Type', contentType);
@@ -92,11 +95,16 @@ const uploadMedia = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'No file uploaded');
   }
 
-  const mimeType = req.file.mimetype || 'application/octet-stream';
   const originalName = req.file.originalname || `upload_${Date.now()}`;
   const isVoice = isVoiceNote === 'true' || isVoiceNote === true || messageType === 'voice';
+  const typeHint = isVoice
+    ? 'audio'
+    : (messageType || (req.file.mimetype?.startsWith('audio/') ? 'audio' : (req.file.mimetype?.startsWith('image/') ? 'image' : (req.file.mimetype?.startsWith('video/') ? 'video' : 'document'))));
 
-  // Infer messageType from MIME type if not explicitly provided
+  // Determine accurate MIME type via extension, magic bytes, and type hint
+  const mimeType = mimeHelper.detectMimeType(req.file.buffer, originalName, req.file.mimetype, typeHint);
+
+  // Infer messageType from MIME type or isVoice
   let inferredType = messageType;
   if (!inferredType || inferredType === 'text') {
     if (mimeType.startsWith('audio/') || isVoice) {
@@ -110,12 +118,14 @@ const uploadMedia = asyncHandler(async (req, res) => {
     }
   }
 
-  // Store file in MongoDB GridFS
+  // Store file in MongoDB GridFS with accurate MIME type
   const stored = await gridfsService.uploadBuffer(req.file.buffer, originalName, mimeType, {
     uploadedBy: senderId,
     conversationId: id,
     isVoiceNote: isVoice,
     messageType: inferredType,
+    fileName: originalName,
+    mimeType,
   });
 
   const mediaObj = {

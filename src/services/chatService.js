@@ -12,6 +12,7 @@ const metaProfileService = require('./metaProfileService');
 const socketService = require('./socketService');
 const notificationService = require('./notificationService');
 const gridfsService = require('./gridfsService');
+const mimeHelper = require('../utils/mimeHelper');
 const mongoose = require('mongoose');
 
 // Concurrency mutex per participant key to prevent simultaneous conversation creation race conditions
@@ -26,8 +27,9 @@ const participantLocks = new Map();
  * @returns {Promise<{ fileId: string, mediaUrl: string, mimeType: string, fileName: string, fileSize?: number }>}
  */
 const pipeMediaToGridFS = async (streamOrBuffer, filename, mimeType, metadata = {}) => {
+  const normalizedMime = mimeHelper.normalizeContentType(mimeType, filename, metadata.isVoiceNote ? 'audio' : metadata.messageType);
   if (Buffer.isBuffer(streamOrBuffer)) {
-    const res = await gridfsService.uploadBuffer(streamOrBuffer, filename, mimeType, metadata);
+    const res = await gridfsService.uploadBuffer(streamOrBuffer, filename, normalizedMime, metadata);
     return {
       fileId: res.fileId,
       mediaUrl: `/api/chat/media/${res.fileId}`,
@@ -39,7 +41,7 @@ const pipeMediaToGridFS = async (streamOrBuffer, filename, mimeType, metadata = 
 
   return new Promise((resolve, reject) => {
     const uploadStream = gridfsService.createUploadStream(filename, {
-      contentType: mimeType || 'application/octet-stream',
+      contentType: normalizedMime,
       metadata,
     });
 
@@ -47,7 +49,7 @@ const pipeMediaToGridFS = async (streamOrBuffer, filename, mimeType, metadata = 
       resolve({
         fileId: uploadStream.id.toString(),
         mediaUrl: `/api/chat/media/${uploadStream.id}`,
-        mimeType: mimeType || 'application/octet-stream',
+        mimeType: normalizedMime,
         fileName: filename,
         fileSize: uploadStream.length || undefined,
       });
