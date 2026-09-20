@@ -633,7 +633,7 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
         whatsappChats: { $sum: { $cond: [{ $eq: ["$channel", "whatsapp"] }, 1, 0] } },
         instagramChats: { $sum: { $cond: [{ $eq: ["$channel", "instagram"] }, 1, 0] } },
         facebookChats: { $sum: { $cond: [{ $eq: ["$channel", "facebook"] }, 1, 0] } },
-        convertedLeads: { $sum: { $cond: [{ $and: [{ $ne: ["$leadId", null] }, { $ne: ["$leadId", undefined] }] }, 1, 0] } },
+        convertedLeads: { $sum: { $cond: [{ $ifNull: ["$leadId", false] }, 1, 0] } },
       }
     }
   ];
