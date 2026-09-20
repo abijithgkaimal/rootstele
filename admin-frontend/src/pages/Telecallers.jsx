@@ -27,8 +27,8 @@ const Telecallers = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedForEdit, setSelectedForEdit] = useState(null);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const [leadRes, chatRes] = await Promise.all([
         axios.get('/api/admin/telecaller-leaderboard'),
@@ -44,12 +44,14 @@ const Telecallers = () => {
     } catch (error) {
       console.error('Error fetching telecallers directory:', error);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
+    const intervalId = setInterval(() => fetchData(true), 60 * 1000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const chatMap = {};

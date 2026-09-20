@@ -115,8 +115,8 @@ const ChatReports = () => {
   const [customToDate, setCustomToDate] = useState(todayStr());
 
   // Fetch Data
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       let fromDate = null;
       let toDate = null;
@@ -169,12 +169,14 @@ const ChatReports = () => {
     } catch (err) {
       console.error('Error fetching chat reports:', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
+    const intervalId = setInterval(() => fetchData(true), 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [dateFilter, customFromDate, customToDate, channelFilter, brandFilter, activeTab]);
 
   const handleExportCSV = () => {

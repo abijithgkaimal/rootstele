@@ -108,8 +108,8 @@ const Dashboard = () => {
   const [customToDate, setCustomToDate] = useState(todayStr());
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+    const fetchData = async (isSilent = false) => {
+      if (!isSilent) setLoading(true);
       try {
         let queryParams = '';
         const today = new Date();
@@ -150,10 +150,12 @@ const Dashboard = () => {
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
-        setLoading(false);
+        if (!isSilent) setLoading(false);
       }
     };
     fetchData();
+    const intervalId = setInterval(() => fetchData(true), 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [dateFilter, customFromDate, customToDate]);
 
   const handleExportCSV = () => {

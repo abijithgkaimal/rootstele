@@ -29,8 +29,8 @@ const CallReports = () => {
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      setLoading(true);
+    const fetchLeaderboard = async (isSilent = false) => {
+      if (!isSilent) setLoading(true);
       try {
         let query = '';
         if (fromDate && toDate) {
@@ -43,10 +43,12 @@ const CallReports = () => {
       } catch (error) {
         console.error('Error fetching leaderboard:', error);
       } finally {
-        setLoading(false);
+        if (!isSilent) setLoading(false);
       }
     };
     fetchLeaderboard();
+    const intervalId = setInterval(() => fetchLeaderboard(true), 60 * 1000);
+    return () => clearInterval(intervalId);
   }, [fromDate, toDate]);
 
   useEffect(() => {

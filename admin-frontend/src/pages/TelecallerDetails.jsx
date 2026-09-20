@@ -62,8 +62,8 @@ const TelecallerDetails = () => {
   const datePickerRef = useRef(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+    const fetchData = async (isSilent = false) => {
+      if (!isSilent) setLoading(true);
       try {
         let query = '';
         if (fromDate && toDate) {
@@ -83,11 +83,11 @@ const TelecallerDetails = () => {
       } catch (error) {
         console.error('Error fetching telecaller details:', error);
       } finally {
-        setLoading(false);
+        if (!isSilent) setLoading(false);
       }
     };
     fetchData();
-    const intervalId = setInterval(fetchData, 5 * 60 * 1000);
+    const intervalId = setInterval(() => fetchData(true), 60 * 1000);
     return () => clearInterval(intervalId);
   }, [employeeId, fromDate, toDate, activeTab]);
 
