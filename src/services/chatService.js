@@ -12,6 +12,37 @@ const metaProfileService = require('./metaProfileService');
 const socketService = require('./socketService');
 const notificationService = require('./notificationService');
 
+// Concurrency mutex per participant key to prevent simultaneous conversation creation race conditions
+const participantLocks = new Map();
+
+/**
+ * Executes an async function with a per-participant lock/queue to prevent race condition duplicates.
+ * @param {string} lockKey
+ * @param {Function} asyncFn
+ */
+const withParticipantLock = async (lockKey, asyncFn) => {
+  if (!lockKey) return asyncFn();
+
+  const prevPromise = participantLocks.get(lockKey) || Promise.resolve();
+
+  let resolveNext;
+  const nextPromise = new Promise((res) => {
+    resolveNext = res;
+  });
+
+  participantLocks.set(lockKey, nextPromise);
+
+  try {
+    await prevPromise.catch(() => {});
+    return await asyncFn();
+  } finally {
+    resolveNext();
+    if (participantLocks.get(lockKey) === nextPromise) {
+      participantLocks.delete(lockKey);
+    }
+  }
+};
+
 /**
  * Assigns a conversation to an active telecaller, prioritizing brand/store match.
  * @param {string} participantPhone
@@ -123,163 +154,202 @@ const processInboundWhatsApp = async (body) => {
           const rawPhone = msg.from;
           const normalizedPhone = normalize(rawPhone);
           const contactName = contactMap[rawPhone] || '';
+          const lockKey = `wa_${brandInfo.brand}_${normalizedPhone || rawPhone}`;
 
-          // Find or link Customer
-          let customer = null;
-          if (normalizedPhone) {
-            customer = await Customer.findOne({ normalizedPhone });
-            if (!customer) {
-              customerService.recomputeCustomerState(normalizedPhone).catch(() => {});
+          await withParticipantLock(lockKey, async () => {
+            // Find or link Customer
+            let customer = null;
+            if (normalizedPhone) {
+              customer = await Customer.findOne({ normalizedPhone });
+              if (!customer) {
+                customerService.recomputeCustomerState(normalizedPhone).catch(() => {});
+              }
             }
-          }
 
-          // Find or create Conversation
-          let conversation = await Conversation.findOne({
-            channel: 'whatsapp',
-            channelId: phoneNumberId,
-            'participant.normalizedPhone': normalizedPhone,
-          });
-
-          if (!conversation) {
-            const assignedTo = await findOrAssignTelecaller(rawPhone, customer?._id, brandInfo.storePrefix);
-            conversation = await Conversation.create({
+            // Find or create Conversation - search by brand and phone
+            let conversation = await Conversation.findOne({
               channel: 'whatsapp',
               brand: brandInfo.brand,
-              brandName: brandInfo.brandName,
-              channelId: phoneNumberId,
-              participant: {
-                phone: rawPhone,
-                normalizedPhone,
-                name: contactName || (customer ? customer.name : rawPhone),
-              },
-              customerId: customer?._id || undefined,
-              assignedTo,
-              status: 'open',
-              unreadCount: 0,
+              $or: [
+                { 'participant.normalizedPhone': normalizedPhone },
+                { 'participant.phone': rawPhone },
+                { 'participant.phone': normalizedPhone },
+              ],
             });
 
-            if (assignedTo && assignedTo !== 'system') {
-              socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
-                conversationId: conversation._id,
+            // Fallback lookup if brand was unassigned in older records
+            if (!conversation && normalizedPhone) {
+              conversation = await Conversation.findOne({
                 channel: 'whatsapp',
-                brand: conversation.brand,
-                brandName: conversation.brandName,
-                participant: conversation.participant,
+                $or: [
+                  { 'participant.normalizedPhone': normalizedPhone },
+                  { 'participant.phone': rawPhone },
+                ],
               });
             }
-          } else if (!conversation.assignedTo || conversation.assignedTo === 'system') {
-            const newAssignee = await findOrAssignTelecaller(rawPhone, customer?._id, brandInfo.storePrefix);
-            if (newAssignee && newAssignee !== 'system') {
-              conversation.assignedTo = newAssignee;
-              await conversation.save();
-              socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
-                conversationId: conversation._id,
+
+            if (!conversation) {
+              const assignedTo = await findOrAssignTelecaller(rawPhone, customer?._id, brandInfo.storePrefix);
+              conversation = await Conversation.create({
                 channel: 'whatsapp',
-                brand: conversation.brand,
-                brandName: conversation.brandName,
-                participant: conversation.participant,
+                brand: brandInfo.brand,
+                brandName: brandInfo.brandName,
+                channelId: phoneNumberId,
+                participant: {
+                  phone: rawPhone,
+                  normalizedPhone,
+                  name: contactName || (customer ? customer.name : rawPhone),
+                },
+                customerId: customer?._id || undefined,
+                assignedTo,
+                status: 'open',
+                unreadCount: 0,
               });
+
+              if (assignedTo && assignedTo !== 'system') {
+                socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
+                  conversationId: conversation._id,
+                  channel: 'whatsapp',
+                  brand: conversation.brand,
+                  brandName: conversation.brandName,
+                  participant: conversation.participant,
+                });
+              }
+            } else {
+              let updated = false;
+              if (conversation.channelId !== phoneNumberId && phoneNumberId !== 'WA_DEFAULT') {
+                conversation.channelId = phoneNumberId;
+                updated = true;
+              }
+              if (conversation.brand !== brandInfo.brand) {
+                conversation.brand = brandInfo.brand;
+                conversation.brandName = brandInfo.brandName;
+                updated = true;
+              }
+              if (contactName && (!conversation.participant?.name || conversation.participant.name === rawPhone)) {
+                conversation.participant = conversation.participant || {};
+                conversation.participant.name = contactName;
+                updated = true;
+              }
+              if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+                const newAssignee = await findOrAssignTelecaller(rawPhone, customer?._id, brandInfo.storePrefix);
+                if (newAssignee && newAssignee !== 'system') {
+                  conversation.assignedTo = newAssignee;
+                  updated = true;
+                  socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+                    conversationId: conversation._id,
+                    channel: 'whatsapp',
+                    brand: conversation.brand,
+                    brandName: conversation.brandName,
+                    participant: conversation.participant,
+                  });
+                }
+              }
+
+              if (updated) {
+                await conversation.save();
+              }
             }
-          }
 
-          // Extract message text / media
-          let messageType = 'text';
-          let text = '';
-          let media = null;
-          let attachmentUrl = undefined;
-          let mediaMetadata = undefined;
+            // Extract message text / media
+            let messageType = 'text';
+            let text = '';
+            let media = null;
+            let attachmentUrl = undefined;
+            let mediaMetadata = undefined;
 
-          if (msg.type === 'text') {
-            messageType = 'text';
-            text = msg.text?.body || '';
-          } else if (['image', 'video', 'audio', 'document'].includes(msg.type)) {
-            messageType = msg.type;
-            const mediaObj = msg[msg.type] || {};
-            text = mediaObj.caption || '';
-            const resolved = await metaSendService.getWhatsAppMediaUrl(mediaObj.id, null, {
-              phoneNumberId,
-              brand: brandInfo.brand,
-            });
-            attachmentUrl = resolved.url || mediaObj.link || mediaObj.id || '';
-            mediaMetadata = {
-              mimeType: resolved.mimeType || mediaObj.mime_type || '',
-              fileName: mediaObj.filename || `${msg.type}_${Date.now()}`,
-              fileSize: resolved.fileSize || mediaObj.file_size || 0,
-              title: text || undefined,
-            };
-            media = {
-              url: attachmentUrl,
-              mimeType: mediaMetadata.mimeType,
-              fileName: mediaMetadata.fileName,
-              fileSize: mediaMetadata.fileSize,
-              title: mediaMetadata.title,
-            };
-          } else if (msg.type === 'interactive') {
-            messageType = 'interactive';
-            text = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || 'Interactive response';
-          } else if (msg.type === 'button') {
-            messageType = 'interactive';
-            text = msg.button?.text || 'Button response';
-          } else {
-            text = `[${msg.type} message]`;
-          }
+            if (msg.type === 'text') {
+              messageType = 'text';
+              text = msg.text?.body || '';
+            } else if (['image', 'video', 'audio', 'document'].includes(msg.type)) {
+              messageType = msg.type;
+              const mediaObj = msg[msg.type] || {};
+              text = mediaObj.caption || '';
+              const resolved = await metaSendService.getWhatsAppMediaUrl(mediaObj.id, null, {
+                phoneNumberId,
+                brand: brandInfo.brand,
+              });
+              attachmentUrl = resolved.url || mediaObj.link || mediaObj.id || '';
+              mediaMetadata = {
+                mimeType: resolved.mimeType || mediaObj.mime_type || '',
+                fileName: mediaObj.filename || `${msg.type}_${Date.now()}`,
+                fileSize: resolved.fileSize || mediaObj.file_size || 0,
+                title: text || undefined,
+              };
+              media = {
+                url: attachmentUrl,
+                mimeType: mediaMetadata.mimeType,
+                fileName: mediaMetadata.fileName,
+                fileSize: mediaMetadata.fileSize,
+                title: mediaMetadata.title,
+              };
+            } else if (msg.type === 'interactive') {
+              messageType = 'interactive';
+              text = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || 'Interactive response';
+            } else if (msg.type === 'button') {
+              messageType = 'interactive';
+              text = msg.button?.text || 'Button response';
+            } else {
+              text = `[${msg.type} message]`;
+            }
 
-          const customerSenderName = contactName || conversation.participant?.name || (customer ? customer.name : rawPhone);
+            const customerSenderName = contactName || conversation.participant?.name || (customer ? customer.name : rawPhone);
 
-          const savedMessage = await Message.create({
-            conversationId: conversation._id,
-            messageId,
-            channel: 'whatsapp',
-            brand: conversation.brand,
-            senderType: 'customer',
-            senderId: rawPhone,
-            senderName: customerSenderName,
-            messageType,
-            text,
-            attachmentUrl,
-            mediaMetadata,
-            media: media || undefined,
-            status: 'delivered',
-            rawPayload: msg,
-            timestamp: new Date(Number(msg.timestamp) * 1000 || Date.now()),
-          });
-
-          await Conversation.findByIdAndUpdate(conversation._id, {
-            $set: {
-              lastMessage: {
-                text,
-                senderType: 'customer',
-                messageType,
-                timestamp: savedMessage.timestamp,
-              },
-              lastActivityAt: savedMessage.timestamp,
-              status: 'open',
-            },
-            $inc: { unreadCount: 1 },
-          });
-
-          if (conversation.assignedTo && conversation.assignedTo !== 'system') {
-            socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
+            const savedMessage = await Message.create({
               conversationId: conversation._id,
+              messageId,
               channel: 'whatsapp',
               brand: conversation.brand,
-              brandName: conversation.brandName,
-              message: savedMessage,
-              participant: conversation.participant,
+              senderType: 'customer',
+              senderId: rawPhone,
+              senderName: customerSenderName,
+              messageType,
+              text,
+              attachmentUrl,
+              mediaMetadata,
+              media: media || undefined,
+              status: 'delivered',
+              rawPayload: msg,
+              timestamp: new Date(Number(msg.timestamp) * 1000 || Date.now()),
             });
 
-            notificationService.sendNotificationToUser({
-              employeeId: conversation.assignedTo,
-              title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New WhatsApp Message',
-              body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
-              data: {
-                type: 'chat',
-                chatId: String(conversation._id),
-                channel: 'whatsapp',
-                brand: conversation.brand || '',
+            await Conversation.findByIdAndUpdate(conversation._id, {
+              $set: {
+                lastMessage: {
+                  text,
+                  senderType: 'customer',
+                  messageType,
+                  timestamp: savedMessage.timestamp,
+                },
+                lastActivityAt: savedMessage.timestamp,
+                status: 'open',
               },
-            }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
-          }
+              $inc: { unreadCount: 1 },
+            });
+
+            if (conversation.assignedTo && conversation.assignedTo !== 'system') {
+              socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
+                conversationId: conversation._id,
+                channel: 'whatsapp',
+                brand: conversation.brand,
+                brandName: conversation.brandName,
+                message: savedMessage,
+                participant: conversation.participant,
+              });
+
+              notificationService.sendNotificationToUser({
+                employeeId: conversation.assignedTo,
+                title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New WhatsApp Message',
+                body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
+                data: {
+                  type: 'chat',
+                  chatId: String(conversation._id),
+                  channel: 'whatsapp',
+                  brand: conversation.brand || '',
+                },
+              }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
+            }
+          });
         }
       }
     }
@@ -307,69 +377,55 @@ const processInboundInstagram = async (body) => {
         const existing = await Message.findOne({ messageId });
         if (existing) continue;
 
-        const profile = await metaProfileService.resolveInstagramProfile(igUserId, {
-          brand: brandInfo.brand,
-          pageId: recipientId,
-        });
+        const lockKey = `ig_${brandInfo.brand}_${igUserId}`;
 
-        let conversation = await Conversation.findOne({
-          channel: 'instagram',
-          channelId: recipientId,
-          'participant.socialUserId': igUserId,
-        });
-
-        if (!conversation) {
-          const assignedTo = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-          conversation = await Conversation.create({
+        await withParticipantLock(lockKey, async () => {
+          let conversation = await Conversation.findOne({
             channel: 'instagram',
             brand: brandInfo.brand,
-            brandName: brandInfo.brandName,
-            channelId: recipientId,
-            participant: {
-              socialUserId: igUserId,
-              igUserId,
-              name: profile.name,
-              username: profile.username || undefined,
-              profilePic: profile.profilePic || undefined,
-            },
-            assignedTo,
-            status: 'open',
-            unreadCount: 0,
+            $or: [
+              { 'participant.socialUserId': igUserId },
+              { 'participant.igUserId': igUserId },
+            ],
           });
 
-          if (assignedTo && assignedTo !== 'system') {
-            socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
-              conversationId: conversation._id,
+          // Fallback if brand was not set previously
+          if (!conversation) {
+            conversation = await Conversation.findOne({
               channel: 'instagram',
-              brand: conversation.brand,
-              brandName: conversation.brandName,
-              participant: conversation.participant,
+              $or: [
+                { 'participant.socialUserId': igUserId },
+                { 'participant.igUserId': igUserId },
+              ],
             });
           }
-        } else {
-          let updated = false;
-          if (profile.name && (!conversation.participant?.name || conversation.participant.name.startsWith('Instagram User'))) {
-            conversation.participant = conversation.participant || {};
-            conversation.participant.name = profile.name;
-            updated = true;
-          }
-          if (profile.username && conversation.participant?.username !== profile.username) {
-            conversation.participant = conversation.participant || {};
-            conversation.participant.username = profile.username;
-            updated = true;
-          }
-          if (profile.profilePic && conversation.participant?.profilePic !== profile.profilePic) {
-            conversation.participant = conversation.participant || {};
-            conversation.participant.profilePic = profile.profilePic;
-            updated = true;
-          }
 
-          if (!conversation.assignedTo || conversation.assignedTo === 'system') {
-            const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-            if (newAssignee && newAssignee !== 'system') {
-              conversation.assignedTo = newAssignee;
-              updated = true;
-              socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+          const profile = await metaProfileService.resolveInstagramProfile(igUserId, {
+            brand: brandInfo.brand,
+            pageId: recipientId,
+          });
+
+          if (!conversation) {
+            const assignedTo = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+            conversation = await Conversation.create({
+              channel: 'instagram',
+              brand: brandInfo.brand,
+              brandName: brandInfo.brandName,
+              channelId: recipientId,
+              participant: {
+                socialUserId: igUserId,
+                igUserId,
+                name: profile.name,
+                username: profile.username || undefined,
+                profilePic: profile.profilePic || undefined,
+              },
+              assignedTo,
+              status: 'open',
+              unreadCount: 0,
+            });
+
+            if (assignedTo && assignedTo !== 'system') {
+              socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
                 conversationId: conversation._id,
                 channel: 'instagram',
                 brand: conversation.brand,
@@ -377,137 +433,178 @@ const processInboundInstagram = async (body) => {
                 participant: conversation.participant,
               });
             }
-          }
+          } else {
+            let updated = false;
+            if (conversation.channelId !== recipientId) {
+              conversation.channelId = recipientId;
+              updated = true;
+            }
+            if (conversation.brand !== brandInfo.brand) {
+              conversation.brand = brandInfo.brand;
+              conversation.brandName = brandInfo.brandName;
+              updated = true;
+            }
+            if (profile.name && (!conversation.participant?.name || conversation.participant.name.startsWith('Instagram User'))) {
+              conversation.participant = conversation.participant || {};
+              conversation.participant.name = profile.name;
+              updated = true;
+            }
+            if (profile.username && conversation.participant?.username !== profile.username) {
+              conversation.participant = conversation.participant || {};
+              conversation.participant.username = profile.username;
+              updated = true;
+            }
+            if (profile.profilePic && conversation.participant?.profilePic !== profile.profilePic) {
+              conversation.participant = conversation.participant || {};
+              conversation.participant.profilePic = profile.profilePic;
+              updated = true;
+            }
 
-          if (updated) {
-            await conversation.save();
-          }
-        }
+            if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+              const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+              if (newAssignee && newAssignee !== 'system') {
+                conversation.assignedTo = newAssignee;
+                updated = true;
+                socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+                  conversationId: conversation._id,
+                  channel: 'instagram',
+                  brand: conversation.brand,
+                  brandName: conversation.brandName,
+                  participant: conversation.participant,
+                });
+              }
+            }
 
-        let messageType = 'text';
-        let text = event.message.text || '';
-        let media = null;
-        let attachmentUrl = undefined;
-        let mediaMetadata = undefined;
-
-        if (event.message.attachments && event.message.attachments.length > 0) {
-          const att = event.message.attachments[0];
-          const rawType = (att.type || 'image').toLowerCase();
-          const validTypes = [
-            'text',
-            'image',
-            'audio',
-            'video',
-            'file',
-            'document',
-            'ig_reel',
-            'share',
-            'story_mention',
-            'fallback',
-          ];
-          messageType = validTypes.includes(rawType)
-            ? rawType
-            : (rawType.includes('reel') ? 'ig_reel' : 'image');
-
-          const payload = att.payload || {};
-          const mediaUrl =
-            payload.url ||
-            payload.reel_url ||
-            (payload.reel_video_id ? `https://www.instagram.com/reel/${payload.reel_video_id}/` : '') ||
-            '';
-
-          attachmentUrl = mediaUrl;
-          mediaMetadata = {
-            title: payload.title || undefined,
-            reelVideoId: payload.reel_video_id || undefined,
-            mimeType: payload.mime_type || att.type || '',
-            fileName: `ig_${messageType}_${Date.now()}`,
-            fileSize: payload.file_size || undefined,
-          };
-
-          media = {
-            url: attachmentUrl,
-            mimeType: mediaMetadata.mimeType,
-            fileName: mediaMetadata.fileName,
-            fileSize: mediaMetadata.fileSize,
-            title: mediaMetadata.title,
-            reelVideoId: mediaMetadata.reelVideoId,
-          };
-
-          if (!text) {
-            if (messageType === 'ig_reel') {
-              text = payload.title ? `[Instagram Reel: ${payload.title}]` : '[Instagram Reel]';
-            } else if (messageType === 'share') {
-              text = payload.title ? `[Shared Post: ${payload.title}]` : '[Instagram Shared Post]';
-            } else if (messageType === 'story_mention') {
-              text = '[Mentioned in Instagram Story]';
-            } else {
-              text = `[Instagram ${messageType}]`;
+            if (updated) {
+              await conversation.save();
             }
           }
-        }
 
-        const rawTs = Number(event.timestamp);
-        const msgDate = !isNaN(rawTs) && rawTs > 0
-          ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs)
-          : new Date();
+          let messageType = 'text';
+          let text = event.message.text || '';
+          let media = null;
+          let attachmentUrl = undefined;
+          let mediaMetadata = undefined;
 
-        const customerSenderName = profile.name || conversation.participant?.name || 'Instagram User';
+          if (event.message.attachments && event.message.attachments.length > 0) {
+            const att = event.message.attachments[0];
+            const rawType = (att.type || 'image').toLowerCase();
+            const validTypes = [
+              'text',
+              'image',
+              'audio',
+              'video',
+              'file',
+              'document',
+              'ig_reel',
+              'share',
+              'story_mention',
+              'fallback',
+            ];
+            messageType = validTypes.includes(rawType)
+              ? rawType
+              : (rawType.includes('reel') ? 'ig_reel' : 'image');
 
-        const savedMessage = await Message.create({
-          conversationId: conversation._id,
-          messageId,
-          channel: 'instagram',
-          brand: conversation.brand,
-          senderType: 'customer',
-          senderId: igUserId,
-          senderName: customerSenderName,
-          messageType,
-          text,
-          attachmentUrl,
-          mediaMetadata,
-          media: media || undefined,
-          status: 'delivered',
-          rawPayload: event,
-          timestamp: msgDate,
-        });
+            const payload = att.payload || {};
+            const mediaUrl =
+              payload.url ||
+              payload.reel_url ||
+              (payload.reel_video_id ? `https://www.instagram.com/reel/${payload.reel_video_id}/` : '') ||
+              '';
 
-        await Conversation.findByIdAndUpdate(conversation._id, {
-          $set: {
-            lastMessage: {
-              text,
-              senderType: 'customer',
-              messageType,
-              timestamp: savedMessage.timestamp,
-            },
-            lastActivityAt: savedMessage.timestamp,
-            status: 'open',
-          },
-          $inc: { unreadCount: 1 },
-        });
+            attachmentUrl = mediaUrl;
+            mediaMetadata = {
+              title: payload.title || undefined,
+              reelVideoId: payload.reel_video_id || undefined,
+              mimeType: payload.mime_type || att.type || '',
+              fileName: `ig_${messageType}_${Date.now()}`,
+              fileSize: payload.file_size || undefined,
+            };
 
-        if (conversation.assignedTo && conversation.assignedTo !== 'system') {
-          socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
+            media = {
+              url: attachmentUrl,
+              mimeType: mediaMetadata.mimeType,
+              fileName: mediaMetadata.fileName,
+              fileSize: mediaMetadata.fileSize,
+              title: mediaMetadata.title,
+              reelVideoId: mediaMetadata.reelVideoId,
+            };
+
+            if (!text) {
+              if (messageType === 'ig_reel') {
+                text = payload.title ? `[Instagram Reel: ${payload.title}]` : '[Instagram Reel]';
+              } else if (messageType === 'share') {
+                text = payload.title ? `[Shared Post: ${payload.title}]` : '[Instagram Shared Post]';
+              } else if (messageType === 'story_mention') {
+                text = '[Mentioned in Instagram Story]';
+              } else {
+                text = `[Instagram ${messageType}]`;
+              }
+            }
+          }
+
+          const rawTs = Number(event.timestamp);
+          const msgDate = !isNaN(rawTs) && rawTs > 0
+            ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs)
+            : new Date();
+
+          const customerSenderName = profile.name || conversation.participant?.name || 'Instagram User';
+
+          const savedMessage = await Message.create({
             conversationId: conversation._id,
+            messageId,
             channel: 'instagram',
             brand: conversation.brand,
-            brandName: conversation.brandName,
-            message: savedMessage,
-            participant: conversation.participant,
+            senderType: 'customer',
+            senderId: igUserId,
+            senderName: customerSenderName,
+            messageType,
+            text,
+            attachmentUrl,
+            mediaMetadata,
+            media: media || undefined,
+            status: 'delivered',
+            rawPayload: event,
+            timestamp: msgDate,
           });
 
-          notificationService.sendNotificationToUser({
-            employeeId: conversation.assignedTo,
-            title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New Instagram Message',
-            body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
-            data: {
-              type: 'chat',
-              chatId: String(conversation._id),
-              channel: 'instagram',
-              brand: conversation.brand || '',
+          await Conversation.findByIdAndUpdate(conversation._id, {
+            $set: {
+              lastMessage: {
+                text,
+                senderType: 'customer',
+                messageType,
+                timestamp: savedMessage.timestamp,
+              },
+              lastActivityAt: savedMessage.timestamp,
+              status: 'open',
             },
-          }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
-        }
+            $inc: { unreadCount: 1 },
+          });
+
+          if (conversation.assignedTo && conversation.assignedTo !== 'system') {
+            socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
+              conversationId: conversation._id,
+              channel: 'instagram',
+              brand: conversation.brand,
+              brandName: conversation.brandName,
+              message: savedMessage,
+              participant: conversation.participant,
+            });
+
+            notificationService.sendNotificationToUser({
+              employeeId: conversation.assignedTo,
+              title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New Instagram Message',
+              body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
+              data: {
+                type: 'chat',
+                chatId: String(conversation._id),
+                channel: 'instagram',
+                brand: conversation.brand || '',
+              },
+            }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
+          }
+        });
       }
 
       if (event.read) {
@@ -549,62 +646,52 @@ const processInboundFacebook = async (body) => {
         const existing = await Message.findOne({ messageId });
         if (existing) continue;
 
-        const profile = await metaProfileService.resolveFacebookProfile(psid, {
-          brand: brandInfo.brand,
-          pageId: recipientId,
-        });
+        const lockKey = `fb_${brandInfo.brand}_${psid}`;
 
-        let conversation = await Conversation.findOne({
-          channel: 'facebook',
-          channelId: recipientId,
-          'participant.socialUserId': psid,
-        });
-
-        if (!conversation) {
-          const assignedTo = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-          conversation = await Conversation.create({
+        await withParticipantLock(lockKey, async () => {
+          let conversation = await Conversation.findOne({
             channel: 'facebook',
             brand: brandInfo.brand,
-            brandName: brandInfo.brandName,
-            channelId: recipientId,
-            participant: {
-              socialUserId: psid,
-              name: profile.name,
-              profilePic: profile.profilePic || undefined,
-            },
-            assignedTo,
-            status: 'open',
-            unreadCount: 0,
+            $or: [
+              { 'participant.socialUserId': psid },
+              { 'participant.psid': psid },
+            ],
           });
 
-          if (assignedTo && assignedTo !== 'system') {
-            socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
-              conversationId: conversation._id,
+          if (!conversation) {
+            conversation = await Conversation.findOne({
               channel: 'facebook',
-              brand: conversation.brand,
-              brandName: conversation.brandName,
-              participant: conversation.participant,
+              $or: [
+                { 'participant.socialUserId': psid },
+                { 'participant.psid': psid },
+              ],
             });
           }
-        } else {
-          let updated = false;
-          if (profile.name && (!conversation.participant?.name || conversation.participant.name.startsWith('Facebook User'))) {
-            conversation.participant = conversation.participant || {};
-            conversation.participant.name = profile.name;
-            updated = true;
-          }
-          if (profile.profilePic && conversation.participant?.profilePic !== profile.profilePic) {
-            conversation.participant = conversation.participant || {};
-            conversation.participant.profilePic = profile.profilePic;
-            updated = true;
-          }
 
-          if (!conversation.assignedTo || conversation.assignedTo === 'system') {
-            const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-            if (newAssignee && newAssignee !== 'system') {
-              conversation.assignedTo = newAssignee;
-              updated = true;
-              socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+          const profile = await metaProfileService.resolveFacebookProfile(psid, {
+            brand: brandInfo.brand,
+            pageId: recipientId,
+          });
+
+          if (!conversation) {
+            const assignedTo = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+            conversation = await Conversation.create({
+              channel: 'facebook',
+              brand: brandInfo.brand,
+              brandName: brandInfo.brandName,
+              channelId: recipientId,
+              participant: {
+                socialUserId: psid,
+                name: profile.name,
+                profilePic: profile.profilePic || undefined,
+              },
+              assignedTo,
+              status: 'open',
+              unreadCount: 0,
+            });
+
+            if (assignedTo && assignedTo !== 'system') {
+              socketService.emitToTelecaller(assignedTo, 'chat:assigned', {
                 conversationId: conversation._id,
                 channel: 'facebook',
                 brand: conversation.brand,
@@ -612,127 +699,144 @@ const processInboundFacebook = async (body) => {
                 participant: conversation.participant,
               });
             }
+          } else {
+            let updated = false;
+            if (conversation.channelId !== recipientId) {
+              conversation.channelId = recipientId;
+              updated = true;
+            }
+            if (conversation.brand !== brandInfo.brand) {
+              conversation.brand = brandInfo.brand;
+              conversation.brandName = brandInfo.brandName;
+              updated = true;
+            }
+            if (profile.name && (!conversation.participant?.name || conversation.participant.name.startsWith('Facebook User'))) {
+              conversation.participant = conversation.participant || {};
+              conversation.participant.name = profile.name;
+              updated = true;
+            }
+            if (profile.profilePic && conversation.participant?.profilePic !== profile.profilePic) {
+              conversation.participant = conversation.participant || {};
+              conversation.participant.profilePic = profile.profilePic;
+              updated = true;
+            }
+
+            if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+              const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
+              if (newAssignee && newAssignee !== 'system') {
+                conversation.assignedTo = newAssignee;
+                updated = true;
+                socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+                  conversationId: conversation._id,
+                  channel: 'facebook',
+                  brand: conversation.brand,
+                  brandName: conversation.brandName,
+                  participant: conversation.participant,
+                });
+              }
+            }
+
+            if (updated) {
+              await conversation.save();
+            }
           }
 
-          if (updated) {
-            await conversation.save();
-          }
-        }
+          let messageType = 'text';
+          let text = event.message.text || '';
+          let media = null;
+          let attachmentUrl = undefined;
+          let mediaMetadata = undefined;
 
-        let messageType = 'text';
-        let text = event.message.text || '';
-        let media = null;
-        let attachmentUrl = undefined;
-        let mediaMetadata = undefined;
+          if (event.message.attachments && event.message.attachments.length > 0) {
+            const att = event.message.attachments[0];
+            const rawType = (att.type || 'image').toLowerCase();
+            const validTypes = ['text', 'image', 'audio', 'video', 'file', 'fallback'];
+            messageType = validTypes.includes(rawType) ? rawType : 'image';
 
-        if (event.message.attachments && event.message.attachments.length > 0) {
-          const att = event.message.attachments[0];
-          const rawType = (att.type || 'image').toLowerCase();
-          const validTypes = [
-            'text',
-            'image',
-            'audio',
-            'video',
-            'file',
-            'document',
-            'ig_reel',
-            'share',
-            'story_mention',
-            'fallback',
-          ];
-          messageType = validTypes.includes(rawType)
-            ? rawType
-            : (rawType.includes('reel') ? 'ig_reel' : 'image');
+            const payload = att.payload || {};
+            attachmentUrl = payload.url || '';
+            mediaMetadata = {
+              title: payload.title || undefined,
+              mimeType: payload.mime_type || att.type || '',
+              fileName: `fb_${messageType}_${Date.now()}`,
+              fileSize: payload.file_size || undefined,
+            };
 
-          const payload = att.payload || {};
-          const mediaUrl = payload.url || payload.reel_url || '';
+            media = {
+              url: attachmentUrl,
+              mimeType: mediaMetadata.mimeType,
+              fileName: mediaMetadata.fileName,
+              fileSize: mediaMetadata.fileSize,
+              title: mediaMetadata.title,
+            };
 
-          attachmentUrl = mediaUrl;
-          mediaMetadata = {
-            title: payload.title || undefined,
-            mimeType: payload.mime_type || att.type || '',
-            fileName: `fb_${messageType}_${Date.now()}`,
-          };
-
-          media = {
-            url: attachmentUrl,
-            mimeType: mediaMetadata.mimeType,
-            fileName: mediaMetadata.fileName,
-            title: mediaMetadata.title,
-          };
-
-          if (!text) {
-            if (messageType === 'share') {
-              text = payload.title ? `[Shared Post: ${payload.title}]` : '[Facebook Shared Post]';
-            } else if (messageType === 'fallback') {
-              text = payload.title || '[Facebook Attachment]';
-            } else {
+            if (!text) {
               text = `[Facebook ${messageType}]`;
             }
           }
-        }
 
-        const rawTs = Number(event.timestamp);
-        const msgDate = !isNaN(rawTs) && rawTs > 0
-          ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs)
-          : new Date();
+          const rawTs = Number(event.timestamp);
+          const msgDate = !isNaN(rawTs) && rawTs > 0
+            ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs)
+            : new Date();
 
-        const customerSenderName = profile.name || conversation.participant?.name || 'Facebook User';
+          const customerSenderName = profile.name || conversation.participant?.name || 'Facebook User';
 
-        const savedMessage = await Message.create({
-          conversationId: conversation._id,
-          messageId,
-          channel: 'facebook',
-          brand: conversation.brand,
-          senderType: 'customer',
-          senderId: psid,
-          senderName: customerSenderName,
-          messageType,
-          text,
-          attachmentUrl,
-          mediaMetadata,
-          media: media || undefined,
-          status: 'delivered',
-          rawPayload: event,
-          timestamp: msgDate,
-        });
-
-        await Conversation.findByIdAndUpdate(conversation._id, {
-          $set: {
-            lastMessage: {
-              text,
-              senderType: 'customer',
-              messageType,
-              timestamp: savedMessage.timestamp,
-            },
-            lastActivityAt: savedMessage.timestamp,
-            status: 'open',
-          },
-          $inc: { unreadCount: 1 },
-        });
-
-        if (conversation.assignedTo && conversation.assignedTo !== 'system') {
-          socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
+          const savedMessage = await Message.create({
             conversationId: conversation._id,
+            messageId,
             channel: 'facebook',
             brand: conversation.brand,
-            brandName: conversation.brandName,
-            message: savedMessage,
-            participant: conversation.participant,
+            senderType: 'customer',
+            senderId: psid,
+            senderName: customerSenderName,
+            messageType,
+            text,
+            attachmentUrl,
+            mediaMetadata,
+            media: media || undefined,
+            status: 'delivered',
+            rawPayload: event,
+            timestamp: msgDate,
           });
 
-          notificationService.sendNotificationToUser({
-            employeeId: conversation.assignedTo,
-            title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New Messenger Message',
-            body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
-            data: {
-              type: 'chat',
-              chatId: String(conversation._id),
-              channel: 'facebook',
-              brand: conversation.brand || '',
+          await Conversation.findByIdAndUpdate(conversation._id, {
+            $set: {
+              lastMessage: {
+                text,
+                senderType: 'customer',
+                messageType,
+                timestamp: savedMessage.timestamp,
+              },
+              lastActivityAt: savedMessage.timestamp,
+              status: 'open',
             },
-          }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
-        }
+            $inc: { unreadCount: 1 },
+          });
+
+          if (conversation.assignedTo && conversation.assignedTo !== 'system') {
+            socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
+              conversationId: conversation._id,
+              channel: 'facebook',
+              brand: conversation.brand,
+              brandName: conversation.brandName,
+              message: savedMessage,
+              participant: conversation.participant,
+            });
+
+            notificationService.sendNotificationToUser({
+              employeeId: conversation.assignedTo,
+              title: conversation.brandName ? `New Message - ${conversation.brandName}` : 'New Messenger Message',
+              body: text || (media ? `[${messageType} attachment]` : 'You have a new message'),
+              data: {
+                type: 'chat',
+                chatId: String(conversation._id),
+                channel: 'facebook',
+                brand: conversation.brand || '',
+              },
+            }).catch((err) => console.error('[ChatService] Push notification error:', err.message));
+          }
+        });
       }
     }
   }
