@@ -154,6 +154,21 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
     payload.text = { body: text || '' };
   }
 
+  const tokenVar =
+    phoneId === '1343323682194803' || String(brand).toLowerCase().includes('suitor')
+      ? 'WA_ACCESS_TOKEN_SUITOR_GUY'
+      : 'WA_ACCESS_TOKEN_ZORUCCI / META_ACCESS_TOKEN';
+
+  console.log('[MetaSendService] Dispatching WhatsApp outbound:', {
+    recipient: cleanTo,
+    phoneNumberId: phoneId,
+    brand: brand || 'default',
+    tokenVariable: tokenVar,
+    tokenPrefix: token ? token.slice(0, 15) + '...' : 'NONE',
+    type,
+    hasMedia: Boolean(media?.url),
+  });
+
   try {
     const response = await axiosClient.post(url, payload, {
       headers: {
@@ -164,6 +179,7 @@ const sendWhatsAppMessage = async ({ to, text, type = 'text', media, template, p
     });
 
     const msgId = response.data?.messages?.[0]?.id || `wamid.${Date.now()}`;
+    console.log(`[MetaSendService] WhatsApp message dispatched successfully! Message ID: ${msgId}`);
     return { messageId: msgId, data: response.data, phoneNumberId: phoneId };
   } catch (err) {
     const errData = err.response?.data || err.message;

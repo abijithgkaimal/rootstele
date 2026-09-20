@@ -138,6 +138,15 @@ const sendMessage = asyncHandler(async (req, res) => {
   const { text, media, messageType, tempId } = req.body;
   const senderId = req.user?.employeeId || req.user?.userId || 'unknown';
 
+  console.log('[SendMessage] Request received:', {
+    conversationId: id,
+    senderId,
+    messageType: messageType || 'text',
+    textSnippet: text ? String(text).slice(0, 50) : '',
+    hasMedia: Boolean(media?.url),
+    tempId,
+  });
+
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError(400, 'Invalid conversation ID');
   }
