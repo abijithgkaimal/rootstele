@@ -2,6 +2,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const env = require('../src/config/env');
 const Conversation = require('../src/models/Conversation');
+const Message = require('../src/models/Message');
 const metaProfileService = require('../src/services/metaProfileService');
 
 async function backfill() {
@@ -45,6 +46,12 @@ async function backfill() {
           if (profile.username) conv.participant.username = profile.username;
           if (profile.profilePic) conv.participant.profilePic = profile.profilePic;
           await conv.save();
+
+          await Message.updateMany(
+            { conversationId: conv._id, senderId: socialId, senderType: 'customer' },
+            { $set: { senderName: profile.name } }
+          );
+
           console.log(`✓ Updated Instagram conversation ${conv._id} [${socialId}] -> ${profile.name}`);
           updatedCount++;
         } else {
@@ -62,6 +69,12 @@ async function backfill() {
           conv.participant.name = profile.name;
           if (profile.profilePic) conv.participant.profilePic = profile.profilePic;
           await conv.save();
+
+          await Message.updateMany(
+            { conversationId: conv._id, senderId: socialId, senderType: 'customer' },
+            { $set: { senderName: profile.name } }
+          );
+
           console.log(`✓ Updated Facebook conversation ${conv._id} [${socialId}] -> ${profile.name}`);
           updatedCount++;
         } else {

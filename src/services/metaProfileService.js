@@ -324,20 +324,75 @@ const resolveFacebookProfile = async (psid, options = {}) => {
     return defaultFallback;
   }
 
+  // Determine candidate page IDs to query conversations
+  const candidatePageIds = [
+    options.pageId,
+    options.brand ? getBrandCredentials(options.brand)?.pageId : null,
+    '100490815752591', // Zorucci
+    '319976018496565', // Suitor Guy
+  ].filter(Boolean);
+
+  // Method 1: Query Facebook Page Conversations API by user_id (Official pages_messaging capability)
+  for (const pageId of candidatePageIds) {
+    for (const token of tokens) {
+      try {
+        const convUrl = `${GRAPH_API_BASE}/${pageId}/conversations`;
+        const convRes = await axiosClient.get(convUrl, {
+          params: {
+            user_id: psidStr,
+            fields: 'id,participants,senders',
+            access_token: token,
+          },
+          timeout: 6000,
+        });
+
+        const convList = convRes.data?.data || [];
+        for (const conv of convList) {
+          const allPeople = [...(conv.participants?.data || []), ...(conv.senders?.data || [])];
+          const matched = allPeople.find(
+            (p) => String(p.id) === psidStr || (p.email && p.email.startsWith(psidStr))
+          );
+          if (matched && matched.name && !matched.name.toLowerCase().startsWith('facebook user')) {
+            const profile = {
+              name: matched.name.trim(),
+              profilePic: '',
+            };
+            setCachedProfile(cacheKey, profile);
+            return profile;
+          }
+        }
+      } catch (_) {
+        // Continue to next token / page
+      }
+    }
+  }
+
+  // Method 2: Fallback to direct PSID node query
   for (const token of tokens) {
     try {
       const url = `${GRAPH_API_BASE}/${psidStr}`;
-      const response = await axiosClient.get(url, {
-        params: {
-          fields: 'first_name,last_name,profile_pic',
-          access_token: token,
-        },
-        timeout: 6000,
-      });
+      let response;
+      try {
+        response = await axiosClient.get(url, {
+          params: {
+            fields: 'name,first_name,last_name,profile_pic',
+            access_token: token,
+          },
+          timeout: 6000,
+        });
+      } catch (firstErr) {
+        response = await axiosClient.get(url, {
+          params: {
+            fields: 'first_name,last_name,profile_pic',
+            access_token: token,
+          },
+          timeout: 6000,
+        });
+      }
 
       const data = response.data || {};
-      const fullName = [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
-      if (fullName) {
+      const fullName = (data.name && data.name.trim()) || [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
+      if (fullName && !fullName.toLowerCase().startsWith('facebook user')) {
         const profile = {
           name: fullName,
           profilePic: data.profile_pic || '',
@@ -345,8 +400,9 @@ const resolveFacebookProfile = async (psid, options = {}) => {
         setCachedProfile(cacheKey, profile);
         return profile;
       }
-    } catch (_) {
-      // Try next candidate token
+    } catch (err) {
+      const errMsg = err.response?.data?.error?.message || err.message;
+      console.warn(`[MetaProfileService] Error querying Facebook profile for PSID ${psidStr}: ${errMsg}`);
     }
   }
 

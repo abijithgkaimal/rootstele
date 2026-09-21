@@ -43,14 +43,28 @@ const BRAND_REGISTRY = {
   },
 
   // ─── INSTAGRAM BUSINESS ACCOUNTS (Mapped by IG Account ID / Page ID) ───
-  [process.env.IG_ACCOUNT_ID_ZORUCCI || 'IG_ACCOUNT_ID_ZORUCCI']: {
+  [process.env.IG_ACCOUNT_ID_ZORUCCI || '17841450188321270']: {
     brand: 'zorucci',
     brandName: 'Zorucci',
     channel: 'instagram',
     storePrefix: 'Z-',
     themeColor: '#144234',
   },
-  [process.env.IG_ACCOUNT_ID_SUITOR_GUY || 'IG_ACCOUNT_ID_SUITOR_GUY']: {
+  '17841450188321270': {
+    brand: 'zorucci',
+    brandName: 'Zorucci',
+    channel: 'instagram',
+    storePrefix: 'Z-',
+    themeColor: '#144234',
+  },
+  [process.env.IG_ACCOUNT_ID_SUITOR_GUY || '17841406791487873']: {
+    brand: 'suitor_guy',
+    brandName: 'Suitor Guy',
+    channel: 'instagram',
+    storePrefix: 'SG-',
+    themeColor: '#0B25B7',
+  },
+  '17841406791487873': {
     brand: 'suitor_guy',
     brandName: 'Suitor Guy',
     channel: 'instagram',
@@ -66,14 +80,28 @@ const BRAND_REGISTRY = {
   },
 
   // ─── FACEBOOK PAGES (Mapped by Facebook Page ID) ───
-  [process.env.FB_PAGE_ID_ZORUCCI || 'FB_PAGE_ID_ZORUCCI']: {
+  [process.env.FB_PAGE_ID_ZORUCCI || '100490815752591']: {
     brand: 'zorucci',
     brandName: 'Zorucci',
     channel: 'facebook',
     storePrefix: 'Z-',
     themeColor: '#144234',
   },
-  [process.env.FB_PAGE_ID_SUITOR_GUY || 'FB_PAGE_ID_SUITOR_GUY']: {
+  '100490815752591': {
+    brand: 'zorucci',
+    brandName: 'Zorucci',
+    channel: 'facebook',
+    storePrefix: 'Z-',
+    themeColor: '#144234',
+  },
+  [process.env.FB_PAGE_ID_SUITOR_GUY || '319976018496565']: {
+    brand: 'suitor_guy',
+    brandName: 'Suitor Guy',
+    channel: 'facebook',
+    storePrefix: 'SG-',
+    themeColor: '#0B25B7',
+  },
+  '319976018496565': {
     brand: 'suitor_guy',
     brandName: 'Suitor Guy',
     channel: 'facebook',
