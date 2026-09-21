@@ -30,9 +30,10 @@ const pipeMediaToGridFS = async (streamOrBuffer, filename, mimeType, metadata = 
   const normalizedMime = mimeHelper.normalizeContentType(mimeType, filename, metadata.isVoiceNote ? 'audio' : metadata.messageType);
   if (Buffer.isBuffer(streamOrBuffer)) {
     const res = await gridfsService.uploadBuffer(streamOrBuffer, filename, normalizedMime, metadata);
+    const fullMediaUrl = metaSendService.getPublicMediaUrl(`/api/chat/media/${res.fileId}`);
     return {
       fileId: res.fileId,
-      mediaUrl: `/api/chat/media/${res.fileId}`,
+      mediaUrl: fullMediaUrl,
       mimeType: res.contentType,
       fileName: res.filename,
       fileSize: res.length,
@@ -46,9 +47,10 @@ const pipeMediaToGridFS = async (streamOrBuffer, filename, mimeType, metadata = 
     });
 
     uploadStream.on('finish', () => {
+      const fullMediaUrl = metaSendService.getPublicMediaUrl(`/api/chat/media/${uploadStream.id}`);
       resolve({
         fileId: uploadStream.id.toString(),
-        mediaUrl: `/api/chat/media/${uploadStream.id}`,
+        mediaUrl: fullMediaUrl,
         mimeType: normalizedMime,
         fileName: filename,
         fileSize: uploadStream.length || undefined,
@@ -646,10 +648,14 @@ const processInboundInstagram = async (body) => {
             fileName = `ig_${messageType}_${Date.now()}`;
             mimeType = payload.mime_type || (rawType === 'audio' ? 'audio/aac' : rawType === 'video' ? 'video/mp4' : 'image/jpeg');
 
-            // Download direct media files (audio, image, video, file) to GridFS
+            // Download direct media files (audio, image, video, file, document) to GridFS
             if (directUrl && ['audio', 'image', 'video', 'file', 'document'].includes(rawType)) {
               try {
-                const downloaded = await metaSendService.downloadExternalMediaStream(directUrl, { mimeType });
+                const creds = metaSendService.getBrandCredentials(brandInfo.brand);
+                const downloaded = await metaSendService.downloadExternalMediaStream(directUrl, {
+                  mimeType,
+                  token: creds.accessToken,
+                });
                 if (downloaded.mimeType) mimeType = downloaded.mimeType;
 
                 const stored = await pipeMediaToGridFS(downloaded.stream, fileName, mimeType, {
@@ -679,8 +685,8 @@ const processInboundInstagram = async (body) => {
                 };
               } catch (downloadErr) {
                 console.warn('[ChatService] Failed to stream Instagram media to GridFS:', downloadErr.message);
-                attachmentUrl = directUrl;
-                mediaUrl = directUrl;
+                attachmentUrl = metaSendService.getPublicMediaUrl(directUrl);
+                mediaUrl = attachmentUrl;
                 mediaMetadata = {
                   title: payload.title || undefined,
                   reelVideoId: payload.reel_video_id || undefined,
@@ -689,7 +695,7 @@ const processInboundInstagram = async (body) => {
                   fileSize: payload.file_size || undefined,
                 };
                 media = {
-                  url: directUrl,
+                  url: attachmentUrl,
                   mimeType,
                   fileName,
                   fileSize: payload.file_size || undefined,
@@ -698,7 +704,7 @@ const processInboundInstagram = async (body) => {
                 };
               }
             } else {
-              attachmentUrl = directUrl || reelOrShareUrl || '';
+              attachmentUrl = metaSendService.getPublicMediaUrl(directUrl || reelOrShareUrl || '');
               mediaUrl = attachmentUrl;
               mediaMetadata = {
                 title: payload.title || undefined,
@@ -962,7 +968,11 @@ const processInboundFacebook = async (body) => {
 
             if (directUrl && ['audio', 'image', 'video', 'file'].includes(rawType)) {
               try {
-                const downloaded = await metaSendService.downloadExternalMediaStream(directUrl, { mimeType });
+                const creds = metaSendService.getBrandCredentials(brandInfo.brand);
+                const downloaded = await metaSendService.downloadExternalMediaStream(directUrl, {
+                  mimeType,
+                  token: creds.accessToken,
+                });
                 if (downloaded.mimeType) mimeType = downloaded.mimeType;
 
                 const stored = await pipeMediaToGridFS(downloaded.stream, fileName, mimeType, {
@@ -990,8 +1000,8 @@ const processInboundFacebook = async (body) => {
                 };
               } catch (downloadErr) {
                 console.warn('[ChatService] Failed to stream Facebook media to GridFS:', downloadErr.message);
-                attachmentUrl = directUrl;
-                mediaUrl = directUrl;
+                attachmentUrl = metaSendService.getPublicMediaUrl(directUrl);
+                mediaUrl = attachmentUrl;
                 mediaMetadata = {
                   title: payload.title || undefined,
                   mimeType,
@@ -999,7 +1009,7 @@ const processInboundFacebook = async (body) => {
                   fileSize: payload.file_size || undefined,
                 };
                 media = {
-                  url: directUrl,
+                  url: attachmentUrl,
                   mimeType,
                   fileName,
                   fileSize: payload.file_size || undefined,
@@ -1007,7 +1017,7 @@ const processInboundFacebook = async (body) => {
                 };
               }
             } else {
-              attachmentUrl = directUrl || '';
+              attachmentUrl = metaSendService.getPublicMediaUrl(directUrl || '');
               mediaUrl = attachmentUrl;
               mediaMetadata = {
                 title: payload.title || undefined,

@@ -4,6 +4,7 @@ const getEnv = (key, fallback) => process.env[key] || fallback;
 module.exports = {
   port: Number(getEnv('PORT', '3000')),
   nodeEnv: getEnv('NODE_ENV', 'development'),
+  appBaseUrl: getEnv('APP_BASE_URL', 'https://rootstele-imrn.onrender.com'),
   mongoUri: getEnv('MONGODB_URI', 'mongodb://localhost:27017/telecaller'),
   jwtSecret: getEnv('JWT_SECRET', 'default-secret-change-me'),
   // External APIs

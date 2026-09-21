@@ -574,24 +574,54 @@ const downloadWhatsAppMediaStream = async (mediaId, options = {}) => {
 
 /**
  * Download a binary stream from an external CDN (e.g. Instagram / Facebook Messenger attachments).
+ * Includes resilient headers (User-Agent, Accept), optional bearer token, and automatic retry.
  * @param {string} url
  * @param {object} [options]
+ * @param {string} [options.mimeType]
+ * @param {string} [options.token]
+ * @param {object} [options.headers]
  * @returns {Promise<{ stream: import('stream').Readable, mimeType: string, fileSize?: number }>}
  */
 const downloadExternalMediaStream = async (url, options = {}) => {
   if (!url) throw new Error('[MetaSendService] Media URL is required');
 
-  const streamRes = await axios.get(url, {
-    responseType: 'stream',
-    timeout: 30000,
-    headers: options.headers || {},
-  });
-
-  return {
-    stream: streamRes.data,
-    mimeType: streamRes.headers['content-type'] || options.mimeType || 'application/octet-stream',
-    fileSize: Number(streamRes.headers['content-length']) || undefined,
+  const headers = {
+    'User-Agent':
+      options.headers?.['User-Agent'] ||
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    Accept: '*/*',
+    ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+    ...(options.headers || {}),
   };
+
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const streamRes = await axios.get(url, {
+        responseType: 'stream',
+        timeout: 30000,
+        headers,
+        maxRedirects: 5,
+      });
+
+      return {
+        stream: streamRes.data,
+        mimeType: streamRes.headers['content-type'] || options.mimeType || 'application/octet-stream',
+        fileSize: Number(streamRes.headers['content-length']) || undefined,
+      };
+    } catch (err) {
+      lastError = err;
+      console.warn(
+        `[MetaSendService] Media download attempt ${attempt}/3 failed for URL (${url.slice(0, 80)}...):`,
+        err.message
+      );
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+    }
+  }
+
+  throw lastError;
 };
 
 module.exports = {

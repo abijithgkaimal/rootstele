@@ -6,6 +6,7 @@ const { success } = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const mimeHelper = require('../utils/mimeHelper');
+const metaSendService = require('../services/metaSendService');
 const mongoose = require('mongoose');
 
 /**
@@ -262,11 +263,22 @@ const getMessages = asyncHandler(async (req, res) => {
     Message.countDocuments(filter),
   ]);
 
-  // Return in chronological order for UI ease
-  const chronological = messages.reverse();
+  // Return in chronological order for UI ease with fully qualified media URLs
+  const formattedMessages = messages.reverse().map((msg) => {
+    if (msg.mediaUrl) {
+      msg.mediaUrl = metaSendService.getPublicMediaUrl(msg.mediaUrl);
+    }
+    if (msg.attachmentUrl) {
+      msg.attachmentUrl = metaSendService.getPublicMediaUrl(msg.attachmentUrl);
+    }
+    if (msg.media && msg.media.url) {
+      msg.media.url = metaSendService.getPublicMediaUrl(msg.media.url);
+    }
+    return msg;
+  });
 
   return success(res, {
-    messages: chronological,
+    messages: formattedMessages,
     total,
     page: pageNum,
     limit: limitNum,
