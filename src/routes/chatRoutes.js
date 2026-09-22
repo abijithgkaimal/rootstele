@@ -20,6 +20,8 @@ router.get('/media/:fileId', chatController.streamMedia);
 // ─── AUTHENTICATED ROUTES (Telecaller / Admin only) ───
 router.use(authMiddleware);
 
+router.post('/send-brochure-template', chatController.sendBrochureTemplate);
+
 router.get('/conversations', chatController.getConversations);
 router.get('/conversations/:id', chatController.getConversationById);
 router.get('/conversations/:id/messages', chatController.getMessages);

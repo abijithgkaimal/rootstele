@@ -401,8 +401,8 @@ const processInboundWhatsApp = async (body) => {
               messageType = 'interactive';
               text = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || 'Interactive response';
             } else if (msg.type === 'button') {
-              messageType = 'interactive';
-              text = msg.button?.text || 'Button response';
+              messageType = 'text';
+              text = msg.button?.text || 'Chat with us here';
             } else {
               text = `[${msg.type} message]`;
             }

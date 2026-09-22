@@ -8,6 +8,9 @@ const ApiError = require('../utils/ApiError');
 const mimeHelper = require('../utils/mimeHelper');
 const metaSendService = require('../services/metaSendService');
 const mongoose = require('mongoose');
+const { normalize } = require('../utils/phoneNormalizer');
+const socketService = require('../services/socketService');
+const env = require('../config/env');
 
 /**
  * GET /api/chat/media/:fileId
@@ -386,6 +389,145 @@ const simulateInbound = asyncHandler(async (req, res) => {
   return success(res, result, 'Inbound message simulated and delivered to telecaller socket successfully', 201);
 });
 
+/**
+ * POST /api/chat/send-brochure-template
+ * Send a WhatsApp brochure template to cold phone leads upon concluding an incoming call.
+ */
+const sendBrochureTemplate = asyncHandler(async (req, res) => {
+  const { customerPhone, customerName, brand, customBrochureUrl } = req.body;
+  const senderId = req.user?.employeeId || req.user?.userId || 'system';
+
+  if (!customerPhone || !brand) {
+    throw new ApiError(400, 'customerPhone and brand are required');
+  }
+
+  const normalizedPhone = normalize(customerPhone);
+  if (!normalizedPhone) {
+    throw new ApiError(400, 'Invalid phone number format');
+  }
+
+  const isSuitor = brand === 'suitor_guy';
+  const phoneId = isSuitor 
+    ? (env.waPhoneIdSuitorGuy || '1343323682194803') 
+    : (env.waPhoneIdZorucci || process.env.WA_PHONE_ID_ZORUCCI || '1342362268957786');
+    
+  const templateName = isSuitor ? 'suitor_guy_brochure_connect' : 'zorucci_brochure_connect';
+  const defaultBrochureUrl = isSuitor 
+    ? 'https://rootstele-imrn.onrender.com/public/SuitorGuy_Brochure.pdf' 
+    : 'https://rootstele-imrn.onrender.com/public/Zorucci_Brochure.pdf';
+  
+  const brochureUrl = customBrochureUrl || defaultBrochureUrl;
+  const documentFilename = isSuitor ? 'SuitorGuy_Collection.pdf' : 'Zorucci_Collection.pdf';
+  
+  const token = metaSendService.resolveWhatsAppToken({ phoneNumberId: phoneId, brand });
+
+  if (!token) {
+    throw new ApiError(500, `WhatsApp credentials not configured for brand: ${brand}`);
+  }
+
+  const templatePayload = {
+    name: templateName,
+    language: { code: 'en' },
+    components: [
+      {
+        type: 'body',
+        parameters: [
+          {
+            type: 'text',
+            text: customerName || 'Valued Customer',
+          },
+        ],
+      },
+    ],
+  };
+
+  // 1. Send via Meta Cloud API
+  const metaResponse = await metaSendService.sendWhatsAppMessage({
+    to: normalizedPhone,
+    text: '',
+    type: 'template',
+    template: templatePayload,
+    phoneNumberId: phoneId,
+    brand,
+    customToken: token
+  });
+
+  // 2. Database Persistence
+  // Find or create conversation
+  let conversation = await Conversation.findOne({
+    channel: 'whatsapp',
+    brand: brand,
+    $or: [
+      { 'participant.normalizedPhone': normalizedPhone },
+      { 'participant.phone': normalizedPhone },
+    ],
+  });
+
+  if (!conversation) {
+    conversation = await Conversation.create({
+      channel: 'whatsapp',
+      brand: brand,
+      brandName: isSuitor ? 'Suitor Guy' : 'Zorucci',
+      channelId: phoneId,
+      participant: {
+        phone: normalizedPhone,
+        normalizedPhone,
+        name: customerName || normalizedPhone,
+      },
+      assignedTo: senderId,
+      status: 'open',
+      unreadCount: 0,
+    });
+  } else {
+    conversation.lastMessageAt = new Date();
+    conversation.lastActivityAt = new Date();
+    if (!conversation.assignedTo || conversation.assignedTo === 'system') {
+        conversation.assignedTo = senderId;
+    }
+  }
+  
+  conversation.lastMessage = {
+    text: `Sent brochure template (${templateName})`,
+    senderType: 'telecaller',
+    messageType: 'template',
+    timestamp: new Date(),
+  };
+  await conversation.save();
+
+  // Save the outbound message
+  const savedMessage = await Message.create({
+    conversationId: conversation._id,
+    messageId: metaResponse.messageId,
+    channel: 'whatsapp',
+    brand: brand,
+    senderType: 'telecaller',
+    senderId: senderId,
+    senderName: req.user?.name || senderId,
+    messageType: 'template',
+    text: `Template sent: ${templateName}`,
+    status: 'sent',
+    timestamp: new Date(),
+  });
+
+  // 3. Real-Time Socket Broadcast
+  socketService.emitToTelecaller(conversation.assignedTo, 'chat:new_message', {
+    conversationId: conversation._id,
+    channel: 'whatsapp',
+    brand: conversation.brand,
+    brandName: conversation.brandName,
+    message: savedMessage,
+    participant: conversation.participant,
+  });
+
+  socketService.emitToTelecaller(conversation.assignedTo, 'chat:conversation_updated', {
+    conversationId: conversation._id,
+    lastMessage: conversation.lastMessage,
+    lastActivityAt: conversation.lastActivityAt,
+  });
+
+  return success(res, savedMessage, 'Brochure template sent successfully', 201);
+});
+
 module.exports = {
   streamMedia,
   uploadMedia,
@@ -397,4 +539,5 @@ module.exports = {
   convertToLead,
   transferConversation,
   simulateInbound,
+  sendBrochureTemplate,
 };
