@@ -1125,15 +1125,15 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
   const initialMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const now = new Date();
 
-  // Calculate response time from the latest customer message in this conversation
-  const lastCustomerMsg = await Message.findOne({
+  // Calculate response time ONLY if the very last message in the conversation was from the customer.
+  // This prevents artificially inflating response times for consecutive agent messages.
+  const lastMsg = await Message.findOne({
     conversationId: conversation._id,
-    senderType: 'customer',
   }).sort({ timestamp: -1 });
 
   let responseTimeSeconds = undefined;
-  if (lastCustomerMsg && lastCustomerMsg.timestamp) {
-    const diffMs = now.getTime() - new Date(lastCustomerMsg.timestamp).getTime();
+  if (lastMsg && lastMsg.senderType === 'customer' && lastMsg.timestamp) {
+    const diffMs = now.getTime() - new Date(lastMsg.timestamp).getTime();
     if (diffMs >= 0) {
       responseTimeSeconds = Math.round(diffMs / 1000);
     }
