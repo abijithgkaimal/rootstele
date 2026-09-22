@@ -427,7 +427,7 @@ const sendBrochureTemplate = asyncHandler(async (req, res) => {
 
   const templatePayload = {
     name: templateName,
-    language: { code: 'en' },
+    language: 'en',
     components: [
       {
         type: 'body',
