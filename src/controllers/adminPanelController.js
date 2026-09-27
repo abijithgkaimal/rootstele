@@ -198,43 +198,7 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
     });
   });
 
-  // 2. Also include any leads assigned/updated by an ID not yet in User collection
-  results.forEach(r => {
-    const rawId = r._id;
-    if (!rawId) return;
-    const empId = String(rawId).toUpperCase();
-    if (!processedIds.has(empId)) {
-      processedIds.add(empId);
-      const performance = r.totalCalls > 0 ? ((r.connectedCalls / r.totalCalls) * 100).toFixed(1) : 0;
 
-      if (search) {
-        const term = search.toLowerCase();
-        if (!rawId.toLowerCase().includes(term)) return;
-      }
-
-      telecallers.push({
-        employeeId: rawId,
-        name: rawId,
-        store: '',
-        role: 'Telecaller',
-        phone: '',
-        email: '',
-        active: true,
-        lastLoginAt: null,
-        totalCalls: r.totalCalls,
-        feedbackCalls: r.feedbackCalls,
-        bookingConfirmationCalls: r.bookingConfirmationCalls,
-        enquiryCalls: r.enquiryCalls,
-        followupsDone: r.followupsDone,
-        followup: r.followup,
-        lossOfSale: r.lossOfSale,
-        justDial: r.justDial,
-        booked: r.booked,
-        complaints: r.complaints,
-        performance: parseFloat(performance)
-      });
-    }
-  });
 
   return success(res, { telecallers });
 });
@@ -743,43 +707,7 @@ const getTelecallerChatPerformance = asyncHandler(async (req, res) => {
     });
   });
 
-  convResults.forEach(c => {
-    const rawId = c._id;
-    if (!rawId) return;
-    const empId = String(rawId).toUpperCase();
-    if (!processedIds.has(empId)) {
-      processedIds.add(empId);
-      const msgStats = msgMap[empId] || { outboundMessages: 0, avgResponseTimeSeconds: 0, avgReplyTime: 'N/A' };
-      const resolutionRate = c.totalChats > 0 ? ((c.resolvedChats / c.totalChats) * 100).toFixed(1) : 0;
-      const leadConversionRate = c.totalChats > 0 ? ((c.convertedLeads / c.totalChats) * 100).toFixed(1) : 0;
 
-      if (search) {
-        const term = search.toLowerCase();
-        if (!rawId.toLowerCase().includes(term)) return;
-      }
-
-      telecallers.push({
-        employeeId: rawId,
-        name: rawId,
-        store: '',
-        role: 'Telecaller',
-        totalChats: c.totalChats,
-        openChats: c.openChats,
-        resolvedChats: c.resolvedChats,
-        pendingChats: c.pendingChats,
-        whatsappChats: c.whatsappChats,
-        instagramChats: c.instagramChats,
-        facebookChats: c.facebookChats,
-        outboundMessages: msgStats.outboundMessages,
-        avgReplyTime: msgStats.avgReplyTime,
-        avgReplyTimeSeconds: msgStats.avgResponseTimeSeconds,
-        convertedLeads: c.convertedLeads,
-        resolutionRate: parseFloat(resolutionRate),
-        leadConversionRate: parseFloat(leadConversionRate),
-        lastLoginAt: null
-      });
-    }
-  });
 
   return success(res, { telecallers });
 });
