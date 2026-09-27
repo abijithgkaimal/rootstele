@@ -113,6 +113,7 @@ const findOrAssignTelecaller = async (participantPhone, customerId) => {
 
   // 2. Find active telecallers (logged in within 12h) across the central office
   const activeUsers = await User.find({
+    isOnline: true,
     lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) },
     role: { $ne: 'admin' },
   }).sort({ lastLoginAt: -1 });
@@ -1662,6 +1663,7 @@ const reassignPendingSystemChats = async () => {
 
     // Check active telecallers (logged in within 12h)
     const activeUsers = await User.find({
+      isOnline: true,
       lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) },
       role: { $ne: 'admin' },
     }).sort({ lastLoginAt: -1 });

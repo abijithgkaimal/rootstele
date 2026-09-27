@@ -26,5 +26,12 @@ router.post(
   authController.telecallerLogin
 );
 
+const authMiddleware = require('../middlewares/authMiddleware');
+
+router.post(
+  '/auth/telecaller-logout',
+  authMiddleware,
+  authController.telecallerLogout
+);
 
 module.exports = router;

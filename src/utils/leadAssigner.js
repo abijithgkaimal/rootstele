@@ -13,6 +13,7 @@ const assignNewlySyncedLeads = async (leadIds) => {
 
   // Find users who have logged in within the last 12 hours
   const activeUsers = await User.find({ 
+    isOnline: true,
     lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) },
     role: { $ne: 'admin' } // assuming admins don't get leads, adjust if needed
   }).sort({ lastLoginAt: -1 });

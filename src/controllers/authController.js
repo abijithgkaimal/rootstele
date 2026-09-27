@@ -29,6 +29,7 @@ const login = asyncHandler(async (req, res) => {
       name: result.data?.name || formattedEmpId,
       role: result.data?.role || 'Telecaller',
       store: result.data?.Store || result.data?.store || null,
+      isOnline: true,
       lastLoginAt: new Date(),
     };
     if (fcmToken) {
@@ -97,6 +98,7 @@ const telecallerLogin = asyncHandler(async (req, res) => {
       name: user.name,
       role: user.role,
       store: user.store,
+      isOnline: true,
       lastLoginAt: new Date(),
     };
     if (fcmToken) {
@@ -139,4 +141,33 @@ const telecallerLogin = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { login, telecallerLogin };
+// Telecaller logout
+const telecallerLogout = asyncHandler(async (req, res) => {
+  const ts = new Date().toISOString();
+  
+  if (!req.user || !req.user.employeeId) {
+    return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+  }
+
+  const formattedEmpId = String(req.user.employeeId).replace(/\s+/g, '').toUpperCase();
+  
+  await User.findOneAndUpdate(
+    { employeeId: { $regex: new RegExp('^' + formattedEmpId + '$', 'i') } },
+    {
+      $set: {
+        isOnline: false,
+        lastLogoutAt: new Date(),
+        fcmToken: null
+      }
+    }
+  );
+  
+  console.log(`[TelecallerLogout] ${ts} employeeId=${formattedEmpId} success`);
+  
+  return res.status(200).json({
+    status: 'success',
+    message: 'Logged out successfully'
+  });
+});
+
+module.exports = { login, telecallerLogin, telecallerLogout };

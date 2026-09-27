@@ -9,7 +9,9 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     email: { type: String, trim: true },
     active: { type: Boolean, default: true },
+    isOnline: { type: Boolean, default: false },
     lastLoginAt: { type: Date },
+    lastLogoutAt: { type: Date },
     fcmToken: { type: String, trim: true, default: null },
     fcmTokenUpdatedAt: { type: Date },
   },
@@ -20,6 +22,7 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.index({ lastLoginAt: -1 });
+userSchema.index({ isOnline: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ fcmToken: 1 });
 

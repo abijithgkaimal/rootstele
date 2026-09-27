@@ -256,6 +256,7 @@ const handleJustDialLead = async (req, res) => {
       const User = require("../models/User");
       const activeUsers = await User.find({
         role: { $ne: "admin" },
+        isOnline: true,
         $or: [
           { lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) } },
           { createdAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) } }
