@@ -1,4 +1,4 @@
-# Telecaller Backend (`telebackend`)
+# DIALEX Backend
 
 Backend, admin dashboard and omnichannel chat engine for a multi-brand **telecaller / CRM system**. Telecallers use a mobile app (JWT + Socket.IO + FCM push) to work leads and chat with customers; admins use a React dashboard served by the same server.
 
