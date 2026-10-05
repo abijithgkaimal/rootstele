@@ -34,12 +34,12 @@ const FALLBACK_USERS = [
   { employeeId: 'EMP188', name: 'Shafna', password: '151298', role: 'Telecaller', store: null },
 ];
 
-// Legacy user verification using ROOTMENTS_VERIFY_API (kept for compatibility)
+// Legacy user verification using BRYNEX_VERIFY_API (kept for compatibility)
 const verifyEmployee = async (userId, password) => {
   try {
     const response = await callWithRetry(() =>
       axios.post(
-        env.rootmentsVerifyApi,
+        env.brynexVerifyApi,
         {
           userId,
           password,
@@ -85,14 +85,14 @@ const verifyEmployee = async (userId, password) => {
   }
 };
 
-// Telecaller verification against external Rootments API
+// Telecaller verification against external Brynex API
 const verifyTelecaller = async (employeeId, password) => {
   const url = env.verifyEmployeeUrl;
-  const token = process.env.ROOTMENTS_API_TOKEN;
+  const token = process.env.BRYNEX_API_TOKEN;
 
   try {
     if (!token) {
-      console.error('[AuthService] ROOTMENTS_API_TOKEN environment variable is not set.');
+      console.error('[AuthService] BRYNEX_API_TOKEN environment variable is not set.');
       throw new Error('Telecaller verification service is not configured');
     }
 

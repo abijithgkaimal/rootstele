@@ -156,7 +156,7 @@ const EditTelecallerModal = ({ isOpen, onClose, telecaller, onSaveSuccess }) => 
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="user@rootments.in"
+                  placeholder="user@brynex.in"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-slate-400 focus:ring-4 focus:ring-slate-100 outline-none transition-all"
                 />
               </div>

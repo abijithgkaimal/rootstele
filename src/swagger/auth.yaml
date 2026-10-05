@@ -48,7 +48,7 @@ paths:
         - Auth
       summary: Telecaller Login
       description: |
-        This endpoint authenticates telecallers using the Rootments employee verification API.
+        This endpoint authenticates telecallers using the Brynex employee verification API.
         It does not store passwords locally and issues a JWT valid for 12 hours.
       requestBody:
         required: true

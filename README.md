@@ -4,7 +4,7 @@ Backend, admin dashboard and omnichannel chat engine for a multi-brand **telecal
 
 - **Runtime:** Node.js 20.x, Express 4, MongoDB (Mongoose 8)
 - **Real-time:** Socket.IO 4 · **Push:** Firebase Cloud Messaging · **Scheduling:** node-cron
-- **Integrations:** Rootments RMS (employee verification, bookings, returns, stores), JustDial, Meta (WhatsApp Cloud API, Instagram, Facebook Messenger)
+- **Integrations:** Brynex RMS (employee verification, bookings, returns, stores), JustDial, Meta (WhatsApp Cloud API, Instagram, Facebook Messenger)
 - **Docs:** Swagger UI at `/api-docs` · **Hosting:** Render 
 - **Brands supported:** Zorucci, Suitor Guy, Dapper Squad (plus `general` fallback)
 
@@ -37,7 +37,7 @@ Backend, admin dashboard and omnichannel chat engine for a multi-brand **telecal
  Telecaller App ──JWT/REST──┐                ┌── MongoDB (leadmaster, users, conversations,
  (Socket.IO + FCM)          │                │    messages, customers, stores, sync*, GridFS)
                             ▼                │
- Admin React UI ──cookie──► Express (app.js) ─┼── Rootments RMS APIs (verify, bookings, returns, stores)
+ Admin React UI ──cookie──► Express (app.js) ─┼── Brynex RMS APIs (verify, bookings, returns, stores)
  (served from /public)      │   routes→controllers→services   ├── JustDial API (pull + push webhook)
                             │                │                └── Meta Graph / WhatsApp Cloud API
  Meta / Web forms ─webhook─►│                └── Firebase Admin (FCM)
@@ -111,11 +111,11 @@ URLs once running: API `http://localhost:3000/api`, health `/api/health`, Swagge
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | – | Admin dashboard login. Required. |
 | `ADMIN_SESSION_TOKEN` | – | Static token stored in `admin_session` cookie / `x-admin-token` header |
 
-### 4.3 Rootments (RMS) APIs
+### 4.3 Brynex (RMS) APIs
 | Variable (aliases) | Description |
 |---|---|
-| `ROOTMENTS_API_TOKEN` | Bearer token for the verify-employee API (required for telecaller login) |
-| `ROOTMENTS_VERIFY_API` (`EXTERNAL_VERIFY_EMPLOYEE_URL`) | Employee verification endpoint  |
+| `BRYNEX_API_TOKEN` | Bearer token for the verify-employee API (required for telecaller login) |
+| `BRYNEX_VERIFY_API` (`EXTERNAL_VERIFY_EMPLOYEE_URL`) | Employee verification endpoint  |
 | `BOOKING_SUMMARY_URL` (`BOOKING_CONFIRMATION_RMS_API_URL`, `RENTAL_BOOKING_SUMMARY_API`) | Booking summary API. |
 | `RETURN_REPORT_URL` (`RETURN_RMS_API_URL`, `RENTAL_RETURN_REPORT_API`) | Return report API  |
 | `STORE_LIST_API` | Store list API  |
@@ -187,10 +187,10 @@ Maps an incoming Meta **channel ID** (WA phone ID / IG account ID / FB Page ID) 
 ### Telecallers (`authMiddleware`)
 Accepted credentials, in order:
 1. **`Authorization: Bearer <JWT>`** – verified with `JWT_SECRET`; user loaded from DB (falls back to token claims if not found).
-2. **`x-user-id` + `x-password`** headers – verified live against the Rootments API.
+2. **`x-user-id` + `x-password`** headers – verified live against the Brynex API.
 3. **`Authorization: Basic base64(id:password)`** – same verification.
 
-Login (`POST /api/auth/telecaller-login`, `authController`): verifies via Rootments (`verifyTelecaller`, 20 s timeout, IPv4, retry on timeout/429/5xx), upserts the `User` (sets `isOnline`, `lastLoginAt`, optional `fcmToken`, removing that token from other users) and returns a 7-day JWT. `POST /api/auth/telecaller-logout` sets `isOnline=false`, `lastLogoutAt`.
+Login (`POST /api/auth/telecaller-login`, `authController`): verifies via Brynex (`verifyTelecaller`, 20 s timeout, IPv4, retry on timeout/429/5xx), upserts the `User` (sets `isOnline`, `lastLoginAt`, optional `fcmToken`, removing that token from other users) and returns a 7-day JWT. `POST /api/auth/telecaller-logout` sets `isOnline=false`, `lastLogoutAt`.
 
 ### Admin (`adminSession`)
 `POST /api/admin/login` (or `/admin/login`) compares username (case-insensitive) and password with env config, then sets an `httpOnly`, `sameSite=lax`, 7-day `admin_session` cookie whose value is `ADMIN_SESSION_TOKEN`. `ensureAdminAuthenticated` accepts the cookie, `x-admin-token` header or Bearer token equal to that value; API callers get `401`, browsers are redirected to `/admin/login`.
@@ -354,7 +354,7 @@ No test framework; scripts run with plain `node`.
 | `scripts/merge-duplicate-conversations.js` | Merge duplicate conversations/messages |
 | `scripts/test-meta-profile.js`, `test-message-enum.js`, `test-media-normalization.js` | Unit-style checks |
 | `scripts/test-omni-media-gridfs.js`, `test-http-media-endpoints.js` | GridFS/media integration checks (need DB) |
-| `test-auth.js` | Calls the Rootments verify API with env config |
+| `test-auth.js` | Calls the Brynex verify API with env config |
 | `sync/api/syncStores.js` | Standalone store sync |
 
 ## 17. Deployment

@@ -4,7 +4,7 @@ const env = require('./src/config/env');
 
 async function testAuth() {
   const url = env.verifyEmployeeUrl;
-  const token = process.env.ROOTMENTS_API_TOKEN;
+  const token = process.env.BRYNEX_API_TOKEN;
   console.log("URL:", url);
   console.log("Token exists:", !!token);
 

@@ -100,7 +100,7 @@ paths:
                   example: "9876543210"
                 email:
                   type: string
-                  example: "varsha@rootments.in"
+                  example: "varsha@brynex.in"
                 active:
                   type: boolean
                   example: true
