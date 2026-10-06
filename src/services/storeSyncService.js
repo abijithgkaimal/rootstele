@@ -5,7 +5,7 @@ const { normalizeStore } = require('../utils/storeNormalizer');
 const env = require('../config/env');
 
 const STORE_SYNC_JOB_NAME = 'storeSync';
-const STORE_API_URL = env.storeListUrl || process.env.STORE_LIST_API || 'https://rentalapi.brynex.live/api/Location/LocationList';
+const STORE_API_URL = env.storeListUrl || process.env.STORE_LIST_API || 'https://rentalapi.rootments.live/api/Location/LocationList';
 
 const syncStores = async () => {
   const response = await axios.get(STORE_API_URL, {

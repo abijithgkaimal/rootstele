@@ -11,7 +11,7 @@ const env = require('../config/env');
 const BOOKING_CONFIRMATION_API_URL =
   env.bookingSummaryUrl ||
   process.env.BOOKING_SUMMARY_URL ||
-  'https://rentalapi.brynex.live/api/GetBooking/GetBookingSummary';
+  'https://rentalapi.rootments.live/api/GetBooking/GetBookingSummary';
 
 const JOB_NAME = 'bookingConfirmationSync';
 

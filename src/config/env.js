@@ -11,20 +11,20 @@ module.exports = {
   verifyEmployeeUrl:
     getEnv('EXTERNAL_VERIFY_EMPLOYEE_URL') ||
     getEnv('BRYNEX_VERIFY_API') ||
-    'https://brynex.in/api/verify_employee',
+    'https://rootments.in/api/verify_employee',
   bookingSummaryUrl:
-    'https://rentalapi.brynex.live/api/GetBooking/GetBookingSummary' ||
     getEnv('BOOKING_SUMMARY_URL') ||
     getEnv('BOOKING_CONFIRMATION_RMS_API_URL') ||
-    getEnv('RENTAL_BOOKING_SUMMARY_API'),
+    getEnv('RENTAL_BOOKING_SUMMARY_API') ||
+    'https://rentalapi.rootments.live/api/GetBooking/GetBookingSummary',
   returnReportUrl:
     getEnv('RETURN_REPORT_URL') ||
     getEnv('RETURN_RMS_API_URL') ||
     getEnv('RENTAL_RETURN_REPORT_API') ||
-    'https://rentalapi.brynex.live/api/Reports/GetReturnReport',
+    'https://rentalapi.rootments.live/api/Reports/GetReturnReport',
   storeListUrl:
     getEnv('STORE_LIST_API') ||
-    'https://rentalapi.brynex.live/api/Location/LocationList',
+    'https://rentalapi.rootments.live/api/Location/LocationList',
   justDialApiUrl:
     getEnv('JUSTDIAL_API_URL') ||
     'https://api.justdial.com/v1/leads', // Placeholder as per requirement

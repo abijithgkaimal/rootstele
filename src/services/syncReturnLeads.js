@@ -10,7 +10,7 @@ const env = require('../config/env');
 const RETURN_API_URL =
   env.returnReportUrl ||
   process.env.RETURN_REPORT_URL ||
-  'https://rentalapi.brynex.live/api/Reports/GetReturnReport';
+  'https://rentalapi.rootments.live/api/Reports/GetReturnReport';
 
 const JOB_NAME = 'returnSync';
 
