@@ -218,8 +218,8 @@ async function initializeMasterSyncScheduler() {
     console.log(`[MasterSyncScheduler] Initial sync already completed at ${lastInitialSync.finishedAt}. Skipping.`);
   }
 
-  // 2. Incremental Sync Cron: Every 30 minutes
-  cron.schedule('*/30 * * * *', async () => {
+  // 2. Incremental Sync Cron: Every 15 minutes
+  cron.schedule('*/15 * * * *', async () => {
     console.log('[MasterSyncScheduler] Cron tick: Checking for sync...');
 
     try {
@@ -229,7 +229,7 @@ async function initializeMasterSyncScheduler() {
     }
   });
 
-  console.log('[MasterSyncScheduler] Incremental sync scheduled (every 30 minutes).');
+  console.log('[MasterSyncScheduler] Incremental sync scheduled (every 15 minutes).');
 }
 
 module.exports = {
