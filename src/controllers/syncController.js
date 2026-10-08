@@ -23,4 +23,10 @@ const syncStoresManual = asyncHandler(async (req, res) => {
   return success(res, result, 'Store sync completed');
 });
 
-module.exports = { syncStores: syncStoresManual, syncBookingConfirmation, syncReturns };
+const syncMaster = asyncHandler(async (req, res) => {
+  const { executeMasterSync } = require('../schedulers/masterSyncScheduler');
+  const result = await executeMasterSync('manual');
+  return success(res, result, 'Master sync completed');
+});
+
+module.exports = { syncStores: syncStoresManual, syncBookingConfirmation, syncReturns, syncMaster };
