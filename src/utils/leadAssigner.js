@@ -11,11 +11,17 @@ const notificationService = require('../services/notificationService');
 const assignNewlySyncedLeads = async (leadIds) => {
   if (!leadIds || leadIds.length === 0) return;
 
-  // Find users who have logged in within the last 12 hours
+  // Find telecallers on shift (logged in within the last 12 hours)
+  // For phone call leads, we assign to all agents on duty today, even if their phone screen is currently locked/backgrounded.
   const activeUsers = await User.find({ 
-    isOnline: true,
     lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) },
-    role: { $ne: 'admin' } // assuming admins don't get leads, adjust if needed
+    role: { $ne: 'admin' },
+    active: { $ne: false },
+    $or: [
+      { lastLogoutAt: { $exists: false } },
+      { lastLogoutAt: null },
+      { $expr: { $gte: ['$lastLoginAt', '$lastLogoutAt'] } } // Logged in more recently than logout
+    ]
   }).sort({ lastLoginAt: -1 });
 
   if (activeUsers.length === 0) {

@@ -252,14 +252,16 @@ const handleJustDialLead = async (req, res) => {
         }
       );
     } else {
-      // Find active telecallers for round robin assignment
+      // Find telecallers on shift today for round robin assignment
       const User = require("../models/User");
       const activeUsers = await User.find({
         role: { $ne: "admin" },
-        isOnline: true,
+        active: { $ne: false },
+        lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) },
         $or: [
-          { lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) } },
-          { createdAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) } }
+          { lastLogoutAt: { $exists: false } },
+          { lastLogoutAt: null },
+          { $expr: { $gte: ["$lastLoginAt", "$lastLogoutAt"] } }
         ]
       }).sort({ lastLoginAt: -1 });
 
