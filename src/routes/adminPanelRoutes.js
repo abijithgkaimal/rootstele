@@ -8,6 +8,7 @@ router.use(ensureAdminAuthenticated);
 
 router.get('/dashboard-summary', adminPanelController.getDashboardSummary);
 router.get('/telecaller-leaderboard', adminPanelController.getTelecallerLeaderboard);
+router.get('/live-telecallers', adminPanelController.getLiveTelecallersStatus);
 router.get('/telecallers/:employeeId/summary', adminPanelController.getTelecallerSummary);
 router.put('/telecallers/:employeeId', adminPanelController.updateTelecallerProfile);
 router.put('/telecallers/:employeeId/profile', adminPanelController.updateTelecallerProfile);

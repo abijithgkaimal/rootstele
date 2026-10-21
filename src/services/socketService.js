@@ -73,6 +73,16 @@ const initSocket = (server) => {
       console.warn(`[SocketService] Failed to set isOnline for ${employeeId}:`, e.message);
     }
 
+    // Immediately claim any pending system-held chats for this newly active agent
+    try {
+      const chatService = require('./chatService');
+      chatService.reassignPendingSystemChats().catch((err) => {
+        console.error('[SocketService] Error reassigning system chats on reconnect:', err.message);
+      });
+    } catch (e) {
+      console.warn('[SocketService] Failed to trigger chat reassign on reconnect:', e.message);
+    }
+
     console.log(`[SocketService] Connected: ${name} (${employeeId}) on socket ${socket.id}, joined ${roomName}`);
 
     socket.on('disconnect', (reason) => {

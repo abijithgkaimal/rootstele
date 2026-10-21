@@ -183,7 +183,9 @@ const getTelecallerLeaderboard = asyncHandler(async (req, res) => {
       phone: u.phone || '',
       email: u.email || '',
       active: u.active !== false,
+      isOnline: Boolean(u.isOnline),
       lastLoginAt: u.lastLoginAt || null,
+      lastLogoutAt: u.lastLogoutAt || null,
       totalCalls: r.totalCalls,
       feedbackCalls: r.feedbackCalls,
       bookingConfirmationCalls: r.bookingConfirmationCalls,
@@ -836,9 +838,57 @@ const exportChatReports = asyncHandler(async (req, res) => {
   res.send(csv);
 });
 
+/**
+ * GET /api/admin-panel/live-telecallers
+ * Returns real-time presence, online status, and active chat counts for all telecallers.
+ */
+const getLiveTelecallersStatus = asyncHandler(async (req, res) => {
+  const users = await User.find({ role: { $ne: 'admin' } })
+    .select('employeeId name store role phone email isOnline lastLoginAt lastLogoutAt')
+    .sort({ name: 1 })
+    .lean();
+
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const activeChatCounts = await Conversation.aggregate([
+    {
+      $match: {
+        assignedTo: { $in: users.map((u) => u.employeeId) },
+        lastActivityAt: { $gte: twentyFourHoursAgo },
+      },
+    },
+    { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
+  ]);
+
+  const countMap = {};
+  activeChatCounts.forEach((c) => {
+    countMap[c._id] = c.count;
+  });
+
+  const telecallerStatuses = users.map((u) => ({
+    employeeId: u.employeeId,
+    name: u.name,
+    store: u.store || '',
+    role: u.role || 'Telecaller',
+    phone: u.phone || '',
+    email: u.email || '',
+    isOnline: Boolean(u.isOnline),
+    lastLoginAt: u.lastLoginAt || null,
+    lastLogoutAt: u.lastLogoutAt || null,
+    activeChatsCount: countMap[u.employeeId] || 0,
+  }));
+
+  return success(res, {
+    totalTelecallers: telecallerStatuses.length,
+    onlineCount: telecallerStatuses.filter((t) => t.isOnline).length,
+    offlineCount: telecallerStatuses.filter((t) => !t.isOnline).length,
+    telecallers: telecallerStatuses,
+  });
+});
+
 module.exports = {
   getDashboardSummary,
   getTelecallerLeaderboard,
+  getLiveTelecallersStatus,
   getTelecallerSummary,
   updateTelecallerProfile,
   getTelecallerCategoryPerformance,
