@@ -49,15 +49,59 @@ const initSocket = (server) => {
     }
   });
 
-  io.on('connection', (socket) => {
+  const disconnectTimers = new Map();
+
+  io.on('connection', async (socket) => {
     const { employeeId, name } = socket.user;
     const roomName = `room:telecaller_${employeeId}`;
     socket.join(roomName);
+
+    // Cancel any pending disconnect timer for this employee if they reconnected/refreshed
+    if (disconnectTimers.has(employeeId)) {
+      clearTimeout(disconnectTimers.get(employeeId));
+      disconnectTimers.delete(employeeId);
+    }
+
+    // Ensure user is marked online in database
+    try {
+      const User = require('../models/User');
+      await User.findOneAndUpdate(
+        { employeeId: { $regex: new RegExp(`^${employeeId}$`, 'i') } },
+        { $set: { isOnline: true } }
+      );
+    } catch (e) {
+      console.warn(`[SocketService] Failed to set isOnline for ${employeeId}:`, e.message);
+    }
 
     console.log(`[SocketService] Connected: ${name} (${employeeId}) on socket ${socket.id}, joined ${roomName}`);
 
     socket.on('disconnect', (reason) => {
       console.log(`[SocketService] Disconnected: ${employeeId} (${reason})`);
+
+      // Check if this employee has any other active sockets (e.g. other tabs)
+      const activeSockets = io.sockets.adapter.rooms.get(roomName);
+      if (!activeSockets || activeSockets.size === 0) {
+        // Set a 2-minute grace period before marking offline (allows tab reload, transient drops)
+        const timer = setTimeout(async () => {
+          disconnectTimers.delete(employeeId);
+          // Check again in case they reconnected right at the timer boundary
+          const currentRoom = io.sockets.adapter.rooms.get(roomName);
+          if (!currentRoom || currentRoom.size === 0) {
+            try {
+              const User = require('../models/User');
+              await User.findOneAndUpdate(
+                { employeeId: { $regex: new RegExp(`^${employeeId}$`, 'i') } },
+                { $set: { isOnline: false, lastLogoutAt: new Date() } }
+              );
+              console.log(`[SocketService] 🔌 Marked telecaller ${employeeId} offline (all sockets disconnected for 2m)`);
+            } catch (err) {
+              console.warn(`[SocketService] Failed to set isOnline false for ${employeeId}:`, err.message);
+            }
+          }
+        }, 120000); // 2 minutes grace period
+
+        disconnectTimers.set(employeeId, timer);
+      }
     });
   });
 

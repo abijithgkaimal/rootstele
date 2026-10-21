@@ -100,13 +100,19 @@ const withParticipantLock = async (lockKey, asyncFn) => {
  * @param {string} [storePrefix='']
  */
 const findOrAssignTelecaller = async (participantPhone, customerId) => {
-  // 1. If customer has an active lead, assign to that lead's telecaller for continuity
+  // 1. If customer has an active lead, assign to that lead's telecaller for continuity ONLY IF they are currently online
   if (customerId) {
     const customer = await Customer.findById(customerId).lean();
     if (customer?.latestLeadId) {
       const activeLead = await LeadMaster.findById(customer.latestLeadId).lean();
       if (activeLead && activeLead.updatedBy && activeLead.updatedBy !== 'system') {
-        return activeLead.updatedBy;
+        const leadOwner = await User.findOne({
+          employeeId: { $regex: new RegExp(`^${activeLead.updatedBy.replace(/\\s+/g, '')}$`, 'i') },
+          isOnline: true,
+        }).lean();
+        if (leadOwner) {
+          return leadOwner.employeeId;
+        }
       }
     }
   }
@@ -122,9 +128,16 @@ const findOrAssignTelecaller = async (participantPhone, customerId) => {
     return 'system';
   }
 
-  // 3. Uniform round-robin / least busy routing across all office telecallers
+  // 3. Uniform least-busy routing with in-memory round-robin tie-breaking
+  // Active workload is measured by chats active within the last 24 hours (so historical stale open chats do not skew load)
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const telecallerCounts = await Conversation.aggregate([
-    { $match: { assignedTo: { $in: activeUsers.map((u) => u.employeeId) }, status: 'open' } },
+    {
+      $match: {
+        assignedTo: { $in: activeUsers.map((u) => u.employeeId) },
+        lastActivityAt: { $gte: twentyFourHoursAgo },
+      },
+    },
     { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
   ]);
 
@@ -133,19 +146,96 @@ const findOrAssignTelecaller = async (participantPhone, customerId) => {
     countMap[tc._id] = tc.count;
   });
 
-  let bestUser = activeUsers[0];
-  let minCount = countMap[bestUser.employeeId] || 0;
-
-  for (let i = 1; i < activeUsers.length; i++) {
-    const user = activeUsers[i];
-    const count = countMap[user.employeeId] || 0;
-    if (count < minCount) {
-      bestUser = user;
-      minCount = count;
-    }
+  // Track in-memory pending assignments for burst protection
+  if (!global._pendingChatAssignMap) {
+    global._pendingChatAssignMap = {};
+  }
+  if (!global._chatRoundRobinCounter) {
+    global._chatRoundRobinCounter = 0;
   }
 
+  // Calculate effective load = DB open chats + pending in-memory assignments
+  let candidates = activeUsers.map((u) => {
+    const dbCount = countMap[u.employeeId] || 0;
+    const pending = global._pendingChatAssignMap[u.employeeId] || 0;
+    return {
+      user: u,
+      load: dbCount + pending,
+    };
+  });
+
+  // Sort by load ascending
+  candidates.sort((a, b) => a.load - b.load);
+  const minLoad = candidates[0].load;
+
+  // Filter all candidates tied for the minimum load
+  const tiedCandidates = candidates.filter((c) => c.load === minLoad);
+
+  // Round-robin among the tied candidates
+  const chosenIndex = (global._chatRoundRobinCounter++) % tiedCandidates.length;
+  const bestUser = tiedCandidates[chosenIndex].user;
+
+  // Increment in-memory counter for this user (decays after 5 seconds once DB is committed)
+  global._pendingChatAssignMap[bestUser.employeeId] = (global._pendingChatAssignMap[bestUser.employeeId] || 0) + 1;
+  setTimeout(() => {
+    if (global._pendingChatAssignMap[bestUser.employeeId] > 0) {
+      global._pendingChatAssignMap[bestUser.employeeId]--;
+    }
+  }, 5000);
+
   return bestUser.employeeId;
+};
+
+/**
+ * Checks whether a given telecaller is actively online.
+ * @param {string} employeeId
+ * @returns {Promise<boolean>}
+ */
+const isTelecallerOnline = async (employeeId) => {
+  if (!employeeId || employeeId === 'system') return false;
+  const user = await User.findOne({
+    employeeId: { $regex: new RegExp(`^${String(employeeId).replace(/\\s+/g, '')}$`, 'i') },
+    isOnline: true,
+  }).lean();
+  return Boolean(user);
+};
+
+/**
+ * Ensures conversation is assigned to an active, online telecaller.
+ * If currently unassigned, assigned to 'system', or assigned to an offline telecaller,
+ * auto-reassigns to an active telecaller so the 24hr service window is protected.
+ * @param {object} conversation - Mongoose conversation document
+ * @param {string} channel - 'whatsapp' | 'instagram' | 'facebook'
+ * @param {object} brandInfo - Brand configuration
+ * @param {string} [rawPhone]
+ * @param {string} [customerId]
+ * @returns {Promise<boolean>} Whether the conversation was updated
+ */
+const ensureActiveAssignee = async (conversation, channel, brandInfo, rawPhone = null, customerId = null) => {
+  const currentAssignee = conversation.assignedTo;
+  const isCurrentOnline = await isTelecallerOnline(currentAssignee);
+
+  if (!isCurrentOnline) {
+    const newAssignee = await findOrAssignTelecaller(rawPhone, customerId, brandInfo?.storePrefix);
+    if (newAssignee && newAssignee !== currentAssignee) {
+      console.log(
+        `[ChatService] [${channel.toUpperCase()}] 🔄 Auto-reassigning conversation ${conversation._id} from ${currentAssignee || 'none'} (OFFLINE) to ${newAssignee} (ONLINE) to protect 24h window`
+      );
+      conversation.assignedTo = newAssignee;
+      if (newAssignee !== 'system') {
+        socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+          conversationId: conversation._id,
+          channel,
+          brand: conversation.brand,
+          brandName: conversation.brandName,
+          participant: conversation.participant,
+          conversation: conversation.toObject ? conversation.toObject() : conversation,
+        });
+      }
+      return true;
+    }
+  }
+  return false;
 };
 
 /**
@@ -165,10 +255,26 @@ const processInboundWhatsApp = async (body) => {
         for (const statusObj of value.statuses) {
           const messageId = statusObj.id;
           const newStatus = statusObj.status; // 'delivered', 'read', 'failed', 'sent'
+          let failureReason = errObj?.message || errObj?.title || (errObj?.code ? `Meta Error #${errObj.code}` : undefined);
+          if (newStatus === 'failed') {
+            if (!failureReason || errObj?.code === 131047 || errObj?.code === 131026 || (failureReason && failureReason.toLowerCase().includes('window'))) {
+              failureReason = '24-hour customer reply window has expired. Customer must message first or use an approved WhatsApp template.';
+            } else if (errObj?.code === 131051) {
+              failureReason = 'Unsupported message type or expired 24-hour service window.';
+            }
+            console.error(
+              `[ChatService] [WHATSAPP] ❌ Outbound message NOT DELIVERED by Meta! messageId=${messageId}, recipient=${statusObj.recipient_id || 'unknown'}, reason: "${failureReason}"`
+            );
+          }
+
+          const updateFields = { status: newStatus };
+          if (failureReason) {
+            updateFields.errorMessage = failureReason;
+          }
 
           const updatedMsg = await Message.findOneAndUpdate(
             { messageId },
-            { $set: { status: newStatus } },
+            { $set: updateFields },
             { new: true }
           );
 
@@ -179,6 +285,7 @@ const processInboundWhatsApp = async (body) => {
                 messageId,
                 conversationId: updatedMsg.conversationId,
                 status: newStatus,
+                errorMessage: failureReason || undefined,
                 brand: conversation.brand,
                 channel: 'whatsapp',
               });
@@ -200,7 +307,10 @@ const processInboundWhatsApp = async (body) => {
 
           // Deduplication
           const existing = await Message.findOne({ messageId });
-          if (existing) continue;
+          if (existing) {
+            console.log(`[ChatService] [WHATSAPP] ⏩ Duplicate incoming message skipped: messageId=${messageId}`);
+            continue;
+          }
 
           const rawPhone = msg.from;
           const normalizedPhone = normalize(rawPhone);
@@ -282,19 +392,9 @@ const processInboundWhatsApp = async (body) => {
                 conversation.participant.name = contactName;
                 updated = true;
               }
-              if (!conversation.assignedTo || conversation.assignedTo === 'system') {
-                const newAssignee = await findOrAssignTelecaller(rawPhone, customer?._id, brandInfo.storePrefix);
-                if (newAssignee && newAssignee !== 'system') {
-                  conversation.assignedTo = newAssignee;
-                  updated = true;
-                  socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
-                    conversationId: conversation._id,
-                    channel: 'whatsapp',
-                    brand: conversation.brand,
-                    brandName: conversation.brandName,
-                    participant: conversation.participant,
-                  });
-                }
+              const reassigned = await ensureActiveAssignee(conversation, 'whatsapp', brandInfo, rawPhone, customer?._id);
+              if (reassigned) {
+                updated = true;
               }
 
               if (updated) {
@@ -410,29 +510,38 @@ const processInboundWhatsApp = async (body) => {
 
             const customerSenderName = contactName || conversation.participant?.name || (customer ? customer.name : rawPhone);
 
-            const savedMessage = await Message.create({
-              conversationId: conversation._id,
-              messageId,
-              channel: 'whatsapp',
-              brand: conversation.brand,
-              senderType: 'customer',
-              senderId: rawPhone,
-              senderName: customerSenderName,
-              messageType,
-              text,
-              caption: caption || undefined,
-              mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
-              mediaUrl,
-              mimeType,
-              fileName,
-              isVoiceNote,
-              attachmentUrl,
-              mediaMetadata,
-              media: media || undefined,
-              status: 'delivered',
-              rawPayload: msg,
-              timestamp: new Date(Number(msg.timestamp) * 1000 || Date.now()),
-            });
+            let savedMessage;
+            try {
+              savedMessage = await Message.create({
+                conversationId: conversation._id,
+                messageId,
+                channel: 'whatsapp',
+                brand: conversation.brand,
+                senderType: 'customer',
+                senderId: rawPhone,
+                senderName: customerSenderName,
+                messageType,
+                text,
+                caption: caption || undefined,
+                mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
+                mediaUrl,
+                mimeType,
+                fileName,
+                isVoiceNote,
+                attachmentUrl,
+                mediaMetadata,
+                media: media || undefined,
+                status: 'delivered',
+                rawPayload: msg,
+                timestamp: new Date(Number(msg.timestamp) * 1000 || Date.now()),
+              });
+            } catch (createErr) {
+              if (createErr.code === 11000) {
+                console.log(`[ChatService] [WHATSAPP] ⏩ Duplicate incoming message skipped (E11000 concurrent delivery): messageId=${messageId}`);
+                return;
+              }
+              throw createErr;
+            }
 
             await Conversation.findByIdAndUpdate(conversation._id, {
               $set: {
@@ -496,7 +605,10 @@ const processInboundInstagram = async (body) => {
         if (event.message.is_echo) continue;
 
         const existing = await Message.findOne({ messageId });
-        if (existing) continue;
+        if (existing) {
+          console.log(`[ChatService] [INSTAGRAM] ⏩ Duplicate incoming message skipped: messageId=${messageId}`);
+          continue;
+        }
 
         const lockKey = `ig_${brandInfo.brand}_${igUserId}`;
 
@@ -581,19 +693,9 @@ const processInboundInstagram = async (body) => {
               updated = true;
             }
 
-            if (!conversation.assignedTo || conversation.assignedTo === 'system') {
-              const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-              if (newAssignee && newAssignee !== 'system') {
-                conversation.assignedTo = newAssignee;
-                updated = true;
-                socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
-                  conversationId: conversation._id,
-                  channel: 'instagram',
-                  brand: conversation.brand,
-                  brandName: conversation.brandName,
-                  participant: conversation.participant,
-                });
-              }
+            const reassigned = await ensureActiveAssignee(conversation, 'instagram', brandInfo);
+            if (reassigned) {
+              updated = true;
             }
 
             if (updated) {
@@ -744,30 +846,39 @@ const processInboundInstagram = async (body) => {
 
           const customerSenderName = profile.name || conversation.participant?.name || 'Instagram User';
 
-          const savedMessage = await Message.create({
-            conversationId: conversation._id,
-            messageId,
-            channel: 'instagram',
-            brand: conversation.brand,
-            senderType: 'customer',
-            senderId: igUserId,
-            senderName: customerSenderName,
-            messageType,
-            text,
-            caption: caption || undefined,
-            mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
-            mediaUrl,
-            mimeType,
-            fileName,
-            isVoiceNote,
-            sharedPostUrl,
-            attachmentUrl,
-            mediaMetadata,
-            media: media || undefined,
-            status: 'delivered',
-            rawPayload: event,
-            timestamp: msgDate,
-          });
+          let savedMessage;
+          try {
+            savedMessage = await Message.create({
+              conversationId: conversation._id,
+              messageId,
+              channel: 'instagram',
+              brand: conversation.brand,
+              senderType: 'customer',
+              senderId: igUserId,
+              senderName: customerSenderName,
+              messageType,
+              text,
+              caption: caption || undefined,
+              mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
+              mediaUrl,
+              mimeType,
+              fileName,
+              isVoiceNote,
+              sharedPostUrl,
+              attachmentUrl,
+              mediaMetadata,
+              media: media || undefined,
+              status: 'delivered',
+              rawPayload: event,
+              timestamp: msgDate,
+            });
+          } catch (createErr) {
+            if (createErr.code === 11000) {
+              console.log(`[ChatService] [INSTAGRAM] ⏩ Duplicate incoming message skipped (E11000 concurrent delivery): messageId=${messageId}`);
+              return;
+            }
+            throw createErr;
+          }
 
           await Conversation.findByIdAndUpdate(conversation._id, {
             $set: {
@@ -845,7 +956,10 @@ const processInboundFacebook = async (body) => {
         if (event.message.is_echo) continue;
 
         const existing = await Message.findOne({ messageId });
-        if (existing) continue;
+        if (existing) {
+          console.log(`[ChatService] [FACEBOOK] ⏩ Duplicate incoming message skipped: messageId=${messageId}`);
+          continue;
+        }
 
         const lockKey = `fb_${brandInfo.brand}_${psid}`;
 
@@ -922,19 +1036,9 @@ const processInboundFacebook = async (body) => {
               updated = true;
             }
 
-            if (!conversation.assignedTo || conversation.assignedTo === 'system') {
-              const newAssignee = await findOrAssignTelecaller(null, null, brandInfo.storePrefix);
-              if (newAssignee && newAssignee !== 'system') {
-                conversation.assignedTo = newAssignee;
-                updated = true;
-                socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
-                  conversationId: conversation._id,
-                  channel: 'facebook',
-                  brand: conversation.brand,
-                  brandName: conversation.brandName,
-                  participant: conversation.participant,
-                });
-              }
+            const reassigned = await ensureActiveAssignee(conversation, 'facebook', brandInfo);
+            if (reassigned) {
+              updated = true;
             }
 
             if (updated) {
@@ -1047,29 +1151,38 @@ const processInboundFacebook = async (body) => {
 
           const customerSenderName = profile.name || conversation.participant?.name || 'Facebook User';
 
-          const savedMessage = await Message.create({
-            conversationId: conversation._id,
-            messageId,
-            channel: 'facebook',
-            brand: conversation.brand,
-            senderType: 'customer',
-            senderId: psid,
-            senderName: customerSenderName,
-            messageType,
-            text,
-            caption: caption || undefined,
-            mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
-            mediaUrl,
-            mimeType,
-            fileName,
-            isVoiceNote,
-            attachmentUrl,
-            mediaMetadata,
-            media: media || undefined,
-            status: 'delivered',
-            rawPayload: event,
-            timestamp: msgDate,
-          });
+          let savedMessage;
+          try {
+            savedMessage = await Message.create({
+              conversationId: conversation._id,
+              messageId,
+              channel: 'facebook',
+              brand: conversation.brand,
+              senderType: 'customer',
+              senderId: psid,
+              senderName: customerSenderName,
+              messageType,
+              text,
+              caption: caption || undefined,
+              mediaFileId: mediaFileId ? new mongoose.Types.ObjectId(mediaFileId) : undefined,
+              mediaUrl,
+              mimeType,
+              fileName,
+              isVoiceNote,
+              attachmentUrl,
+              mediaMetadata,
+              media: media || undefined,
+              status: 'delivered',
+              rawPayload: event,
+              timestamp: msgDate,
+            });
+          } catch (createErr) {
+            if (createErr.code === 11000) {
+              console.log(`[ChatService] [FACEBOOK] ⏩ Duplicate incoming message skipped (E11000 concurrent delivery): messageId=${messageId}`);
+              return;
+            }
+            throw createErr;
+          }
 
           await Conversation.findByIdAndUpdate(conversation._id, {
             $set: {
@@ -1287,9 +1400,24 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
         }
       }
     } catch (err) {
-      console.error(`[ChatService] Background send error for msg ${savedMessage._id}:`, err.message);
+      const channelTag = (conversation.channel || 'unknown').toUpperCase();
+      const recipient = conversation.participant?.phone || conversation.participant?.socialUserId || conversation.participant?.name || 'unknown';
+      let userFriendlyError = err.message || 'Failed to deliver message';
+
+      if (
+        userFriendlyError.includes('outside of allowed window') ||
+        userFriendlyError.includes('(#10)') ||
+        userFriendlyError.includes('24 hour') ||
+        userFriendlyError.includes('window')
+      ) {
+        userFriendlyError = 'Message failed: The 24-hour customer reply window has expired. Meta policy blocks free-form messages after 24h.';
+      }
+
+      console.error(
+        `[ChatService] [${channelTag}] ❌ Outbound message NOT SENT! channel=${channelTag}, brand=${conversation.brand}, recipient=${recipient}, agent=${outboundSenderName}, reason: "${userFriendlyError}"`
+      );
       await Message.findByIdAndUpdate(savedMessage._id, {
-        $set: { status: 'failed', errorMessage: err.message },
+        $set: { status: 'failed', errorMessage: userFriendlyError },
       });
 
       if (conversation.assignedTo) {
@@ -1299,7 +1427,7 @@ const sendOutboundMessage = async ({ conversationId, senderId, text, media, mess
           messageId: savedMessage.messageId,
           conversationId: conversation._id,
           status: 'failed',
-          errorMessage: err.message,
+          errorMessage: userFriendlyError,
           channel: conversation.channel,
           brand: conversation.brand,
         });
@@ -1691,6 +1819,7 @@ const reassignPendingSystemChats = async () => {
           brand: conversation.brand,
           brandName: conversation.brandName,
           participant: conversation.participant,
+          conversation: conversation.toObject ? conversation.toObject() : conversation,
         });
 
         // Also fetch latest message to display in UI immediately if unread
