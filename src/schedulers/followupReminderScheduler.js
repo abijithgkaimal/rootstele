@@ -81,6 +81,9 @@ const initializeFollowupScheduler = () => {
     await chatService.reassignPendingSystemChats().catch((err) => {
       console.error('[FollowupScheduler] Error auto-reassigning system chats:', err.message);
     });
+    await chatService.reassignUnansweredChats(30).catch((err) => {
+      console.error('[FollowupScheduler] Error reassigning unanswered chats (>30m):', err.message);
+    });
   });
 
   // Run an immediate sweep on boot
@@ -89,6 +92,9 @@ const initializeFollowupScheduler = () => {
   });
   chatService.reassignPendingSystemChats().catch((err) => {
     console.error('[FollowupScheduler] Boot system chat sweep failed:', err.message);
+  });
+  chatService.reassignUnansweredChats(30).catch((err) => {
+    console.error('[FollowupScheduler] Boot unanswered chat sweep failed:', err.message);
   });
 };
 

@@ -255,6 +255,7 @@ const processInboundWhatsApp = async (body) => {
         for (const statusObj of value.statuses) {
           const messageId = statusObj.id;
           const newStatus = statusObj.status; // 'delivered', 'read', 'failed', 'sent'
+          const errObj = statusObj.errors?.[0];
           let failureReason = errObj?.message || errObj?.title || (errObj?.code ? `Meta Error #${errObj.code}` : undefined);
           if (newStatus === 'failed') {
             if (!failureReason || errObj?.code === 131047 || errObj?.code === 131026 || (failureReason && failureReason.toLowerCase().includes('window'))) {
@@ -1856,6 +1857,116 @@ const reassignPendingSystemChats = async () => {
   }
 };
 
+/**
+ * Sweeps for conversations where the customer's message has been waiting unanswered
+ * for more than inactivityMinutes (default: 30m) and auto-reassigns them to another
+ * active online telecaller to ensure rapid response and protect the 24h Meta window.
+ * @param {number} [inactivityMinutes=30]
+ */
+const reassignUnansweredChats = async (inactivityMinutes = 30) => {
+  try {
+    const cutoffDate = new Date(Date.now() - inactivityMinutes * 60 * 1000);
+
+    // Find active telecallers online right now
+    const activeUsers = await User.find({
+      isOnline: true,
+      lastLoginAt: { $gte: new Date(Date.now() - 12 * 60 * 60 * 1000) },
+      role: { $ne: 'admin' },
+    }).sort({ lastLoginAt: -1 });
+
+    if (!activeUsers.length || activeUsers.length < 2) {
+      // If no one is online or only 1 person is working, no other agent exists to reassign to
+      return { reassignedCount: 0 };
+    }
+
+    // Only escalate chats within the 24-hour window (between 30m ago and 24h ago)
+    // Stale chats older than 24h cannot be answered with free-form text anyway
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const neglectedConversations = await Conversation.find({
+      status: 'open',
+      'lastMessage.senderType': 'customer',
+      'lastMessage.timestamp': { $gte: twentyFourHoursAgo, $lte: cutoffDate },
+      assignedTo: { $ne: 'system', $exists: true, $nin: [null, ''] },
+    }).sort({ 'lastMessage.timestamp': 1 });
+
+    if (!neglectedConversations.length) {
+      return { reassignedCount: 0 };
+    }
+
+    let reassignedCount = 0;
+
+    for (const conversation of neglectedConversations) {
+      const currentAssignee = conversation.assignedTo;
+
+      // Find an online candidate other than the inactive currentAssignee
+      const candidateUsers = activeUsers.filter(
+        (u) => u.employeeId.toUpperCase() !== String(currentAssignee).toUpperCase()
+      );
+
+      if (!candidateUsers.length) continue;
+
+      const newAssignee = await findOrAssignTelecaller(
+        conversation.participant?.phone || conversation.participant?.normalizedPhone,
+        conversation.customerId
+      );
+
+      if (newAssignee && newAssignee !== 'system' && newAssignee !== currentAssignee) {
+        console.log(
+          `[ChatService] ⏱️ Inactivity auto-escalation (> ${inactivityMinutes}m): Reassigning conversation ${conversation._id} from ${currentAssignee} to ${newAssignee}`
+        );
+
+        conversation.assignedTo = newAssignee;
+        await conversation.save();
+        reassignedCount++;
+
+        // Notify new telecaller
+        socketService.emitToTelecaller(newAssignee, 'chat:assigned', {
+          conversationId: conversation._id,
+          channel: conversation.channel,
+          brand: conversation.brand,
+          brandName: conversation.brandName,
+          participant: conversation.participant,
+          conversation: conversation.toObject ? conversation.toObject() : conversation,
+          isEscalated: true,
+        });
+
+        if (conversation.lastMessage) {
+          socketService.emitToTelecaller(newAssignee, 'chat:new_message', {
+            conversationId: conversation._id,
+            channel: conversation.channel,
+            brand: conversation.brand,
+            brandName: conversation.brandName,
+            message: conversation.lastMessage,
+            participant: conversation.participant,
+          });
+        }
+
+        notificationService.sendNotificationToUser({
+          employeeId: newAssignee,
+          title: `⚠️ Overdue Chat Reassigned - ${conversation.brandName || 'Customer'}`,
+          body: `Customer waiting > ${inactivityMinutes}m without reply. Please respond.`,
+          data: {
+            type: 'chat',
+            chatId: String(conversation._id),
+            channel: conversation.channel || '',
+            brand: conversation.brand || '',
+          },
+        }).catch(() => {});
+      }
+    }
+
+    if (reassignedCount > 0) {
+      console.log(`[ChatService] ⏱️ Escalated ${reassignedCount} neglected conversation(s) to other online telecallers.`);
+    }
+
+    return { reassignedCount };
+  } catch (err) {
+    console.error('[ChatService] Error in reassignUnansweredChats:', err.message);
+    return { error: err.message };
+  }
+};
+
 module.exports = {
   processInboundWhatsApp,
   processInboundInstagram,
@@ -1867,4 +1978,5 @@ module.exports = {
   findOrAssignTelecaller,
   simulateInboundMessage,
   reassignPendingSystemChats,
+  reassignUnansweredChats,
 };
